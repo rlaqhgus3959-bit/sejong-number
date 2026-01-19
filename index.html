@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 현장 인원 계수기</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+    <style>
+        body { margin: 0; font-family: sans-serif; background: #000; color: white; overflow: hidden; }
+        #container { position: relative; width: 100vw; height: 100vh; }
+        video, canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+        
+        /* 상단 정보창 */
+        #hud {
+            position: absolute; top: 20px; left: 50%; transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.7); padding: 15px 25px; border-radius: 50px;
+            border: 2px solid #00ff00; text-align: center; z-index: 10; min-width: 200px;
+        }
+        #count { font-size: 2rem; font-weight: bold; color: #00ff00; }
+        #status { font-size: 0.8rem; color: #aaa; margin-top: 5px; }
+
+        /* 중앙 가이드라인 (1평 영역 예시) */
+        #guide-box {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            width: 250px; height: 250px; border: 2px dashed rgba(255, 255, 255, 0.5);
+            pointer-events: none; z-index: 5;
+        }
+        #guide-label { position: absolute; bottom: -25px; left: 50%; transform: translateX(-50%); font-size: 12px; }
+
+        /* 로딩 화면 */
+        #loading {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: #000; display: flex; justify-content: center; align-items: center; z-index: 20;
+        }
+    </style>
+</head>
+<body>
+
+<div id="loading">AI 모델 로딩 중... 잠시만 기다려주세요.</div>
+
+<div id="container">
+    <div id="hud">
+        <div id="count">0 명</div>
+        <div id="status">감지 구역 내 인원 추산</div>
+    </div>
+    <div id="guide-box">
+        <div id="guide-label">샘플 측정 영역 (1평 기준)</div>
+    </div>
+    <video id="webcam" autoplay playsinline muted></video>
+    <canvas id="canvas"></canvas>
+</div>
+
+<script>
+    const video = document.getElementById('webcam');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const countDisplay = document.getElementById('count');
+    const loadingScreen = document.getElementById('loading');
+    let model;
+
+    // 1. 카메라 설정
+    async function setupWebcam() {
+        const stream = await navigator.mediaDevices.getUserMedia({
+            video: { facingMode: "environment" }, // 후면 카메라 사용
+            audio: false
+        });
+        video.srcObject = stream;
+        return new Promise((resolve) => {
+            video.onloadedmetadata = () => resolve(video);
+        });
+    }
+
+    // 2. AI 모델 로드 및 실행
+    async function runAI() {
+        // COCO-SSD 모델 로드 (사람, 사물 인식용)
+        model = await cocoSsd.load();
+        loadingScreen.style.display = 'none';
+        
+        detectFrame();
+    }
+
+    async function detectFrame() {
+        // 캔버스 크기 조절
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+
+        // 인원 감지
+        const predictions = await model.detect(video);
+        
+        // 화면 그리기 초기화
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        let personCount = 0;
+        
+        // 감지된 결과 처리
+        predictions.forEach(prediction => {
+            if (prediction.class === 'person') {
+                personCount++;
+                
+                // 감지된 사람에게 박스 그리기
+                const [x, y, width, height] = prediction.bbox;
+                ctx.strokeStyle = '#00ff00';
+                ctx.lineWidth = 4;
+                ctx.strokeRect(x, y, width, height);
+                
+                // 라벨 표시
+                ctx.fillStyle = '#00ff00';
+                ctx.font = '16px Arial';
+                ctx.fillText('PERSON', x, y > 10 ? y - 5 : 10);
+            }
+        });
+
+        countDisplay.innerText = `${personCount} 명`;
+        
+        // 다음 프레임 실행
+        requestAnimationFrame(detectFrame);
+    }
+
+    // 실행
+    setupWebcam().then(runAI);
+</script>
+</body>
+</html>
