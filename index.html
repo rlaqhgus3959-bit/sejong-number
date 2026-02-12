@@ -3,12 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제</title>
+    <title>세종경찰 실시간 관제</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
+
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
@@ -21,35 +24,25 @@
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
-        /* 1. 헤더 & 날씨 */
+        /* 헤더 & 서버 상태 */
         header { margin-bottom: 20px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 22px; font-weight: 700; }
         
-        .weather-widget {
-            background: var(--card); padding: 15px; border-radius: 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line);
+        .server-status {
+            font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600;
+            background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 4px;
         }
-        .w-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-        .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
+        .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
 
-        /* 2. 도로 통제 대시보드 */
-        .section-title { font-size: 13px; color: var(--sub); margin: 25px 0 10px 5px; font-weight: 600; text-transform: uppercase; display: flex; justify-content: space-between; }
-        
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
         .dash-lbl { font-size: 11px; color: #ccc; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        /* 3. 검색 & 필터 */
-        .search-box { position: relative; margin-bottom: 10px; }
-        .search-input {
-            width: 100%; background: var(--card); border: 1px solid var(--line);
-            padding: 12px 40px 12px 15px; border-radius: 10px; color: white;
-            font-size: 15px; box-sizing: border-box; outline: none;
-        }
+        /* 필터 */
         .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
         .filter-btn {
             background: var(--card); border: 1px solid var(--line); color: var(--sub);
@@ -57,7 +50,7 @@
         }
         .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
 
-        /* 4. 리스트 아이템 */
+        /* 리스트 아이템 */
         .list-container { display: flex; flex-direction: column; gap: 10px; }
         .traffic-card {
             background: var(--card); padding: 15px; border-radius: 14px;
@@ -67,8 +60,7 @@
         .card-info { display: flex; flex-direction: column; gap: 4px; }
         .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
         .loc-name { font-size: 15px; font-weight: 600; }
-        .loc-sub { font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
-        .barrier { border: 1px solid #444; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+        .barrier { border: 1px solid #444; padding: 1px 4px; border-radius: 3px; font-size: 10px; color: #888; }
         .barrier.on { border-color: var(--blue); color: var(--blue); }
 
         /* 상태 버튼 */
@@ -77,10 +69,10 @@
             min-width: 55px; text-align: center; cursor: pointer; transition: 0.2s;
         }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 2s infinite; }
+        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 1s infinite; }
         .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
 
-        /* 5. 하단 링크 */
+        /* 하단 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn {
             background: #2c2c2e; padding: 12px; border-radius: 12px;
@@ -89,53 +81,32 @@
         }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        .spin { animation: spin 1s linear infinite; }
+        @keyframes blink { 50% { opacity: 0; } }
     </style>
 </head>
 <body>
 
 <header>
     <div class="top-nav">
-        <h1>세종경찰 통합관제</h1>
-        <button onclick="resetData()" style="background:none; border:none; color:#666; font-size:12px;"><i class="fas fa-rotate-right"></i> 초기화</button>
+        <h1>세종경찰 실시간 관제</h1>
+        <div class="server-status" id="conn-status"><div class="live-dot"></div> LIVE</div>
     </div>
-
-    <div class="weather-widget">
-        <div class="w-loc">
-            <i class="fas fa-location-arrow"></i>
-            <span id="loc-name">세종시청</span>
+    
+    <div class="dashboard">
+        <div class="dash-item">
+            <span class="dash-val c-red" id="cnt-ban">0</span>
+            <span class="dash-lbl">현재통제</span>
         </div>
-        <div class="w-info" id="w-data">
-            <i class="fas fa-spinner fa-spin" style="font-size:14px"></i>
+        <div class="dash-item">
+            <span class="dash-val" id="cnt-total">16</span>
+            <span class="dash-lbl">전체구역</span>
         </div>
-        <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
+        <div class="dash-item">
+            <span class="dash-val c-green" id="cnt-free">0</span>
+            <span class="dash-lbl">정상통행</span>
+        </div>
     </div>
 </header>
-
-<div class="section-title">
-    <span>도로 통제 현황 (16개소)</span>
-    <span id="update-time" style="font-weight:400; font-size:11px;">00:00 기준</span>
-</div>
-
-<div class="dashboard">
-    <div class="dash-item">
-        <span class="dash-val c-red" id="cnt-ban">0</span>
-        <span class="dash-lbl">현재통제</span>
-    </div>
-    <div class="dash-item">
-        <span class="dash-val" id="cnt-total">16</span>
-        <span class="dash-lbl">전체관리</span>
-    </div>
-    <div class="dash-item">
-        <span class="dash-val c-green" id="cnt-free">0</span>
-        <span class="dash-lbl">정상통행</span>
-    </div>
-</div>
-
-<div class="search-box">
-    <input type="text" class="search-input" id="search" placeholder="장소명 검색 (예: 세월교)" onkeyup="render()">
-    <i class="fas fa-search" style="position:absolute; right:15px; top:12px; color:#666"></i>
-</div>
 
 <div class="filter-group">
     <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
@@ -146,9 +117,11 @@
 </div>
 
 <div class="list-container" id="list">
+    <div style="text-align:center; padding:30px; color:#666;">
+        <i class="fas fa-spinner fa-spin"></i> 서버 연결 중...
     </div>
+</div>
 
-<div class="section-title">공식 상황판 바로가기</div>
 <div class="official-links">
     <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="link-btn">
         <i class="fas fa-bullhorn" style="color:var(--blue)"></i> 도로통제 공지
@@ -156,27 +129,36 @@
     <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn">
         <i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망
     </a>
-    <a href="https://www.sejong.go.kr/bbs/R1031/list.do" target="_blank" class="link-btn">
-        <i class="fas fa-file-lines" style="color:var(--green)"></i> 일일보고
-    </a>
-    <a href="tel:112" class="link-btn">
-        <i class="fas fa-phone"></i> 112 연결
-    </a>
 </div>
 
-<div style="height:30px"></div>
-
 <script>
-    if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+    // [설정] 사용자 제공 키 적용 완료
+    const firebaseConfig = {
+        apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
+        authDomain: "shut-down-80255.firebaseapp.com",
+        databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com", // 프로젝트 ID 기반 자동 생성
+        projectId: "shut-down-80255",
+        storageBucket: "shut-down-80255.firebasestorage.app",
+        messagingSenderId: "620282815079",
+        appId: "1:620282815079:web:bd561b5a00483e94fdaac2",
+        measurementId: "G-XKW8CM4W06"
+    };
 
-    // [데이터] 이미지에 있던 16개소 초기값 (DB 역할)
-    const defaultData = [
+    // 앱 초기화
+    if (!firebase.apps.length) {
+        firebase.initializeApp(firebaseConfig);
+        firebase.analytics(); // 애널리틱스 활성화
+    }
+    const db = firebase.database();
+    
+    // 초기 16개소 데이터
+    const initData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2, bar:true },
         { id:2, area:'전의', name:'전의면 북암천', status:2, bar:true },
-        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true, note:'5해제/1통제' },
+        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true },
         { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2, bar:true },
         { id:5, area:'부강', name:'부용가교', status:2, bar:true },
-        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true, note:'P/L' },
+        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true },
         { id:7, area:'전의', name:'전동면 청람리', status:0, bar:false },
         { id:8, area:'조치원', name:'조치원읍 내창천', status:0, bar:true },
         { id:9, area:'조치원', name:'봉암하상도로', status:0, bar:true },
@@ -189,39 +171,57 @@
         { id:16, area:'조치원', name:'욱일지하차도', status:0, bar:true }
     ];
 
-    // 저장된 데이터 불러오기 (없으면 초기값 사용)
-    let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
+    let trafficData = [];
     let currFilter = 'all';
 
-    window.onload = () => {
+    // [서버 수신]
+    const ref = db.ref('traffic_control');
+    
+    // 연결 상태 체크
+    const connectedRef = db.ref(".info/connected");
+    connectedRef.on("value", (snap) => {
+        if (snap.val() === true) {
+            document.getElementById("conn-status").innerHTML = '<div class="live-dot"></div> LIVE';
+            document.getElementById("conn-status").style.color = "var(--green)";
+        } else {
+            document.getElementById("conn-status").innerText = "연결 끊김";
+            document.getElementById("conn-status").style.color = "var(--sub)";
+        }
+    });
+
+    ref.on('value', (snapshot) => {
+        const val = snapshot.val();
+        
+        // 서버가 비어있으면(처음 실행) 초기 데이터 전송
+        if (!val) {
+            ref.set(initData);
+            return;
+        }
+
+        trafficData = val;
         render();
-        fetchWeather();
-        updateTime();
-    };
+    });
 
     // 화면 그리기
     function render() {
         const container = document.getElementById('list');
-        const searchVal = document.getElementById('search').value.toLowerCase();
         let banCnt = 0, freeCnt = 0;
         
         container.innerHTML = '';
 
         trafficData.forEach((item, idx) => {
-            // 통계 계산
+            // 통계
             if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
 
             // 필터링
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
             if((currFilter === '조치원' || currFilter === '전의') && item.area !== currFilter) return;
-            if(searchVal && !item.name.includes(searchVal)) return;
 
-            // 상태별 스타일
+            // 스타일
             let cls = 'st-free', txt = '해제';
             if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
             if(item.status === 1) { cls = 'st-part'; txt = '부분통제'; }
-            if(item.note && item.status !== 0) txt = item.note; // 비고 우선 출력
 
             const div = document.createElement('div');
             div.className = 'traffic-card';
@@ -229,31 +229,30 @@
                 <div class="card-info">
                     <span class="area-tag">${item.area}</span>
                     <div class="loc-name">${item.name}</div>
-                    <div class="loc-sub">
+                    <div style="font-size:11px; color:#888;">
                         <span class="barrier ${item.bar?'on':''}">${item.bar?'차단기O':'차단기X'}</span>
                         ${item.sub || ''}
                     </div>
                 </div>
-                <div class="status-btn ${cls}" onclick="toggleStatus(${idx})">${txt}</div>
+                <div class="status-btn ${cls}" onclick="updateServer(${idx}, ${item.status})">${txt}</div>
             `;
             container.appendChild(div);
         });
 
-        // 대시보드 업데이트
+        // 대시보드
         document.getElementById('cnt-total').innerText = trafficData.length;
         document.getElementById('cnt-ban').innerText = banCnt;
         document.getElementById('cnt-free').innerText = freeCnt;
     }
 
-    // 상태 변경 (정상 -> 통제 -> 정상)
-    function toggleStatus(idx) {
-        // 단순하게 통제(2) <-> 해제(0) 반복 (부분통제는 수동설정 필요하나 편의상 2단으로)
-        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
+    // [서버 전송]
+    function updateServer(idx, currentStatus) {
+        // 0(해제) <-> 2(통제)
+        const nextStatus = currentStatus === 0 ? 2 : 0;
         
-        // 저장 후 갱신
-        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
-        render();
-        updateTime();
+        db.ref('traffic_control/' + idx).update({
+            status: nextStatus
+        });
     }
 
     function setFilter(type, btn) {
@@ -261,43 +260,6 @@
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         render();
-    }
-
-    function resetData() {
-        if(confirm('모든 통제 현황을 초기화(이미지 원본 상태) 하시겠습니까?')) {
-            localStorage.removeItem('policeData_v14');
-            trafficData = JSON.parse(JSON.stringify(defaultData));
-            render();
-        }
-    }
-
-    function updateTime() {
-        const now = new Date();
-        document.getElementById('update-time').innerText = 
-            `${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')} 기준`;
-    }
-
-    // 날씨 (이전 기능 통합)
-    async function fetchWeather() {
-        try {
-            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain,snowfall&timezone=Asia%2FTokyo";
-            const res = await fetch(url);
-            const data = await res.json();
-            const cur = data.current;
-            
-            let icon = 'fa-sun';
-            if(cur.rain > 0) icon = 'fa-cloud-rain';
-            if(cur.snowfall > 0) icon = 'fa-snowflake';
-
-            document.getElementById('w-data').innerHTML = `
-                <i class="fas ${icon}"></i> ${cur.temperature_2m}°
-                <span style="font-size:12px; font-weight:400; color:#aaa; margin-left:5px;">
-                    (비 ${cur.rain}mm)
-                </span>
-            `;
-        } catch(e) {
-            document.getElementById('w-data').innerText = "날씨 수신불가";
-        }
     }
 </script>
 
