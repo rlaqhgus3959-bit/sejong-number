@@ -2,178 +2,371 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>경찰 재난관리 통합시스템 (Live)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Police OS</title>
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#0f172a">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* iOS Design System Variables */
         :root {
-            --bg: #0f172a; --card: #1e293b; --text: #f1f5f9;
-            --blue: #3b82f6; --red: #ef4444; --yellow: #eab308; --green: #22c55e;
+            --ios-bg: #000000;
+            --ios-card: #1c1c1e;
+            --ios-card-blur: rgba(28, 28, 30, 0.7);
+            --ios-blue: #0a84ff;
+            --ios-red: #ff453a;
+            --ios-green: #30d158;
+            --ios-yellow: #ffd60a;
+            --ios-gray: #8e8e93;
+            --ios-text: #ffffff;
+            --ios-subtext: #aeaeb2;
         }
-        body { font-family: 'Pretendard', -apple-system, system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 15px; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Helvetica Neue", Helvetica, sans-serif;
+            background-color: var(--ios-bg);
+            color: var(--ios-text);
+            margin: 0;
+            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            -webkit-tap-highlight-color: transparent;
+            user-select: none;
+        }
+
+        /* Header (Large Title Style) */
+        header {
+            padding-top: 20px;
+            margin-bottom: 20px;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            margin-left: -20px; margin-right: -20px; padding-left: 20px; padding-right: 20px; /* Full width blur */
+            border-bottom: 0.5px solid #333;
+        }
+
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            margin: 0;
+            font-size: 34px;
+            font-weight: 700;
+            letter-spacing: -0.5px;
+            line-height: 1.1;
+        }
+
+        .gps-badge {
+            font-size: 13px;
+            background: rgba(10, 132, 255, 0.15);
+            color: var(--ios-blue);
+            padding: 4px 10px;
+            border-radius: 100px;
+            font-weight: 600;
+        }
+
+        /* Location Picker (iOS Segmented Control Look) */
+        .controls {
+            margin-bottom: 25px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .select-wrapper {
+            flex: 1;
+            position: relative;
+            background: #2c2c2e;
+            border-radius: 12px;
+        }
+
+        select {
+            width: 100%;
+            padding: 12px 15px;
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 16px;
+            appearance: none;
+            outline: none;
+            font-weight: 500;
+        }
         
-        /* 상단 헤더 */
-        header { display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px; background: #1e293b; padding: 15px; border-radius: 15px; border: 1px solid #334155; }
-        .header-top { display: flex; justify-content: space-between; align-items: center; }
-        h1 { margin: 0; font-size: 1.1rem; color: var(--blue); }
+        .select-wrapper::after {
+            content: '\f078';
+            font-family: "Font Awesome 6 Free";
+            font-weight: 900;
+            position: absolute;
+            right: 15px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: var(--ios-gray);
+            font-size: 12px;
+            pointer-events: none;
+        }
+
+        #refresh-btn {
+            width: 44px;
+            height: 44px;
+            border-radius: 50%;
+            background: #2c2c2e;
+            color: var(--ios-blue);
+            border: none;
+            font-size: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
         
-        /* 컨트롤 패널 */
-        .controls { display: flex; gap: 10px; margin-top: 5px; }
-        select { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #475569; background: #0f172a; color: white; font-size: 0.95rem; }
-        #refresh-btn { width: 50px; background: var(--blue); border: none; border-radius: 8px; color: white; cursor: pointer; font-size: 1.2rem; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
-        #refresh-btn:active { transform: scale(0.9); background: #2563eb; }
+        /* Widget Grid */
+        .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 30px;
+        }
+
+        .card {
+            background: var(--ios-card);
+            padding: 20px;
+            border-radius: 22px; /* iOS Squircleish */
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            height: 110px;
+        }
+
+        .card i { font-size: 24px; margin-bottom: 5px; }
+        .label { font-size: 13px; color: var(--ios-subtext); font-weight: 500; }
+        .value { font-size: 26px; font-weight: 600; letter-spacing: -0.5px; margin-top: auto; }
+        .status-dot {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #333;
+        }
+
+        /* Status Colors */
+        .safe i { color: var(--ios-blue); } .safe .status-dot { background: var(--ios-green); box-shadow: 0 0 8px var(--ios-green); }
+        .warn i { color: var(--ios-yellow); } .warn .status-dot { background: var(--ios-yellow); box-shadow: 0 0 8px var(--ios-yellow); }
+        .danger i { color: var(--ios-red); } .danger .status-dot { background: var(--ios-red); box-shadow: 0 0 8px var(--ios-red); }
+
+        /* Infrastructure List (iOS Settings Style) */
+        .section-header {
+            font-size: 20px;
+            font-weight: 700;
+            margin-bottom: 15px;
+            color: var(--ios-text);
+            padding-left: 5px;
+        }
+
+        .ios-list {
+            background: var(--ios-card);
+            border-radius: 18px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .ios-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 0.5px solid #38383a;
+            font-size: 16px;
+        }
+
+        .ios-item:last-child { border-bottom: none; }
+
+        .ios-badge {
+            font-size: 13px;
+            padding: 4px 10px;
+            border-radius: 6px;
+            font-weight: 600;
+        }
+        .st-ok { color: var(--ios-green); background: rgba(48, 209, 88, 0.15); }
+        .st-warn { color: var(--ios-yellow); background: rgba(255, 214, 10, 0.15); }
+        .st-ban { color: var(--ios-red); background: rgba(255, 69, 58, 0.15); }
+
+        /* Control Center Buttons */
+        .control-center {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+        }
+
+        .cc-btn {
+            background: #2c2c2e;
+            border-radius: 18px;
+            aspect-ratio: 1/1; /* Square */
+            border: none;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 8px;
+            color: white;
+            transition: transform 0.2s;
+        }
+        .cc-btn:active { transform: scale(0.92); background: #3a3a3c; }
+        .cc-icon-box {
+            width: 30px; height: 30px;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 16px;
+            color: white;
+        }
+        .cc-label { font-size: 11px; font-weight: 500; }
+
+        .btn-fire .cc-icon-box { background: var(--ios-red); }
+        .btn-police .cc-icon-box { background: var(--ios-blue); }
+        .btn-city .cc-icon-box { background: var(--ios-gray); }
+        .btn-map .cc-icon-box { background: var(--ios-green); }
+
+        /* Console/Log (Hidden by default, expandable maybe? Keeping simple for now) */
+        #log-area {
+            font-family: "SF Mono", monospace;
+            font-size: 10px;
+            color: #666;
+            text-align: center;
+            margin-top: 30px;
+            opacity: 0.6;
+        }
+
         .spin { animation: spin 1s linear infinite; }
-
-        /* 기상 데이터 그리드 */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
-        .card { background: var(--card); padding: 15px; border-radius: 12px; border: 1px solid #334155; text-align: center; position: relative; }
-        .card i { font-size: 2rem; margin-bottom: 8px; opacity: 0.9; }
-        .label { font-size: 0.85rem; color: #94a3b8; display: block; margin-bottom: 4px; }
-        .value { font-size: 1.5rem; font-weight: 800; display: block; }
-        .status { font-size: 0.75rem; padding: 3px 8px; border-radius: 20px; background: rgba(255,255,255,0.1); display: inline-block; margin-top: 6px; }
-
-        /* 상태 색상 클래스 */
-        .safe { color: var(--green); border-color: var(--green); }
-        .warn { color: var(--yellow); border-color: var(--yellow); }
-        .danger { color: var(--red); border-color: var(--red); animation: pulse 1.5s infinite; }
-
-        /* [NEW] 시설물 통제 섹션 스타일 */
-        .section-title { font-size: 0.95rem; color: #94a3b8; margin-bottom: 10px; border-left: 3px solid #3b82f6; padding-left: 10px; font-weight: bold; }
-        .infra-list { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 20px; }
-        .infra-item { background: #1e293b; padding: 12px; border-radius: 10px; display: flex; flex-direction: column; gap: 5px; border: 1px solid #334155; }
-        .infra-name { font-size: 0.85rem; font-weight: bold; color: #cbd5e1; }
-        .infra-status { font-size: 0.8rem; padding: 4px; border-radius: 4px; text-align: center; font-weight: bold; }
-        
-        .st-ok { background: rgba(34, 197, 94, 0.15); color: #4ade80; border: 1px solid #22c55e; }
-        .st-warn { background: rgba(234, 179, 8, 0.15); color: #facc15; border: 1px solid #eab308; }
-        .st-ban { background: rgba(239, 68, 68, 0.15); color: #fb7185; border: 1px solid #ef4444; animation: pulse 2s infinite; }
-
-        /* [NEW] 핫라인 버튼 스타일 */
-        .hotline-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-        .hotline-btn { background: #1e293b; color: white; border: 1px solid #334155; padding: 12px 0; border-radius: 10px; font-size: 0.75rem; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 6px; transition: 0.2s; }
-        .hotline-btn:active { background: #334155; transform: scale(0.95); }
-        .hotline-btn i { font-size: 1.4rem; }
-        .btn-fire { color: #fb7185; } .btn-police { color: #38bdf8; } .btn-city { color: #facc15; } .btn-map { color: #4ade80; }
-
-        /* 로그창 */
-        #log { height: 100px; overflow-y: auto; background: black; padding: 10px; border-radius: 8px; font-family: monospace; font-size: 0.8rem; border: 1px solid #334155; }
-        .log-item { margin-bottom: 4px; border-bottom: 1px solid #1e293b; padding-bottom: 2px; }
-
         @keyframes spin { 100% { transform: rotate(360deg); } }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+
+        /* Home Indicator Space */
+        .home-indicator-spacer { height: 20px; }
     </style>
 </head>
 <body>
 
 <header>
     <div class="header-top">
-        <h1><i class="fas fa-shield-alt"></i> 경찰 재난 현장대응</h1>
-        <div id="gps-status" style="font-size:0.8rem; color:#94a3b8;"><i class="fas fa-satellite"></i> 준비</div>
-    </div>
-    <div class="controls">
-        <select id="location-select" onchange="manualLocation()">
-            <option value="auto">📡 GPS 자동 탐색</option>
-            <option value="36.48,127.28" selected>🏛️ 세종시청 (기본)</option>
-            <option value="36.60,127.30">🚔 조치원읍 (북부)</option>
-            <option value="36.48,127.25">🏙️ 어진동 (청사)</option>
-            <option value="36.67,127.20">🏔️ 전의/소정 (산간)</option>
-        </select>
-        <button id="refresh-btn" onclick="fetchData()"><i class="fas fa-sync-alt"></i></button>
+        <h1>재난대응<br>현황판</h1>
+        <div id="gps-status" class="gps-badge">GPS 대기</div>
     </div>
 </header>
 
+<div class="controls">
+    <div class="select-wrapper">
+        <select id="location-select" onchange="manualLocation()">
+            <option value="auto">📡 현위치 자동 (GPS)</option>
+            <option value="36.48,127.28" selected>🏛️ 세종시청</option>
+            <option value="36.60,127.30">🚔 조치원읍</option>
+            <option value="36.48,127.25">🏙️ 어진동</option>
+            <option value="36.67,127.20">🏔️ 전의면</option>
+        </select>
+    </div>
+    <button id="refresh-btn" onclick="fetchData()"><i class="fas fa-arrow-rotate-right"></i></button>
+</div>
+
 <div class="grid">
-    <div class="card" id="card-rain">
-        <i class="fas fa-cloud-rain" style="color:#38bdf8"></i>
-        <span class="label">시간당 강수량</span>
+    <div class="card safe" id="card-rain">
+        <div class="status-dot"></div>
+        <i class="fas fa-cloud-rain"></i>
         <span class="value" id="val-rain">-</span>
-        <span class="status" id="st-rain">대기중</span>
+        <span class="label">강수량 (mm)</span>
     </div>
-    <div class="card" id="card-snow">
-        <i class="fas fa-snowflake" style="color:#f1f5f9"></i>
-        <span class="label">신적설</span>
+    <div class="card safe" id="card-snow">
+        <div class="status-dot"></div>
+        <i class="fas fa-snowflake"></i>
         <span class="value" id="val-snow">-</span>
-        <span class="status" id="st-snow">대기중</span>
+        <span class="label">적설량 (cm)</span>
     </div>
-    <div class="card" id="card-temp">
-        <i class="fas fa-temperature-high" style="color:#facc15"></i>
-        <span class="label">실시간 기온</span>
+    <div class="card warn" id="card-temp">
+        <div class="status-dot"></div>
+        <i class="fas fa-temperature-half"></i>
         <span class="value" id="val-temp">-</span>
-        <span class="status" id="st-temp">대기중</span>
+        <span class="label">현재 기온</span>
     </div>
-    <div class="card" id="card-fire">
-        <i class="fas fa-fire" style="color:#fb7185"></i>
-        <span class="label">산불위험지수</span>
+    <div class="card danger" id="card-fire">
+        <div class="status-dot"></div>
+        <i class="fas fa-fire"></i>
         <span class="value" id="val-fire">-</span>
-        <span class="status" id="st-fire">대기중</span>
+        <span class="label">산불지수</span>
     </div>
 </div>
 
-<div class="section-title">🚦 주요 지하차도 및 하천 통제</div>
-<div class="infra-list">
-    <div class="infra-item">
-        <span class="infra-name">조치원 지하차도</span>
-        <span class="infra-status st-ok" id="infra-1">정상통행</span>
+<div class="section-header">통제 현황</div>
+<div class="ios-list">
+    <div class="ios-item">
+        <span>조치원 지하차도</span>
+        <span class="ios-badge st-ok" id="infra-1">정상</span>
     </div>
-    <div class="infra-item">
-        <span class="infra-name">금강 보행교</span>
-        <span class="infra-status st-ok" id="infra-2">정상통행</span>
+    <div class="ios-item">
+        <span>금강 보행교</span>
+        <span class="ios-badge st-ok" id="infra-2">정상</span>
     </div>
-    <div class="infra-item">
-        <span class="infra-name">미호강 둔치</span>
-        <span class="infra-status st-ok" id="infra-3">정상통행</span>
+    <div class="ios-item">
+        <span>미호강 둔치</span>
+        <span class="ios-badge st-ok" id="infra-3">정상</span>
     </div>
-    <div class="infra-item">
-        <span class="infra-name">세종 지하차도</span>
-        <span class="infra-status st-ok" id="infra-4">정상통행</span>
+    <div class="ios-item">
+        <span>세종 지하차도</span>
+        <span class="ios-badge st-ok" id="infra-4">정상</span>
     </div>
 </div>
 
-<div class="section-title">📞 긴급 핫라인 & 지원</div>
-<div class="hotline-grid">
-    <button class="hotline-btn" onclick="location.href='tel:119'">
-        <i class="fas fa-fire-extinguisher btn-fire"></i> 소방 119
+<div class="section-header">긴급 대응</div>
+<div class="control-center">
+    <button class="cc-btn btn-fire" onclick="location.href='tel:119'">
+        <div class="cc-icon-box"><i class="fas fa-fire-extinguisher"></i></div>
+        <span class="cc-label">119</span>
     </button>
-    <button class="hotline-btn" onclick="location.href='tel:112'">
-        <i class="fas fa-user-shield btn-police"></i> 상황실 112
+    <button class="cc-btn btn-police" onclick="location.href='tel:112'">
+        <div class="cc-icon-box"><i class="fas fa-shield-halved"></i></div>
+        <span class="cc-label">112</span>
     </button>
-    <button class="hotline-btn" onclick="location.href='tel:044-120'">
-        <i class="fas fa-building btn-city"></i> 시청 재난
+    <button class="cc-btn btn-city" onclick="location.href='tel:044-120'">
+        <div class="cc-icon-box"><i class="fas fa-phone"></i></div>
+        <span class="cc-label">시청</span>
     </button>
-    <button class="hotline-btn" onclick="window.open('https://m.map.kakao.com/actions/searchView?q=대피소')">
-        <i class="fas fa-map-location-dot btn-map"></i> 대피소 찾기
+    <button class="cc-btn btn-map" onclick="window.open('https://m.map.kakao.com/actions/searchView?q=대피소')">
+        <div class="cc-icon-box"><i class="fas fa-person-shelter"></i></div>
+        <span class="cc-label">대피소</span>
     </button>
 </div>
 
-<div id="log">
-    <div class="log-item" style="color:#22c55e">[SYSTEM] 재난대응 시스템 가동</div>
-</div>
+<div id="log-area">System Ready • v8.0 iOS Theme</div>
+<div class="home-indicator-spacer"></div>
 
 <script>
-    // PWA 등록
+    // PWA Init
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js'));
     }
 
-    let currentLat = 36.48; // 세종시청
+    let currentLat = 36.48; 
     let currentLon = 127.28;
 
     window.onload = () => {
-        fetchData(); // 초기 로드
+        fetchData();
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(
                 (pos) => {
                     document.getElementById('location-select').value = "auto";
                     currentLat = pos.coords.latitude;
                     currentLon = pos.coords.longitude;
-                    document.getElementById('gps-status').innerHTML = "<span style='color:#22c55e'>📡 GPS 수신중</span>";
-                    addLog("GPS 위치로 갱신합니다.");
+                    document.getElementById('gps-status').innerText = "GPS 수신됨";
+                    document.getElementById('gps-status').style.color = "#30d158";
+                    document.getElementById('gps-status').style.background = "rgba(48, 209, 88, 0.15)";
                     fetchData();
                 },
                 (err) => {
-                    document.getElementById('gps-status').innerHTML = "<span style='color:#ef4444'>🛰️ 수동 모드</span>";
+                    document.getElementById('gps-status').innerText = "수동 모드";
+                    document.getElementById('gps-status').style.color = "#8e8e93";
                 }, {timeout: 3000}
             );
         }
@@ -185,7 +378,6 @@
         const [lat, lon] = sel.split(',');
         currentLat = parseFloat(lat);
         currentLon = parseFloat(lon);
-        addLog(`지역 변경: ${document.getElementById('location-select').selectedOptions[0].text}`);
         fetchData();
     }
 
@@ -194,95 +386,73 @@
         btn.classList.add('spin');
         
         try {
-            // Open-Meteo API 호출
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${currentLat}&longitude=${currentLon}&current=temperature_2m,relative_humidity_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo`;
             const res = await fetch(url);
             const data = await res.json();
             updateUI(data.current);
-            addLog(`데이터 수신 완료 (${data.current.temperature_2m}°C)`);
+            
+            const now = new Date();
+            document.getElementById('log-area').innerText = `Updated: ${now.toLocaleTimeString()}`;
         } catch (e) {
-            addLog("통신 오류! 인터넷 확인 필요", true);
+            document.getElementById('log-area').innerText = "Update Failed";
         } finally {
             setTimeout(() => btn.classList.remove('spin'), 500);
         }
     }
 
     function updateUI(data) {
-        // 1. 기상 데이터 바인딩
         const rain = data.rain;
         const snow = data.snowfall;
         const temp = data.temperature_2m;
         
-        // 산불지수 계산 (습도+풍속)
+        // 산불지수 계산
         let fireIdx = (100 - data.relative_humidity_2m) + (data.wind_speed_10m * 1.5);
         if (temp > 25) fireIdx += 10;
         fireIdx = Math.min(Math.round(fireIdx), 100);
 
-        // 카드 업데이트
-        setCard('rain', `${rain}mm`, rain > 30 ? 'danger' : (rain > 10 ? 'warn' : 'safe'), rain > 30 ? '호우경보' : (rain > 0 ? '비' : '맑음'));
-        setCard('snow', `${snow}cm`, snow > 5 ? 'danger' : (snow > 1 ? 'warn' : 'safe'), snow > 5 ? '대설경보' : (snow > 0 ? '눈' : '없음'));
-        setCard('temp', `${temp}°C`, (temp > 33 || temp < -10) ? 'danger' : ((temp < 0) ? 'warn' : 'safe'), (temp > 33 ? '폭염' : (temp < -10 ? '한파' : '적정')));
-        setCard('fire', fireIdx, fireIdx > 80 ? 'danger' : (fireIdx > 60 ? 'warn' : 'safe'), fireIdx > 80 ? '매우위험' : (fireIdx > 60 ? '주의' : '보통'));
+        setCard('rain', rain, rain > 30 ? 'danger' : (rain > 10 ? 'warn' : 'safe'));
+        setCard('snow', snow, snow > 5 ? 'danger' : (snow > 1 ? 'warn' : 'safe'));
+        setCard('temp', temp + "°", (temp > 33 || temp < -10) ? 'danger' : ((temp < 0) ? 'warn' : 'safe'));
+        setCard('fire', fireIdx, fireIdx > 80 ? 'danger' : (fireIdx > 60 ? 'warn' : 'safe'));
 
-        // 2. [핵심] 강수량에 따른 시설 통제 자동화 로직
-        updateInfrastructure(rain, snow);
+        // 시설 통제 로직
+        updateInfra(rain, snow);
     }
 
-    function updateInfrastructure(rain, snow) {
-        const infra1 = document.getElementById('infra-1'); // 조치원 지하차도
-        const infra2 = document.getElementById('infra-2'); // 금강 보행교
-        const infra3 = document.getElementById('infra-3'); // 미호강 둔치
-        const infra4 = document.getElementById('infra-4'); // 세종 지하차도
-
-        // 초기화
-        [infra1, infra2, infra3, infra4].forEach(el => {
-            el.className = 'infra-status st-ok';
-            el.innerText = '정상통행';
-        });
-
-        // 로직: 비가 30mm 이상이면 지하차도/둔치 통제
-        if (rain >= 30) {
-            setInfraStatus(infra3, 'st-ban', '진입통제');
-            setInfraStatus(infra1, 'st-warn', '침수주의');
-            setInfraStatus(infra4, 'st-warn', '침수주의');
-            addLog("!! 호우경보: 하상도로 및 지하차도 통제 요망", true);
-        } else if (rain >= 10) {
-            setInfraStatus(infra3, 'st-warn', '접근주의');
-        }
-
-        // 로직: 눈이 5cm 이상이면 교량(보행교) 통제 고려
-        if (snow >= 5) {
-            setInfraStatus(infra2, 'st-ban', '결빙통제');
-            addLog("!! 대설경보: 교량 및 고가도로 결빙 주의", true);
-        }
-    }
-
-    function setInfraStatus(element, statusClass, text) {
-        element.className = `infra-status ${statusClass}`;
-        element.innerText = text;
-    }
-
-    function setCard(id, val, level, text) {
-        const elVal = document.getElementById(`val-${id}`);
-        const elSt = document.getElementById(`st-${id}`);
+    function setCard(id, val, status) {
         const card = document.getElementById(`card-${id}`);
-
-        elVal.innerText = val;
-        elSt.innerText = text;
+        const valEl = document.getElementById(`val-${id}`);
         
+        valEl.innerText = val;
+        
+        // Remove old classes
         card.classList.remove('safe', 'warn', 'danger');
-        elSt.className = 'status'; // reset style logic
-        
-        if (level === 'safe') { elSt.style.background = '#22c55e'; card.style.borderColor = '#22c55e'; }
-        if (level === 'warn') { elSt.style.background = '#eab308'; card.style.borderColor = '#eab308'; elSt.style.color = 'black'; }
-        if (level === 'danger') { elSt.style.background = '#ef4444'; card.style.borderColor = '#ef4444'; card.classList.add('danger'); }
+        card.classList.add(status);
     }
 
-    function addLog(msg, isError = false) {
-        const log = document.getElementById('log');
-        const time = new Date().toLocaleTimeString('ko-KR', {hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit'});
-        const color = isError ? '#ef4444' : '#94a3b8';
-        log.innerHTML = `<div class="log-item"><span style="color:#64748b">[${time}]</span> <span style="color:${color}">${msg}</span></div>` + log.innerHTML;
+    function updateInfra(rain, snow) {
+        const els = ['infra-1', 'infra-2', 'infra-3', 'infra-4'].map(id => document.getElementById(id));
+        
+        // 초기화
+        els.forEach(el => { el.className = 'ios-badge st-ok'; el.innerText = '정상'; });
+
+        // 로직 적용
+        if (rain >= 30) {
+            setInfra(els[2], 'st-ban', '진입금지'); // 미호강
+            setInfra(els[0], 'st-warn', '주의'); // 지하차도
+            setInfra(els[3], 'st-warn', '주의');
+        } else if (rain >= 10) {
+            setInfra(els[2], 'st-warn', '접근주의');
+        }
+
+        if (snow >= 5) {
+            setInfra(els[1], 'st-ban', '통제'); // 교량
+        }
+    }
+
+    function setInfra(el, cls, txt) {
+        el.className = `ios-badge ${cls}`;
+        el.innerText = txt;
     }
 </script>
 
