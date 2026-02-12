@@ -32,7 +32,7 @@
         }
         .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
 
-        /* 1. 기상청/산림청 배너 박스 */
+        /* 정보 박스 공통 */
         .info-box {
             background: #222; border: 1px solid #333;
             border-radius: 12px; padding: 15px; margin-bottom: 10px;
@@ -56,7 +56,7 @@
         .st-danger { border-color: var(--red); background: rgba(255,69,58,0.1); animation: pulse 2s infinite; }
         .st-danger .info-icon { color: var(--red); background: rgba(255,69,58,0.2); }
 
-        /* 3. 통제 현황 대시보드 */
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; margin-top: 20px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
@@ -122,8 +122,8 @@
             <span class="info-sub" id="kma-desc">세종시 현재 기상 양호</span>
         </div>
     </div>
-    <a href="https://www.weather.go.kr/w/special-report/overall.do" target="_blank" class="info-btn">
-        기상청 원문 >
+    <a href="https://www.weatheri.co.kr/special/special01.php" target="_blank" class="info-btn">
+        웨더아이 원문 >
     </a>
 </div>
 
@@ -135,8 +135,8 @@
             <span class="info-sub" id="forest-desc">실시간 습도/풍속 수신 중</span>
         </div>
     </div>
-    <a href="https://fd.forest.go.kr/ffas/gis/main.do" target="_blank" class="info-btn">
-        산림청 지도 >
+    <a href="https://www.google.com/search?q=%EC%84%B8%EC%A2%85%EC%8B%9C+%EC%82%B0%EB%B6%88%EC%9C%84%ED%97%98%EC%A7%80%EC%88%98&oq=%EC%84%B8%EC%A2%85%EC%8B%9C+%EC%82%B0%EB%B6%88%EC%9C%84%ED%97%98%EC%A7%80%EC%88%98&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIMCAEQABgUGIcCGIAEMgcIAhAAGIAEMgwIAxAAGBQYhwIYgAQyBwgEEAAYgAQyDQgFEC4YrwEYxwEYgAQyBwgGEC4YgAQyBwgHEAAYgAQyBwgIEAAYgAQyBwgJEAAYgATSAQkzODQ4ajBqMTWoAgiwAgHxBUGFl1ZJOrJO&sourceid=chrome&ie=UTF-8" target="_blank" class="info-btn">
+        산불지수 검색 >
     </a>
 </div>
 
@@ -179,7 +179,7 @@
 </div>
 
 <script>
-    // Firebase Config (사용자 키 적용)
+    // Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -238,23 +238,22 @@
         renderList();
     });
 
-    // 3. 재난 데이터 분석 (기상청 + 산림청 로직)
+    // 3. 재난 데이터 분석
     fetchDisasterInfo();
     setInterval(fetchDisasterInfo, 600000); 
 
     async function fetchDisasterInfo() {
         try {
-            // 세종시 실시간 위성 데이터
+            // 세종시 위성 데이터 호출
             const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,relative_humidity_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo";
             const res = await fetch(url);
             const data = await res.json();
             const now = data.current;
 
-            // 기상청 특보 로직 업데이트
+            // 기상특보 (웨더아이 기준 유사 분석)
             updateKmaStatus(now.rain, now.snowfall, now.wind_speed_10m);
 
-            // 산림청 산불지수 로직 업데이트
-            // 공식: (100 - 습도) + (풍속 x 2)
+            // 산불지수 (구글/산림청 기준 유사 분석)
             let fireIndex = (100 - now.relative_humidity_2m) + (now.wind_speed_10m * 2.5);
             fireIndex = Math.min(Math.round(fireIndex), 100);
             updateForestStatus(fireIndex);
@@ -262,12 +261,11 @@
         } catch (e) { console.log(e); }
     }
 
-    // [기상청] 특보 UI
+    // [웨더아이] 기상특보 로직
     function updateKmaStatus(rain, snow, wind) {
-        // 초기화
         setBox('kma', 'st-normal', 'check', '기상특보 없음', '세종시 현재 기상 양호');
 
-        // 우선순위: 경보 > 주의보
+        // 특보 발령 조건
         if (rain >= 30) {
             setBox('kma', 'st-danger', 'cloud-showers-heavy', '호우경보 발효', `시간당 ${rain}mm 폭우 (침수 위험)`);
         } else if (snow >= 5) {
@@ -281,7 +279,7 @@
         }
     }
 
-    // [산림청] 산불지수 UI
+    // [구글/산림청] 산불지수 로직
     function updateForestStatus(idx) {
         let level = "관심(낮음)";
         let cls = "st-normal";
