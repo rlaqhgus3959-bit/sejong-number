@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제</title>
+    <title>세종북부경찰서 자연재난 실시간 관제</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -23,59 +23,54 @@
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
-        /* 1. 최상단 실시간 특보 배너 */
-        .alert-panel {
+        /* 1. 최상단 특보 배너 (기상청 스타일) */
+        .kma-alert-box {
             background: #222; border: 1px solid #333;
-            border-radius: 14px; padding: 16px; margin-bottom: 20px;
-            display: flex; align-items: center; gap: 15px;
-            transition: all 0.3s;
+            border-radius: 12px; padding: 15px; margin-bottom: 10px;
+            display: flex; justify-content: space-between; align-items: center;
         }
-        .alert-icon-box {
-            width: 44px; height: 44px; border-radius: 50%;
-            background: #333; display: flex; align-items: center; justify-content: center;
-            font-size: 20px; flex-shrink: 0;
+        .kma-status { display: flex; align-items: center; gap: 10px; }
+        .kma-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #333; }
+        .kma-text { display: flex; flex-direction: column; }
+        .kma-title { font-size: 16px; font-weight: 700; color: #ddd; }
+        .kma-sub { font-size: 11px; color: #888; margin-top: 2px; }
+        
+        .kma-btn {
+            background: #333; border: 1px solid #555; color: #ccc;
+            padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none;
         }
-        .alert-content { display: flex; flex-direction: column; gap: 4px; }
-        .alert-title { font-size: 16px; font-weight: 700; color: #fff; }
-        .alert-desc { font-size: 12px; color: #aaa; }
 
-        /* 특보 등급별 스타일 */
-        .lv-normal .alert-icon-box { background: rgba(48,209,88,0.2); color: var(--green); }
-        .lv-warn { border-color: var(--orange); background: rgba(255,159,10,0.1); }
-        .lv-warn .alert-icon-box { background: var(--orange); color: #000; }
-        .lv-danger { border-color: var(--red); background: rgba(255,69,58,0.15); animation: pulse 2s infinite; }
-        .lv-danger .alert-icon-box { background: var(--red); color: #fff; }
+        /* 상태별 스타일 */
+        .st-normal .kma-icon { color: var(--green); background: rgba(48,209,88,0.2); }
+        .st-warn .kma-icon { color: var(--orange); background: rgba(255,159,10,0.2); } 
+        .st-warn { border-color: var(--orange); background: rgba(255,159,10,0.05); }
+        .st-danger .kma-icon { color: var(--red); background: rgba(255,69,58,0.2); }
+        .st-danger { border-color: var(--red); background: rgba(255,69,58,0.1); animation: pulse 2s infinite; }
 
-        /* 2. 헤더 */
-        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        h1 { margin: 0; font-size: 20px; font-weight: 700; color: #ccc; }
+        /* 2. 산불위험지수 배너 */
+        .forest-box {
+            background: #222; border: 1px solid #333;
+            border-radius: 12px; padding: 15px; margin-bottom: 20px;
+            display: flex; justify-content: space-between; align-items: center;
+        }
+
+        /* 헤더 */
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; margin-top: 10px; }
+        h1 { margin: 0; font-size: 20px; font-weight: 700; color: #fff; }
         .server-badge {
             font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600;
             background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 5px;
         }
         .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
 
-        /* 3. 재난 상세 그리드 */
-        .disaster-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 20px; }
-        .d-card {
-            background: #2c2c2e; padding: 12px 5px; border-radius: 14px; text-align: center;
-            display: flex; flex-direction: column; align-items: center; gap: 5px; border: 1px solid var(--line);
-        }
-        .d-icon { font-size: 18px; margin-bottom: 2px; }
-        .d-val { font-size: 14px; font-weight: 700; }
-        .d-lbl { font-size: 10px; color: #aaa; }
-        .safe .d-icon { color: var(--green); }
-        .warn .d-icon { color: var(--orange); }
-        .danger .d-icon { color: var(--red); }
-
-        /* 4. 통제 현황 대시보드 */
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
         .dash-lbl { font-size: 11px; color: #ccc; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        /* 5. 리스트 & 필터 */
+        /* 필터 */
         .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 5px; }
         .filter-btn {
             background: var(--card); border: 1px solid var(--line); color: var(--sub);
@@ -83,12 +78,15 @@
         }
         .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
 
+        /* 리스트 */
         .list-container { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
         .traffic-card {
             background: var(--card); padding: 15px; border-radius: 14px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line);
+            border: 1px solid var(--line); transition: background 0.2s;
         }
+        .traffic-card:active { background: #252525; }
+        
         .card-info { display: flex; flex-direction: column; gap: 4px; }
         .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
         .loc-name { font-size: 15px; font-weight: 600; }
@@ -103,6 +101,7 @@
         .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 1.5s infinite; }
         .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
 
+        /* 하단 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn {
             background: #2c2c2e; padding: 12px; border-radius: 12px;
@@ -116,60 +115,53 @@
 </head>
 <body>
 
-<div id="alert-panel" class="alert-panel lv-normal">
-    <div class="alert-icon-box">
-        <i class="fas fa-check" id="alert-icon"></i>
-    </div>
-    <div class="alert-content">
-        <div class="alert-title" id="alert-title">기상 특보 없음</div>
-        <div class="alert-desc" id="alert-desc">현재 세종시 기상 상태 양호</div>
-    </div>
-</div>
-
 <header>
     <div class="top-nav">
-        <h1>세종경찰 실시간 관제</h1>
+        <h1>세종북부경찰서 자연재난 실시간 관제</h1>
         <div class="server-badge" id="conn-msg"><div class="dot"></div> LIVE</div>
     </div>
-
-    <div class="disaster-grid">
-        <div class="d-card safe" id="card-fire">
-            <i class="fas fa-tree d-icon"></i>
-            <span class="d-val" id="val-fire">-</span>
-            <span class="d-lbl">산불지수</span>
-        </div>
-        <div class="d-card safe" id="card-rain">
-            <i class="fas fa-cloud-showers-heavy d-icon"></i>
-            <span class="d-val" id="val-rain">-</span>
-            <span class="d-lbl">강수량</span>
-        </div>
-        <div class="d-card safe" id="card-snow">
-            <i class="fas fa-snowflake d-icon"></i>
-            <span class="d-val" id="val-snow">-</span>
-            <span class="d-lbl">적설량</span>
-        </div>
-        <div class="d-card safe" id="card-wind">
-            <i class="fas fa-wind d-icon"></i>
-            <span class="d-val" id="val-wind">-</span>
-            <span class="d-lbl">풍속</span>
-        </div>
-    </div>
-    
-    <div class="dashboard">
-        <div class="dash-item">
-            <span class="dash-val c-red" id="cnt-ban">-</span>
-            <span class="dash-lbl">현재통제</span>
-        </div>
-        <div class="dash-item">
-            <span class="dash-val" id="cnt-total">-</span>
-            <span class="dash-lbl">전체구역</span>
-        </div>
-        <div class="dash-item">
-            <span class="dash-val c-green" id="cnt-free">-</span>
-            <span class="dash-lbl">정상통행</span>
-        </div>
-    </div>
 </header>
+
+<div id="kma-box" class="kma-alert-box st-normal">
+    <div class="kma-status">
+        <div class="kma-icon"><i class="fas fa-check" id="kma-icon"></i></div>
+        <div class="kma-text">
+            <span class="kma-title" id="kma-title">기상특보없음</span>
+            <span class="kma-sub" id="kma-desc">세종시 현재 기상 양호</span>
+        </div>
+    </div>
+    <a href="https://www.weather.go.kr/w/special-report/overall.do" target="_blank" class="kma-btn">
+        기상청 원문 >
+    </a>
+</div>
+
+<div id="forest-box" class="forest-box st-normal">
+    <div class="kma-status">
+        <div class="kma-icon"><i class="fas fa-tree" id="forest-icon"></i></div>
+        <div class="kma-text">
+            <span class="kma-title" id="forest-title">산불위험지수 분석중</span>
+            <span class="kma-sub" id="forest-desc">실시간 습도/바람 데이터 수신 중</span>
+        </div>
+    </div>
+    <a href="https://forestfire.nifos.go.kr/sys/gis/crntFfdIdx.do?location=current" target="_blank" class="kma-btn">
+        산림청 지도 >
+    </a>
+</div>
+
+<div class="dashboard">
+    <div class="dash-item">
+        <span class="dash-val c-red" id="cnt-ban">-</span>
+        <span class="dash-lbl">현재통제</span>
+    </div>
+    <div class="dash-item">
+        <span class="dash-val" id="cnt-total">-</span>
+        <span class="dash-lbl">전체구역</span>
+    </div>
+    <div class="dash-item">
+        <span class="dash-val c-green" id="cnt-free">-</span>
+        <span class="dash-lbl">정상통행</span>
+    </div>
+</div>
 
 <div class="filter-group">
     <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
@@ -195,7 +187,7 @@
 </div>
 
 <script>
-    // Firebase Config (사용자 키 적용됨)
+    // Firebase Config
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -254,106 +246,86 @@
         renderList();
     });
 
-    // 3. 기상 특보 시스템 (핵심)
+    // 3. 기상/산불 데이터 분석
     fetchDisasterInfo();
-    setInterval(fetchDisasterInfo, 600000); 
+    setInterval(fetchDisasterInfo, 600000); // 10분 주기
 
     async function fetchDisasterInfo() {
         try {
-            // 세종시 API 호출
+            // 세종시 위성 데이터 호출
             const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,relative_humidity_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo";
             const res = await fetch(url);
             const data = await res.json();
             const now = data.current;
 
-            // 값 바인딩
-            document.getElementById('val-rain').innerText = now.rain + "mm";
-            document.getElementById('val-snow').innerText = now.snowfall + "cm";
-            document.getElementById('val-wind').innerText = now.wind_speed_10m + "m/s";
+            // [기상특보 로직]
+            updateKmaStatus(now.rain, now.snowfall, now.wind_speed_10m);
 
-            // 산불위험지수 계산 (산림청 기준 유사 로직)
-            // 습도 60% 이하부터 위험도 상승
-            let humidFactor = Math.max(0, 60 - now.relative_humidity_2m); 
-            // 풍속 5m/s 이상부터 가중치
-            let windFactor = now.wind_speed_10m * 3;
-            let fireIndex = 50 + humidFactor + windFactor; // 기본점수 50
+            // [산불위험지수 로직]
+            // 공식: (100 - 습도) + (풍속 x 2) 로 위험도 추정
+            let fireIndex = (100 - now.relative_humidity_2m) + (now.wind_speed_10m * 2);
             fireIndex = Math.min(Math.round(fireIndex), 100);
-
-            document.getElementById('val-fire').innerText = fireIndex;
-
-            // 재난 그리드 상태 업데이트
-            updateGrid('rain', now.rain, 5, 20);
-            updateGrid('snow', now.snowfall, 1, 5);
-            updateGrid('wind', now.wind_speed_10m, 10, 14);
-            updateGrid('fire', fireIndex, 70, 85);
-
-            // [특보 판정 로직]
-            analyzeAlerts(now.rain, now.snowfall, now.wind_speed_10m, fireIndex);
+            updateForestStatus(fireIndex);
 
         } catch (e) { console.log(e); }
     }
 
-    // 특보 배너 및 아이콘 변경 로직
-    function analyzeAlerts(rain, snow, wind, fire) {
-        const panel = document.getElementById('alert-panel');
-        const title = document.getElementById('alert-title');
-        const desc = document.getElementById('alert-desc');
-        const icon = document.getElementById('alert-icon');
-        
+    // 기상청 특보 표시 로직
+    function updateKmaStatus(rain, snow, wind) {
+        const box = document.getElementById('kma-box');
+        const icon = document.getElementById('kma-icon');
+        const title = document.getElementById('kma-title');
+        const desc = document.getElementById('kma-desc');
+
         // 초기화
-        panel.className = "alert-panel lv-normal";
-        title.innerText = "기상 특보 없음";
-        desc.innerText = "현재 세종시 기상 상태 양호";
+        box.className = "kma-alert-box st-normal";
         icon.className = "fas fa-check";
+        title.innerText = "기상특보없음";
+        desc.innerText = "현재 세종시 기상 상태 양호";
 
-        // 우선순위: 경보 > 주의보 > 산불
-        
-        // 1. 호우 (30mm 경보 / 10mm 주의보)
+        // 우선순위: 경보 > 주의보
         if (rain >= 30) {
-            setAlert("lv-danger", "fa-cloud-showers-heavy", "🚨 호우경보 발효", "시간당 30mm 이상 폭우 (침수 위험)");
-            return;
-        }
-        
-        // 2. 대설 (5cm 경보 / 1cm 주의보)
-        if (snow >= 5) {
-            setAlert("lv-danger", "fa-snowflake", "🚨 대설경보 발효", "24시간 신적설 5cm 이상 (교통 통제)");
-            return;
-        }
-
-        // 3. 강풍 (14m/s 경보 / 10m/s 주의보)
-        if (wind >= 21) { // 21m/s
-             setAlert("lv-danger", "fa-wind", "🚨 강풍경보 발효", "시설물 붕괴 위험 (초속 21m/s↑)");
-             return;
-        }
-
-        // --- 주의보 레벨 ---
-        if (rain >= 10) { setAlert("lv-warn", "fa-cloud-rain", "📢 호우주의보", "빗길 미끄럼 주의 및 하천 접근 금지"); return; }
-        if (snow >= 1) { setAlert("lv-warn", "fa-snowflake", "📢 대설주의보", "제설 작업 준비 및 서행 운전"); return; }
-        if (wind >= 14) { setAlert("lv-warn", "fa-wind", "📢 강풍주의보", "초속 14m/s 이상 강풍 주의"); return; }
-
-        // 4. 산불 (산림청 기준: 85 심각 / 70 경계 / 60 주의 / 60미만 관심)
-        if (fire >= 85) {
-            setAlert("lv-danger", "fa-fire", "🔥 산불위험: 심각", "입산 통제 및 소각 행위 엄단");
-        } else if (fire >= 70) {
-            setAlert("lv-warn", "fa-fire", "🔥 산불위험: 경계", "논밭 태우기 금지 및 순찰 강화");
+            setKma("st-danger", "fa-cloud-showers-heavy", "호우경보 발효", `시간당 ${rain}mm 폭우 (침수 위험)`);
+        } else if (snow >= 5) {
+            setKma("st-danger", "fa-snowflake", "대설경보 발효", `적설량 ${snow}cm (교통 통제 필요)`);
+        } else if (wind >= 14) {
+            setKma("st-warn", "fa-wind", "강풍주의보", `풍속 ${wind}m/s (시설물 주의)`);
+        } else if (rain >= 10) {
+            setKma("st-warn", "fa-cloud-rain", "호우주의보", `강수량 ${rain}mm (빗길 주의)`);
+        } else if (snow >= 1) {
+            setKma("st-warn", "fa-snowflake", "대설주의보", `적설량 ${snow}cm (서행 운전)`);
         }
     }
 
-    function setAlert(cls, iconClass, tit, txt) {
-        const panel = document.getElementById('alert-panel');
-        const icon = document.getElementById('alert-icon');
-        
-        panel.className = `alert-panel ${cls}`;
-        icon.className = `fas ${iconClass}`;
-        document.getElementById('alert-title').innerText = tit;
-        document.getElementById('alert-desc').innerText = txt;
+    function setKma(cls, ico, tit, txt) {
+        const box = document.getElementById('kma-box');
+        const icon = document.getElementById('kma-icon');
+        const title = document.getElementById('kma-title');
+        const desc = document.getElementById('kma-desc');
+
+        box.className = `kma-alert-box ${cls}`;
+        icon.className = `fas ${ico}`;
+        title.innerText = tit;
+        desc.innerText = txt;
     }
 
-    function updateGrid(id, val, warn, danger) {
-        const card = document.getElementById(`card-${id}`);
-        card.className = "d-card safe";
-        if (val >= danger) card.className = "d-card danger";
-        else if (val >= warn) card.className = "d-card warn";
+    // 산림청 산불지수 표시 로직
+    function updateForestStatus(idx) {
+        const box = document.getElementById('forest-box');
+        const icon = document.getElementById('forest-icon');
+        const title = document.getElementById('forest-title');
+        const desc = document.getElementById('forest-desc');
+
+        let level = "관심(낮음)";
+        let cls = "st-normal";
+
+        if (idx >= 80) { level = "심각(매우높음)"; cls = "st-danger"; }
+        else if (idx >= 60) { level = "경계(높음)"; cls = "st-warn"; }
+        else if (idx >= 40) { level = "주의(다소높음)"; cls = "st-warn"; }
+
+        box.className = `forest-box ${cls}`;
+        title.innerText = `산불위험: ${level}`;
+        desc.innerText = `현재 위험지수 ${idx} (세종시 기준)`;
     }
 
     function renderList() {
