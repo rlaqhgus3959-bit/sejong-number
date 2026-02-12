@@ -10,7 +10,6 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-analytics.js"></script>
 
     <style>
         :root {
@@ -24,16 +23,24 @@
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
-        /* 헤더 & 서버 상태 */
+        /* 상단 헤더 */
         header { margin-bottom: 20px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 22px; font-weight: 700; }
         
-        .server-status {
+        .server-badge {
             font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600;
-            background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 4px;
+            background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 5px;
         }
-        .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
+        .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
+
+        /* 날씨 위젯 */
+        .weather-box {
+            background: var(--card); padding: 12px 16px; border-radius: 12px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid var(--line); margin-bottom: 15px;
+        }
+        .w-txt { font-size: 14px; font-weight: 500; display: flex; align-items: center; gap: 8px; }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
@@ -42,21 +49,23 @@
         .dash-lbl { font-size: 11px; color: #ccc; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        /* 필터 */
-        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
+        /* 필터 버튼 */
+        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 5px; }
         .filter-btn {
             background: var(--card); border: 1px solid var(--line); color: var(--sub);
             padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; transition: 0.2s;
         }
         .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
 
-        /* 리스트 아이템 */
-        .list-container { display: flex; flex-direction: column; gap: 10px; }
+        /* 리스트 스타일 */
+        .list-container { display: flex; flex-direction: column; gap: 10px; min-height: 200px; }
         .traffic-card {
             background: var(--card); padding: 15px; border-radius: 14px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line);
+            border: 1px solid var(--line); transition: background 0.2s;
         }
+        .traffic-card:active { background: #252525; }
+        
         .card-info { display: flex; flex-direction: column; gap: 4px; }
         .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
         .loc-name { font-size: 15px; font-weight: 600; }
@@ -65,17 +74,17 @@
 
         /* 상태 버튼 */
         .status-btn {
-            font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px;
+            font-size: 12px; font-weight: 700; padding: 10px 14px; border-radius: 8px;
             min-width: 55px; text-align: center; cursor: pointer; transition: 0.2s;
         }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 1s infinite; }
+        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 1.5s infinite; }
         .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
 
         /* 하단 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn {
-            background: #2c2c2e; padding: 12px; border-radius: 12px;
+            background: #2c2c2e; padding: 14px; border-radius: 12px;
             text-decoration: none; color: white; font-size: 13px;
             display: flex; align-items: center; justify-content: center; gap: 8px;
         }
@@ -89,20 +98,27 @@
 <header>
     <div class="top-nav">
         <h1>세종경찰 실시간 관제</h1>
-        <div class="server-status" id="conn-status"><div class="live-dot"></div> LIVE</div>
+        <div class="server-badge" id="conn-msg"><div class="dot"></div> LIVE</div>
+    </div>
+
+    <div class="weather-box" onclick="fetchWeather()">
+        <div class="w-txt" id="weather-display">
+            <i class="fas fa-spinner fa-spin"></i> 기상정보 수신중...
+        </div>
+        <i class="fas fa-rotate" style="color:var(--blue); font-size:14px;"></i>
     </div>
     
     <div class="dashboard">
         <div class="dash-item">
-            <span class="dash-val c-red" id="cnt-ban">0</span>
+            <span class="dash-val c-red" id="cnt-ban">-</span>
             <span class="dash-lbl">현재통제</span>
         </div>
         <div class="dash-item">
-            <span class="dash-val" id="cnt-total">16</span>
+            <span class="dash-val" id="cnt-total">-</span>
             <span class="dash-lbl">전체구역</span>
         </div>
         <div class="dash-item">
-            <span class="dash-val c-green" id="cnt-free">0</span>
+            <span class="dash-val c-green" id="cnt-free">-</span>
             <span class="dash-lbl">정상통행</span>
         </div>
     </div>
@@ -117,8 +133,8 @@
 </div>
 
 <div class="list-container" id="list">
-    <div style="text-align:center; padding:30px; color:#666;">
-        <i class="fas fa-spinner fa-spin"></i> 서버 연결 중...
+    <div style="text-align:center; padding:40px; color:#666;">
+        <i class="fas fa-circle-notch fa-spin"></i><br><br>서버 연결 중입니다...
     </div>
 </div>
 
@@ -132,11 +148,14 @@
 </div>
 
 <script>
-    // [설정] 사용자 제공 키 적용 완료
+    // -----------------------------------------------------------
+    // [설정] 사용자 제공 키 + DB URL 자동 완성
+    // -----------------------------------------------------------
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
-        databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com", // 프로젝트 ID 기반 자동 생성
+        // DB URL이 없어서 프로젝트 ID 기반으로 자동 추가했습니다.
+        databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com",
         projectId: "shut-down-80255",
         storageBucket: "shut-down-80255.firebasestorage.app",
         messagingSenderId: "620282815079",
@@ -147,18 +166,17 @@
     // 앱 초기화
     if (!firebase.apps.length) {
         firebase.initializeApp(firebaseConfig);
-        firebase.analytics(); // 애널리틱스 활성화
     }
     const db = firebase.database();
     
-    // 초기 16개소 데이터
+    // 초기 16개소 데이터 (서버가 비었을 때만 한 번 자동 업로드)
     const initData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2, bar:true },
         { id:2, area:'전의', name:'전의면 북암천', status:2, bar:true },
-        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true },
+        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true, note:'5해제/1통제' },
         { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2, bar:true },
         { id:5, area:'부강', name:'부용가교', status:2, bar:true },
-        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true },
+        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true, note:'P/L' },
         { id:7, area:'전의', name:'전동면 청람리', status:0, bar:false },
         { id:8, area:'조치원', name:'조치원읍 내창천', status:0, bar:true },
         { id:9, area:'조치원', name:'봉암하상도로', status:0, bar:true },
@@ -174,25 +192,27 @@
     let trafficData = [];
     let currFilter = 'all';
 
-    // [서버 수신]
-    const ref = db.ref('traffic_control');
-    
-    // 연결 상태 체크
+    // [1] 서버 연결 상태 체크
     const connectedRef = db.ref(".info/connected");
     connectedRef.on("value", (snap) => {
+        const badge = document.getElementById("conn-msg");
         if (snap.val() === true) {
-            document.getElementById("conn-status").innerHTML = '<div class="live-dot"></div> LIVE';
-            document.getElementById("conn-status").style.color = "var(--green)";
+            badge.innerHTML = '<div class="dot"></div> LIVE';
+            badge.style.color = "var(--green)";
+            badge.style.background = "rgba(48, 209, 88, 0.15)";
         } else {
-            document.getElementById("conn-status").innerText = "연결 끊김";
-            document.getElementById("conn-status").style.color = "var(--sub)";
+            badge.innerText = "연결 끊김";
+            badge.style.color = "var(--sub)";
+            badge.style.background = "#333";
         }
     });
 
+    // [2] 데이터 실시간 수신 (핵심)
+    const ref = db.ref('traffic_control');
     ref.on('value', (snapshot) => {
         const val = snapshot.val();
         
-        // 서버가 비어있으면(처음 실행) 초기 데이터 전송
+        // 서버가 비어있으면 초기 데이터 업로드
         if (!val) {
             ref.set(initData);
             return;
@@ -206,7 +226,6 @@
     function render() {
         const container = document.getElementById('list');
         let banCnt = 0, freeCnt = 0;
-        
         container.innerHTML = '';
 
         trafficData.forEach((item, idx) => {
@@ -222,6 +241,7 @@
             let cls = 'st-free', txt = '해제';
             if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
             if(item.status === 1) { cls = 'st-part'; txt = '부분통제'; }
+            if(item.note && item.status !== 0) txt = item.note;
 
             const div = document.createElement('div');
             div.className = 'traffic-card';
@@ -239,20 +259,17 @@
             container.appendChild(div);
         });
 
-        // 대시보드
+        // 대시보드 갱신
         document.getElementById('cnt-total').innerText = trafficData.length;
         document.getElementById('cnt-ban').innerText = banCnt;
         document.getElementById('cnt-free').innerText = freeCnt;
     }
 
-    // [서버 전송]
+    // [3] 서버로 변경사항 전송
     function updateServer(idx, currentStatus) {
-        // 0(해제) <-> 2(통제)
+        // 0(해제) <-> 2(통제) 토글
         const nextStatus = currentStatus === 0 ? 2 : 0;
-        
-        db.ref('traffic_control/' + idx).update({
-            status: nextStatus
-        });
+        db.ref('traffic_control/' + idx).update({ status: nextStatus });
     }
 
     function setFilter(type, btn) {
@@ -260,6 +277,28 @@
         document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         render();
+    }
+
+    // 날씨 정보 (오픈 API)
+    fetchWeather();
+    async function fetchWeather() {
+        try {
+            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain&timezone=Asia%2FTokyo";
+            const res = await fetch(url);
+            const data = await res.json();
+            const cur = data.current;
+            
+            let icon = 'fa-sun';
+            if(cur.rain > 0) icon = 'fa-cloud-rain';
+
+            document.getElementById('weather-display').innerHTML = `
+                <i class="fas ${icon}" style="color:var(--blue)"></i> 
+                ${cur.temperature_2m}°C 
+                <span style="color:#888; font-size:12px; font-weight:400; margin-left:5px;">(강수 ${cur.rain}mm)</span>
+            `;
+        } catch(e) {
+            document.getElementById('weather-display').innerText = "날씨 정보 수신 불가";
+        }
     }
 </script>
 
