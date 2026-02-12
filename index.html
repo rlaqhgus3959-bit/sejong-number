@@ -19,78 +19,78 @@
             user-select: none;
         }
 
-        /* 산림청 공식 산불경보 배너 */
-        .fire-banner {
-            background: #1a1a1a; border: 1px solid #333; border-radius: 12px;
-            padding: 16px; margin-bottom: 12px; display: flex;
+        /* 기상특보 배너 */
+        .info-box {
+            background: #222; border: 1px solid #333; border-radius: 12px;
+            padding: 15px; margin-bottom: 15px; display: flex;
             justify-content: space-between; align-items: center;
         }
-        .fire-info { display: flex; align-items: center; gap: 14px; }
-        .fire-icon { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #333; }
-        .fire-text { display: flex; flex-direction: column; }
-        .fire-label { font-size: 11px; color: #888; font-weight: 600; }
-        .fire-status { font-size: 17px; font-weight: 800; margin-top: 2px; }
+        .info-status { display: flex; align-items: center; gap: 12px; }
+        .info-icon { width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 18px; background: #333; flex-shrink: 0; }
+        .info-text { display: flex; flex-direction: column; }
+        .info-title { font-size: 15px; font-weight: 700; color: #ddd; }
+        .info-sub { font-size: 11px; color: #888; margin-top: 3px; }
+        .info-btn { background: #333; border: 1px solid #555; color: #ccc; padding: 6px 10px; border-radius: 6px; font-size: 11px; text-decoration: none; }
 
-        /* 산림청 단계별 테마 */
-        .lv-interest .fire-icon { color: var(--green); background: rgba(48,209,88,0.2); }
-        .lv-interest .fire-status { color: var(--green); }
-        .lv-caution .fire-icon { color: var(--blue); background: rgba(10,132,255,0.2); }
-        .lv-caution .fire-status { color: var(--blue); }
-        .lv-alert .fire-icon { color: var(--orange); background: rgba(255,159,10,0.2); }
-        .lv-alert .fire-status { color: var(--orange); }
-        .lv-danger .fire-icon { color: var(--red); background: rgba(255,69,58,0.2); }
-        .lv-danger .fire-status { color: var(--red); }
+        .st-normal .info-icon { color: var(--green); background: rgba(48,209,88,0.2); }
+        .st-warn { border-color: var(--orange); }
+        .st-danger { border-color: var(--red); animation: pulse 2s infinite; }
 
-        .btn-link { background: #333; border: 1px solid #555; color: #ccc; padding: 8px 12px; border-radius: 8px; font-size: 11px; text-decoration: none; white-space: nowrap; }
+        /* 기상 상세 대시보드 */
+        .weather-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 20px; }
+        .w-card { background: var(--card); padding: 12px; border-radius: 14px; text-align: center; border: 1px solid var(--line); }
+        .w-val { font-size: 16px; font-weight: 700; display: block; margin-top: 5px; }
+        .w-lbl { font-size: 10px; color: var(--sub); }
+        .w-card i { font-size: 14px; color: var(--blue); }
 
-        /* 기상 대시보드 */
-        .weather-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 15px 0; }
-        .w-item { background: var(--card); padding: 12px; border-radius: 12px; text-align: center; border: 1px solid var(--line); }
-        .w-item i { font-size: 14px; color: var(--blue); margin-bottom: 5px; display: block; }
-        .w-v { font-size: 14px; font-weight: 700; }
-        .w-l { font-size: 10px; color: var(--sub); display: block; margin-top: 2px; }
+        /* 읍면별 강수량 리스트 */
+        .section-title { font-size: 13px; color: var(--blue); font-weight: 700; margin-bottom: 10px; display: flex; align-items: center; gap: 5px; }
+        .precip-list { background: var(--card); border-radius: 14px; padding: 5px 0; margin-bottom: 25px; border: 1px solid var(--line); }
+        .precip-item { display: flex; justify-content: space-between; padding: 10px 15px; border-bottom: 1px solid #2c2c2e; }
+        .precip-item:last-child { border-bottom: none; }
+        .precip-name { font-size: 14px; font-weight: 600; }
+        .precip-val { font-size: 14px; font-weight: 700; color: var(--orange); }
 
-        /* 읍면 강수 리스트 */
-        .town-card { background: var(--card); border-radius: 14px; border: 1px solid var(--line); overflow: hidden; margin-bottom: 20px; }
-        .town-row { display: flex; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid #2c2c2e; font-size: 14px; }
-        .town-val { font-weight: 700; color: var(--orange); }
-
-        /* 도로 통제 */
+        /* 통제 리스트 스타일 */
         .traffic-card { background: var(--card); padding: 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center; border: 1px solid var(--line); margin-bottom: 10px; }
-        .st-btn { font-size: 12px; font-weight: 700; padding: 10px 14px; border-radius: 8px; min-width: 60px; text-align: center; }
-        .st-0 { background: rgba(48, 209, 88, 0.1); color: var(--green); border: 1px solid var(--green); }
-        .st-2 { background: rgba(255, 69, 58, 0.1); color: var(--red); border: 1px solid var(--red); animation: blink 1.5s infinite; }
+        .status-btn { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; min-width: 55px; text-align: center; }
+        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
+        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 1.5s infinite; }
 
-        @keyframes blink { 50% { opacity: 0.6; } }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
 
 <header style="margin-bottom:20px;">
-    <h1 style="font-size:19px; font-weight:800;">세종북부경찰서 <span style="color:var(--blue);">재난관제</span></h1>
+    <h1 style="font-size:18px;">세종북부경찰서 자연재난 관제</h1>
 </header>
 
-<div id="fire-banner" class="fire-banner lv-interest">
-    <div class="fire-info">
-        <div class="fire-icon"><i class="fas fa-tree"></i></div>
-        <div class="fire-text">
-            <span class="fire-label">산림청 산불경보 발령 (세종시)</span>
-            <span class="fire-status" id="fire-level">관심 (관심)</span>
+<div id="alert-box" class="info-box st-normal">
+    <div class="info-status">
+        <div class="info-icon"><i class="fas fa-check" id="alert-icon"></i></div>
+        <div class="info-text">
+            <span class="info-title" id="alert-title">기상특보 없음</span>
+            <span class="info-sub" id="alert-desc">세종 지역 특보 사항 없음</span>
         </div>
     </div>
-    <a href="https://www.forest.go.kr/kfsweb/kfs/areaIdx/Index.do?mn=AR04" target="_blank" class="btn-link">산림청 확인</a>
+    <a href="https://d.kbs.co.kr/special/special" target="_blank" class="info-btn">KBS 원문</a>
 </div>
 
-<div class="weather-row">
-    <div class="w-item"><i class="fas fa-droplet"></i><span class="w-v" id="v-hum">-</span><span class="w-l">습도</span></div>
-    <div class="w-item"><i class="fas fa-wind"></i><span class="w-v" id="v-wind">-</span><span class="w-l">풍속</span></div>
-    <div class="w-item"><i class="fas fa-sun"></i><span class="w-v" id="v-sun" style="font-size:11px;">-</span><span class="w-l">일출/일몰</span></div>
+<div class="weather-grid">
+    <div class="w-card"><i class="fas fa-droplet"></i><span class="w-val" id="w-hum">-</span><span class="w-lbl">습도</span></div>
+    <div class="w-card"><i class="fas fa-wind"></i><span class="w-val" id="w-wind">-</span><span class="w-lbl">풍속(m/s)</span></div>
+    <div class="w-card"><i class="fas fa-snowflake"></i><span class="w-val" id="w-snow">-</span><span class="w-lbl">적설(cm)</span></div>
+    <div class="w-card"><i class="fas fa-sun"></i><span class="w-val" id="w-sunrise">-</span><span class="w-lbl">일출</span></div>
+    <div class="w-card"><i class="fas fa-moon"></i><span class="w-val" id="w-sunset">-</span><span class="w-lbl">일몰</span></div>
+    <div class="w-card"><i class="fas fa-cloud-showers-heavy"></i><span class="w-val" id="w-rain">-</span><span class="w-lbl">강수(mm)</span></div>
 </div>
 
-<div style="font-size:13px; font-weight:700; color:var(--blue); margin: 20px 0 10px 5px;">북부 7개 읍·면 강우량</div>
-<div class="town-card" id="town-list"></div>
+<div class="section-title"><i class="fas fa-map-location-dot"></i> 북부 7개 읍·면 강우량</div>
+<div class="precip-list" id="town-list">
+    </div>
 
-<div style="font-size:13px; font-weight:700; color:var(--blue); margin: 20px 0 10px 5px;">실시간 도로 통제 현황</div>
+<div class="section-title"><i class="fas fa-road"></i> 실시간 도로 통제 현황</div>
 <div id="list"></div>
 
 <script>
@@ -107,6 +107,7 @@
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
+    // 읍면별 좌표 데이터
     const towns = [
         { name: "조치원읍", lat: 36.60, lon: 127.30 },
         { name: "연동면", lat: 36.56, lon: 127.32 },
@@ -117,62 +118,67 @@
         { name: "소정면", lat: 36.72, lon: 127.15 }
     ];
 
-    async function syncOfficialData() {
+    async function fetchWeatherData() {
         try {
-            const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=relative_humidity_2m,wind_speed_10m&daily=sunrise,sunset&timezone=Asia%2FTokyo");
+            // 세종 중심부 통합 데이터 (특보용)
+            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=relative_humidity_2m,rain,snowfall,wind_speed_10m&daily=sunrise,sunset&timezone=Asia%2FTokyo";
+            const res = await fetch(url);
             const data = await res.json();
-            const cur = data.current;
+            const now = data.current;
 
-            // 1. 기상 정보 표기
-            document.getElementById('v-hum').innerText = cur.relative_humidity_2m + "%";
-            document.getElementById('v-wind').innerText = cur.wind_speed_10m + "m/s";
-            document.getElementById('v-sun').innerText = `${data.daily.sunrise[0].split('T')[1]} / ${data.daily.sunset[0].split('T')[1]}`;
+            // 대시보드 업데이트
+            document.getElementById('w-hum').innerText = now.relative_humidity_2m + "%";
+            document.getElementById('w-wind').innerText = now.wind_speed_10m;
+            document.getElementById('w-snow').innerText = now.snowfall;
+            document.getElementById('w-rain').innerText = now.rain;
+            document.getElementById('w-sunrise').innerText = data.daily.sunrise[0].split('T')[1];
+            document.getElementById('w-sunset').innerText = data.daily.sunset[0].split('T')[1];
 
-            // 2. 산림청 산불경보 단계 동기화 (세종시 발령 기준)
-            const fBanner = document.getElementById('fire-banner');
-            const fLevel = document.getElementById('fire-level');
-            let hum = cur.relative_humidity_2m;
+            // 특보 로직
+            const box = document.getElementById('alert-box');
+            if (now.wind_speed_10m >= 14) { box.className = "info-box st-warn"; document.getElementById('alert-title').innerText = "강풍주의보 (세종)"; }
+            else if (now.rain >= 30) { box.className = "info-box st-danger"; document.getElementById('alert-title').innerText = "호우주의보 (세종)"; }
+            else { box.className = "info-box st-normal"; document.getElementById('alert-title').innerText = "기상특보 없음"; }
 
-            // 산림청 공식 발령 현황 데이터 반영 (세종 기준)
-            if (hum <= 25) { 
-                fBanner.className = "fire-banner lv-danger"; fLevel.innerText = "심각 (심각)"; 
-            } else if (hum <= 35) { 
-                fBanner.className = "fire-banner lv-alert"; fLevel.innerText = "경계 (경계)"; 
-            } else if (hum <= 50) { 
-                fBanner.className = "fire-banner lv-caution"; fLevel.innerText = "주의 (주의)"; 
-            } else { 
-                fBanner.className = "fire-banner lv-interest"; fLevel.innerText = "관심 (관심)"; 
-            }
-
-            // 3. 읍면별 강수량 표기
-            const tBox = document.getElementById('town-list');
-            tBox.innerHTML = '';
+            // 7개 읍면 강수량 가져오기
+            const townContainer = document.getElementById('town-list');
+            townContainer.innerHTML = '';
             for (const town of towns) {
-                const tr = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${town.lat}&longitude=${town.lon}&current=rain&timezone=Asia%2FTokyo`);
-                const td = await tr.json();
-                tBox.innerHTML += `<div class="town-row"><span>${town.name}</span><span class="town-val">${td.current.rain} mm</span></div>`;
+                const tUrl = `https://api.open-meteo.com/v1/forecast?latitude=${town.lat}&longitude=${town.lon}&current=rain&timezone=Asia%2FTokyo`;
+                const tRes = await fetch(tUrl);
+                const tData = await tRes.json();
+                
+                const item = document.createElement('div');
+                item.className = 'precip-item';
+                item.innerHTML = `<span class="precip-name">${town.name}</span><span class="precip-val">${tData.current.rain} mm</span>`;
+                townContainer.appendChild(item);
             }
         } catch (e) { console.error(e); }
     }
 
-    db.ref('traffic_control').on('value', (snap) => {
-        const val = snap.val();
+    db.ref('traffic_control').on('value', (snapshot) => {
+        const val = snapshot.val();
         if (!val) return;
-        const list = document.getElementById('list');
-        list.innerHTML = '';
+        const container = document.getElementById('list');
+        container.innerHTML = '';
         val.forEach((item, idx) => {
-            const card = document.createElement('div');
-            card.className = 'traffic-card';
-            card.innerHTML = `<div><div style="font-size:10px; color:var(--blue);">${item.area}</div><div style="font-weight:600;">${item.name}</div></div>
-                              <div class="st-btn st-${item.status}" onclick="updateStatus(${idx}, ${item.status})">${item.status === 2 ? '통제중' : '해제'}</div>`;
-            list.appendChild(card);
+            const div = document.createElement('div');
+            div.className = 'traffic-card';
+            div.innerHTML = `
+                <div><div style="font-size:10px; color:var(--blue);">${item.area}</div><div style="font-weight:600;">${item.name}</div></div>
+                <div class="status-btn ${item.status === 2 ? 'st-ban' : 'st-free'}" onclick="updateStatus(${idx}, ${item.status})">${item.status === 2 ? '통제중' : '해제'}</div>
+            `;
+            container.appendChild(div);
         });
     });
 
-    function updateStatus(idx, cur) { db.ref('traffic_control/' + idx).update({ status: cur === 0 ? 2 : 0 }); }
+    function updateStatus(idx, cur) {
+        db.ref('traffic_control/' + idx).update({ status: cur === 0 ? 2 : 0 });
+    }
 
-    syncOfficialData();
-    setInterval(syncOfficialData, 600000);
+    fetchWeatherData();
+    setInterval(fetchWeatherData, 600000); // 10분마다 갱신
 </script>
+
 </body>
 </html>
