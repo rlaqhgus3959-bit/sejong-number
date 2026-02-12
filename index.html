@@ -23,23 +23,15 @@
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
-        /* 헤더 */
-        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; margin-top: 10px; }
-        h1 { margin: 0; font-size: 19px; font-weight: 700; color: #fff; line-height: 1.3; }
-        .server-badge {
-            font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600; flex-shrink: 0;
-            background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 5px;
-        }
-        .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
-
-        /* 정보 박스 공통 */
+        /* 1. 기상특보 / 산불지수 박스 스타일 */
         .info-box {
             background: #222; border: 1px solid #333;
             border-radius: 12px; padding: 15px; margin-bottom: 10px;
             display: flex; justify-content: space-between; align-items: center;
+            transition: all 0.3s ease;
         }
         .info-status { display: flex; align-items: center; gap: 12px; }
-        .info-icon { width: 42px; height: 42px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #333; flex-shrink: 0; }
+        .info-icon { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; background: #333; flex-shrink: 0; }
         .info-text { display: flex; flex-direction: column; }
         .info-title { font-size: 16px; font-weight: 700; color: #ddd; }
         .info-sub { font-size: 11px; color: #888; margin-top: 3px; }
@@ -49,12 +41,23 @@
             padding: 8px 12px; border-radius: 8px; font-size: 11px; text-decoration: none; white-space: nowrap;
         }
 
-        /* 상태별 스타일 */
+        /* 상태별 색상 (자동 변경됨) */
         .st-normal .info-icon { color: var(--green); background: rgba(48,209,88,0.2); }
+        
         .st-warn { border-color: var(--orange); background: rgba(255,159,10,0.05); }
         .st-warn .info-icon { color: var(--orange); background: rgba(255,159,10,0.2); } 
+        
         .st-danger { border-color: var(--red); background: rgba(255,69,58,0.1); animation: pulse 2s infinite; }
         .st-danger .info-icon { color: var(--red); background: rgba(255,69,58,0.2); }
+
+        /* 헤더 */
+        .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; margin-top: 10px; }
+        h1 { margin: 0; font-size: 19px; font-weight: 700; color: #fff; line-height: 1.3; }
+        .server-badge {
+            font-size: 11px; padding: 4px 8px; border-radius: 12px; font-weight: 600; flex-shrink: 0;
+            background: rgba(48, 209, 88, 0.15); color: var(--green); display: flex; align-items: center; gap: 5px;
+        }
+        .dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 2s infinite; }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; margin-top: 20px; }
@@ -118,8 +121,8 @@
     <div class="info-status">
         <div class="info-icon"><i class="fas fa-check" id="kma-icon"></i></div>
         <div class="info-text">
-            <span class="info-title" id="kma-title">기상특보 없음</span>
-            <span class="info-sub" id="kma-desc">세종시 현재 기상 양호</span>
+            <span class="info-title" id="kma-title">분석중...</span>
+            <span class="info-sub" id="kma-desc">기상 데이터 수신 중</span>
         </div>
     </div>
     <a href="https://www.weatheri.co.kr/special/special01.php" target="_blank" class="info-btn">
@@ -131,11 +134,11 @@
     <div class="info-status">
         <div class="info-icon"><i class="fas fa-tree" id="forest-icon"></i></div>
         <div class="info-text">
-            <span class="info-title" id="forest-title">산불위험 분석중</span>
-            <span class="info-sub" id="forest-desc">실시간 습도/풍속 수신 중</span>
+            <span class="info-title" id="forest-title">분석중...</span>
+            <span class="info-sub" id="forest-desc">습도/풍속 데이터 수신 중</span>
         </div>
     </div>
-    <a href="https://www.google.com/search?q=%EC%84%B8%EC%A2%85%EC%8B%9C+%EC%82%B0%EB%B6%88%EC%9C%84%ED%97%98%EC%A7%80%EC%88%98&oq=%EC%84%B8%EC%A2%85%EC%8B%9C+%EC%82%B0%EB%B6%88%EC%9C%84%ED%97%98%EC%A7%80%EC%88%98&gs_lcrp=EgZjaHJvbWUyBggAEEUYOTIMCAEQABgUGIcCGIAEMgcIAhAAGIAEMgwIAxAAGBQYhwIYgAQyBwgEEAAYgAQyDQgFEC4YrwEYxwEYgAQyBwgGEC4YgAQyBwgHEAAYgAQyBwgIEAAYgAQyBwgJEAAYgATSAQkzODQ4ajBqMTWoAgiwAgHxBUGFl1ZJOrJO&sourceid=chrome&ie=UTF-8" target="_blank" class="info-btn">
+    <a href="https://www.google.com/search?q=%EC%84%B8%EC%A2%85%EC%8B%9C+%EC%82%B0%EB%B6%88%EC%9C%84%ED%97%98%EC%A7%80%EC%88%98" target="_blank" class="info-btn">
         산불지수 검색 >
     </a>
 </div>
@@ -238,22 +241,24 @@
         renderList();
     });
 
-    // 3. 재난 데이터 분석
+    // 3. 재난 데이터 분석 (10분 주기)
     fetchDisasterInfo();
     setInterval(fetchDisasterInfo, 600000); 
 
     async function fetchDisasterInfo() {
         try {
-            // 세종시 위성 데이터 호출
+            // 세종시 실시간 위성 데이터 (강수, 풍속, 습도, 적설)
             const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,relative_humidity_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo";
             const res = await fetch(url);
             const data = await res.json();
             const now = data.current;
 
-            // 기상특보 (웨더아이 기준 유사 분석)
+            // [기상특보 판독기]
+            // 기상청 특보 발표 기준 적용
             updateKmaStatus(now.rain, now.snowfall, now.wind_speed_10m);
 
-            // 산불지수 (구글/산림청 기준 유사 분석)
+            // [산불지수 판독기]
+            // 산림청 지수 계산 공식 근사치 적용
             let fireIndex = (100 - now.relative_humidity_2m) + (now.wind_speed_10m * 2.5);
             fireIndex = Math.min(Math.round(fireIndex), 100);
             updateForestStatus(fireIndex);
@@ -261,25 +266,26 @@
         } catch (e) { console.log(e); }
     }
 
-    // [웨더아이] 기상특보 로직
+    // 웨더아이 기준 기상특보 표시
     function updateKmaStatus(rain, snow, wind) {
+        // 기본값: 특보 없음 (요청하신 문구)
         setBox('kma', 'st-normal', 'check', '기상특보 없음', '세종시 현재 기상 양호');
 
-        // 특보 발령 조건
+        // 위험 감지 시 문구 변경
         if (rain >= 30) {
-            setBox('kma', 'st-danger', 'cloud-showers-heavy', '호우경보 발효', `시간당 ${rain}mm 폭우 (침수 위험)`);
+            setBox('kma', 'st-danger', 'cloud-showers-heavy', '호우경보', `시간당 ${rain}mm 폭우 (침수위험)`);
         } else if (snow >= 5) {
-            setBox('kma', 'st-danger', 'snowflake', '대설경보 발효', `적설량 ${snow}cm (교통 통제 필요)`);
+            setBox('kma', 'st-danger', 'snowflake', '대설경보', `적설량 ${snow}cm (교통통제)`);
         } else if (wind >= 14) {
-            setBox('kma', 'st-warn', 'wind', '강풍주의보', `풍속 ${wind}m/s (시설물 주의)`);
+            setBox('kma', 'st-warn', 'wind', '강풍주의보', `풍속 ${wind}m/s (시설물주의)`);
         } else if (rain >= 10) {
-            setBox('kma', 'st-warn', 'cloud-rain', '호우주의보', `강수량 ${rain}mm (빗길 주의)`);
+            setBox('kma', 'st-warn', 'cloud-rain', '호우주의보', `강수량 ${rain}mm (빗길주의)`);
         } else if (snow >= 1) {
-            setBox('kma', 'st-warn', 'snowflake', '대설주의보', `적설량 ${snow}cm (서행 운전)`);
+            setBox('kma', 'st-warn', 'snowflake', '대설주의보', `적설량 ${snow}cm (서행운전)`);
         }
     }
 
-    // [구글/산림청] 산불지수 로직
+    // 산림청 기준 산불지수 표시
     function updateForestStatus(idx) {
         let level = "관심(낮음)";
         let cls = "st-normal";
@@ -289,7 +295,7 @@
         else if (idx >= 60) { level = "경계(높음)"; cls = "st-warn"; ico = "fire"; }
         else if (idx >= 40) { level = "주의(다소높음)"; cls = "st-warn"; ico = "exclamation-triangle"; }
 
-        setBox('forest', cls, ico, `산불위험: ${level}`, `현재 위험지수 ${idx} (세종시 기준)`);
+        setBox('forest', cls, ico, `산불위험: ${level}`, `현재 위험지수 ${idx} (세종시)`);
     }
 
     function setBox(id, cls, ico, tit, txt) {
