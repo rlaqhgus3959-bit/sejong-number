@@ -1,110 +1,134 @@
-// 1. PWA 서비스 워커 등록 (앱 설치 기능)
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('./sw.js')
-            .then(reg => console.log('PWA 서비스 워커 등록 성공:', reg.scope))
-            .catch(err => console.error('PWA 서비스 워커 등록 실패:', err));
-    });
-}
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>경찰 재난관리 시스템</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#16213e">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --bg-dark: #1a1a2e;
+            --card-bg: #16213e;
+            --text-white: #e9ecef;
+            --rain-color: #00d2ff;
+            --snow-color: #ffffff;
+            --fire-color: #ff4d4d;
+            --heat-color: #ff9f43;
+            --accent: #fcd34d;
+        }
+        body { font-family: sans-serif; background-color: var(--bg-dark); color: var(--text-white); margin: 0; padding: 20px; }
+        header { text-align: center; padding-bottom: 20px; border-bottom: 2px solid #0f3460; }
+        #location-bar { background: rgba(15, 52, 96, 0.8); padding: 10px; margin: 15px 0; border-radius: 8px; text-align: center; color: var(--accent); border: 1px solid var(--accent); }
+        .disaster-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; }
+        .disaster-card { background-color: var(--card-bg); border-radius: 15px; padding: 25px; text-align: center; border: 2px solid transparent; }
+        .card-rain { border-color: var(--rain-color); }
+        .card-snow { border-color: var(--snow-color); }
+        .card-fire { border-color: var(--fire-color); }
+        .card-heat { border-color: var(--heat-color); }
+        .disaster-card i { font-size: 3rem; margin-bottom: 15px; }
+        .card-rain i { color: var(--rain-color); }
+        .card-snow i { color: var(--snow-color); }
+        .card-fire i { color: var(--fire-color); }
+        .card-heat i { color: var(--heat-color); }
+        .status-badge { margin-top: 10px; display: inline-block; padding: 5px 15px; border-radius: 20px; background: rgba(255,255,255,0.1); }
+        #log-panel { margin-top: 30px; background: #0f3460; padding: 20px; border-radius: 10px; height: 200px; overflow-y: auto; }
+        .log-entry { border-bottom: 1px solid #16213e; padding: 8px 0; font-size: 0.9rem; }
+    </style>
+</head>
+<body>
 
-// 2. 페이지 로드 시 시스템 초기화
-window.onload = function() {
-    initSystem();
-};
+<header>
+    <h1><i class="fas fa-shield-halved"></i> 경찰 재난관리 시스템</h1>
+</header>
 
-function initSystem() {
-    const locationBar = document.getElementById('location-bar');
-    
-    // 시스템 가동 로그 출력
-    updateLog('시스템', '경찰 재난관리 모니터링 엔진 가동 중...');
-    
-    if (navigator.geolocation) {
-        // 위치 파악 시도 (5초 타임아웃 설정)
-        navigator.geolocation.getCurrentPosition(successLocation, errorLocation, {
-            enableHighAccuracy: true,
-            timeout: 5000
+<div id="location-bar">
+    <i class="fas fa-location-dot"></i> 위치 정보를 불러오는 중...
+</div>
+
+<div class="disaster-container">
+    <div class="disaster-card card-rain">
+        <i class="fas fa-cloud-showers-heavy"></i><br>
+        <strong>폭우</strong><br>
+        <span class="status-badge" id="rain-val">-</span>
+    </div>
+    <div class="disaster-card card-snow">
+        <i class="fas fa-snowflake"></i><br>
+        <strong>폭설</strong><br>
+        <span class="status-badge" id="snow-val">-</span>
+    </div>
+    <div class="disaster-card card-fire">
+        <i class="fas fa-fire-alt"></i><br>
+        <strong>산불</strong><br>
+        <span class="status-badge" id="fire-val">-</span>
+    </div>
+    <div class="disaster-card card-heat">
+        <i class="fas fa-temperature-high"></i><br>
+        <strong>폭염</strong><br>
+        <span class="status-badge" id="heat-val">-</span>
+    </div>
+</div>
+
+<div id="log-panel">
+    <strong>[실시간 관내 재난 알림]</strong>
+    <div id="log-content"></div>
+</div>
+
+<script>
+    // 1. PWA 서비스 워커 등록
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+            navigator.serviceWorker.register('./sw.js').catch(err => console.log(err));
         });
-    } else {
-        fallbackToDefault("지원하지 않는 브라우저");
     }
-}
 
-// 위치 정보 획득 성공 시
-function successLocation(position) {
-    const lat = position.coords.latitude;
-    const lon = position.coords.longitude;
-    
-    // 좌표 정보 표시 (세종시 중심 좌표 예시: 36.48, 127.28)
-    const addr = `위도:${lat.toFixed(2)}, 경도:${lon.toFixed(2)} (현위치 확인됨)`;
-    document.getElementById('location-bar').innerHTML = `<i class="fas fa-location-dot"></i> 설정 위치: <b>${addr}</b>`;
-    
-    // GPS 기반 알림 자동 호출
-    showIntegratedAlerts("현위치(GPS)");
-}
-
-// 위치 정보 획득 실패 시 (권한 거부 등)
-function errorLocation(error) {
-    let msg = "";
-    switch(error.code) {
-        case error.PERMISSION_DENIED: msg = "위치 권한 거부됨"; break;
-        case error.POSITION_UNAVAILABLE: msg = "위치 확인 불가"; break;
-        case error.TIMEOUT: msg = "확인 시간 초과"; break;
-        default: msg = "통신 오류"; break;
-    }
-    fallbackToDefault(msg);
-}
-
-// 기본값(세종시)으로 복구
-function fallbackToDefault(reason) {
-    const defaultAddr = "세종특별자치시 (기본 위치)";
-    document.getElementById('location-bar').innerHTML = 
-        `<i class="fas fa-circle-exclamation"></i> ${defaultAddr} - <small style="color:#ff4d4d">${reason}</small>`;
-    
-    showIntegratedAlerts("세종특별자치시");
-}
-
-// 현재 위치 기반 재난 데이터 로드 및 출력
-function showIntegratedAlerts(location) {
-    // 위치별 가상 데이터 (실제 운영 시 이 부분을 API fetch로 대체)
-    const data = {
-        "세종특별자치시": { rain: "5mm", snow: "0cm", fire: "72(높음)", heat: "33°C", msg: "금강 하상도로 침수 대비 순찰 강화" },
-        "현위치(GPS)": { rain: "10mm", snow: "0cm", fire: "45(보통)", heat: "29°C", msg: "현재 위치 기반 기상 특보를 모니터링 중입니다." }
+    // 2. 시스템 초기화
+    window.onload = function() {
+        updateLog('시스템', '모니터링 엔진 가동 중...');
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(successLocation, errorLocation, {timeout: 5000});
+        } else {
+            fallbackToDefault("GPS 미지원");
+        }
     };
 
-    const currentData = data[location] || data["세종특별자치시"];
-
-    // 상단 카드 수치 업데이트
-    if(document.getElementById('rain-val')) document.getElementById('rain-val').innerText = currentData.rain;
-    if(document.getElementById('snow-val')) document.getElementById('snow-val').innerText = currentData.snow;
-    if(document.getElementById('fire-val')) document.getElementById('fire-val').innerText = currentData.fire;
-    if(document.getElementById('heat-val')) document.getElementById('heat-val').innerText = currentData.heat;
-
-    // 통합 알림 로그 순차 출력
-    setTimeout(() => updateLog('데이터', `${location} 재난 정보 수신 성공`), 300);
-    setTimeout(() => updateLog('현장대응', currentData.msg), 800);
-    
-    // 산불 위험이 높을 경우 경고 로그 추가
-    if (parseInt(currentData.fire) > 70) {
-        setTimeout(() => updateLog('경고', '산불 위험지수 [높음] - 입산 통제 및 화기 단속 강화'), 1300);
+    function successLocation(pos) {
+        const addr = `위도:${pos.coords.latitude.toFixed(2)}, 경도:${pos.coords.longitude.toFixed(2)}`;
+        document.getElementById('location-bar').innerHTML = `<i class="fas fa-location-dot"></i> 설정 위치: ${addr}`;
+        showIntegratedAlerts("현위치(GPS)");
     }
-}
 
-// 로그 창에 메시지 추가 함수
-function updateLog(type, message) {
-    const logContent = document.getElementById('log-content');
-    if (!logContent) return;
+    function errorLocation(err) { fallbackToDefault("위치 권한 필요"); }
 
-    const now = new Date();
-    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
-    
-    const newLog = document.createElement('div');
-    newLog.className = 'log-entry';
-    
-    // 로그 유형별 색상 설정
-    let typeColor = "white";
-    if (type === '경고') typeColor = "#ff4d4d";
-    if (type === '현장대응') typeColor = "#00d2ff";
+    function fallbackToDefault(reason) {
+        document.getElementById('location-bar').innerHTML = `세종특별자치시 (기본) - ${reason}`;
+        showIntegratedAlerts("세종특별자치시");
+    }
 
-    newLog.innerHTML = `<b style="color:yellow">[${timeStr}]</b> <span style="font-weight:bold; color:${typeColor}">[${type}]</span> ${message}`;
-    logContent.prepend(newLog);
-}
+    function showIntegratedAlerts(location) {
+        const data = {
+            "세종특별자치시": { rain: "5mm", snow: "0cm", fire: "72(높음)", heat: "33°C", msg: "하상도로 순찰 강화" },
+            "현위치(GPS)": { rain: "2mm", snow: "0cm", fire: "40(보통)", heat: "28°C", msg: "기상 모니터링 중" }
+        };
+        const cur = data[location] || data["세종특별자치시"];
+        document.getElementById('rain-val').innerText = cur.rain;
+        document.getElementById('snow-val').innerText = cur.snow;
+        document.getElementById('fire-val').innerText = cur.fire;
+        document.getElementById('heat-val').innerText = cur.heat;
+        updateLog('데이터', `${location} 정보 수신 완료`);
+        updateLog('현장대응', cur.msg);
+    }
+
+    function updateLog(type, message) {
+        const logContent = document.getElementById('log-content');
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes()}:${now.getSeconds()}`;
+        const newLog = document.createElement('div');
+        newLog.className = 'log-entry';
+        newLog.innerHTML = `<b style="color:yellow">[${timeStr}]</b> [${type}] ${message}`;
+        logContent.prepend(newLog);
+    }
+</script>
+</body>
+</html>
