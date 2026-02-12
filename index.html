@@ -3,52 +3,52 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>경찰 재난관리 시스템 v2.0</title>
+    <title>경찰 재난관리 시스템 v3.0</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#16213e">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-dark: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --rain: #38bdf8;
-            --snow: #f1f5f9;
-            --fire: #fb7185;
-            --heat: #fbbf24;
+            --bg-dark: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
+            --rain: #38bdf8; --snow: #f1f5f9; --fire: #fb7185; --heat: #fbbf24;
             --police-blue: #1e40af;
         }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 15px; }
+        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 15px; overflow-x: hidden; }
         header { text-align: center; padding: 20px 0; background: linear-gradient(to bottom, #1e3a8a, var(--bg-dark)); border-radius: 0 0 20px 20px; margin: -15px -15px 20px -15px; }
         #location-bar { background: #334155; padding: 12px; margin-bottom: 20px; border-radius: 10px; text-align: center; font-size: 0.9rem; border-left: 5px solid var(--police-blue); }
         
-        /* 재난 그리드 디자인 고도화 */
         .disaster-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
-        .disaster-card { background-color: var(--card-bg); border-radius: 16px; padding: 20px; position: relative; overflow: hidden; border: 1px solid #334155; }
-        .disaster-card i { font-size: 2.5rem; margin-bottom: 10px; opacity: 0.9; }
+        .disaster-card { 
+            background-color: var(--card-bg); border-radius: 16px; padding: 20px; 
+            border: 1px solid #334155; cursor: pointer; transition: 0.2s;
+        }
+        .disaster-card:active { transform: scale(0.95); background: #334155; }
         .card-title { display: block; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; }
-        
-        /* 등급별 상태 배지 */
         .status-badge { display: block; font-size: 0.85rem; padding: 6px; border-radius: 8px; background: rgba(0,0,0,0.3); margin-top: 5px; font-weight: 600; }
-        .level-normal { color: #4ade80; }
-        .level-watch { color: #facc15; }
-        .level-warning { color: #fb7185; animation: blink 1s infinite; }
 
-        @keyframes blink { 50% { opacity: 0.5; } }
+        /* 모달 스타일 */
+        #detail-modal { 
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+            background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; 
+        }
+        .modal-content { 
+            background: var(--card-bg); width: 90%; max-width: 400px; border-radius: 20px; 
+            padding: 20px; border: 1px solid var(--police-blue);
+        }
+        .modal-header { font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; color: var(--accent); }
+        .detail-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2d3748; font-size: 0.9rem; }
+        .close-btn { width: 100%; padding: 12px; background: var(--police-blue); border: none; color: white; border-radius: 10px; margin-top: 15px; cursor: pointer; }
 
-        /* 대응 로그 영역 */
         #log-panel { margin-top: 25px; background: #020617; border-radius: 12px; padding: 15px; border: 1px solid #1e40af; }
-        .log-header { font-size: 0.9rem; color: var(--police-blue); font-weight: bold; margin-bottom: 10px; border-bottom: 1px solid #1e3a8a; padding-bottom: 5px; }
-        #log-content { height: 250px; overflow-y: auto; font-family: monospace; font-size: 0.85rem; }
-        .log-entry { padding: 6px 0; border-bottom: 1px solid #1e293b; line-height: 1.4; }
-        .tag { font-weight: bold; padding: 2px 5px; border-radius: 4px; margin-right: 5px; }
+        #log-content { height: 180px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; }
+        .log-entry { padding: 4px 0; border-bottom: 1px solid #1e293b; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1 style="margin:0; font-size:1.4rem;"><i class="fas fa-shield-alt"></i> K-Police 재난관리 상황판</h1>
-    <span style="font-size:0.8rem; opacity:0.8;">실시간 현장 대응 지침 연동 시스템</span>
+    <h1 style="margin:0; font-size:1.4rem;"><i class="fas fa-shield-alt"></i> K-Police 재난관리 v3.0</h1>
+    <span id="date-display" style="font-size:0.8rem; opacity:0.8;"></span>
 </header>
 
 <div id="location-bar">
@@ -56,119 +56,99 @@
 </div>
 
 <div class="disaster-container">
-    <div class="disaster-card" style="border-top: 4px solid var(--rain);">
+    <div class="disaster-card" onclick="openDetail('폭우')" style="border-top: 4px solid var(--rain);">
         <i class="fas fa-cloud-showers-heavy" style="color:var(--rain)"></i>
         <span class="card-title">폭우</span>
-        <div id="rain-stat" class="status-badge">-</div>
+        <div id="rain-stat" class="status-badge">분석 중</div>
     </div>
-    <div class="disaster-card" style="border-top: 4px solid var(--snow);">
+    <div class="disaster-card" onclick="openDetail('폭 snow')" style="border-top: 4px solid var(--snow);">
         <i class="fas fa-snowflake" style="color:var(--snow)"></i>
         <span class="card-title">폭설</span>
-        <div id="snow-stat" class="status-badge">-</div>
+        <div id="snow-stat" class="status-badge">분석 중</div>
     </div>
-    <div class="disaster-card" style="border-top: 4px solid var(--fire);">
+    <div class="disaster-card" onclick="openDetail('산불')" style="border-top: 4px solid var(--fire);">
         <i class="fas fa-fire" style="color:var(--fire)"></i>
         <span class="card-title">산불위험</span>
-        <div id="fire-stat" class="status-badge">-</div>
+        <div id="fire-stat" class="status-badge">분석 중</div>
     </div>
-    <div class="disaster-card" style="border-top: 4px solid var(--heat);">
+    <div class="disaster-card" onclick="openDetail('폭염')" style="border-top: 4px solid var(--heat);">
         <i class="fas fa-temperature-high" style="color:var(--heat)"></i>
-        <span class="card-title">폭염</span>
-        <div id="heat-stat" class="status-badge">-</div>
+        <span class="card-title">폭염/한파</span>
+        <div id="heat-stat" class="status-badge">분석 중</div>
+    </div>
+</div>
+
+<div id="detail-modal">
+    <div class="modal-content">
+        <div id="modal-title" class="modal-header">상세 현황</div>
+        <div id="modal-body"></div>
+        <button class="close-btn" onclick="closeModal()">닫기</button>
     </div>
 </div>
 
 <div id="log-panel">
-    <div class="log-header">■ 실시간 관내 주요 재난 대응 로그</div>
     <div id="log-content"></div>
 </div>
 
 <script>
-    // 1. 시스템 초기화 및 위치 확인
-    window.onload = () => {
-        updateLog('SYSTEM', '재난 모니터링 엔진 v2.0 가동');
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(successLoc, errorLoc);
-        } else {
-            fallback("위치지원불가");
-        }
+    // 현재 날짜 반영 (2026년 2월 기준)
+    const now = new Date();
+    document.getElementById('date-display').innerText = `2026. 02. 12. 현장 모니터링 중`;
+
+    // 가상 세부 데이터 (세종시 읍면동 단위)
+    const districtData = {
+        "폭우": { unit: "mm", data: {"조치원읍": 2, "연서면": 1, "어진동": 1, "보람동": 0}, police: "평시 순찰" },
+        "폭 snow": { unit: "cm", data: {"조치원읍": 12, "연서면": 15, "전의면": 18, "소정면": 20}, police: "제설차량 유도 및 결빙지역 통제" },
+        "산불": { unit: "지수", data: {"금남면": 45, "장군면": 42, "연기면": 38, "연동면": 40}, police: "산림 인접지 소각행위 단속" },
+        "폭염": { unit: "°C", data: {"조치원읍": -5, "나성동": -4, "고운동": -6, "금남면": -7}, police: "한파 대비 취약계층 안부 확인" }
     };
 
-    function successLoc(pos) {
-        const addr = `세종시(GPS: ${pos.coords.latitude.toFixed(2)}, ${pos.coords.longitude.toFixed(2)})`;
-        document.getElementById('loc-text').innerText = addr;
-        analyzeDisaster("세종시");
+    window.onload = () => {
+        updateLog('SYSTEM', '2월 동절기 재난 대응 모드 가동');
+        analyzeDisaster();
+    };
+
+    function analyzeDisaster() {
+        // 2월 계절성에 맞춘 현실적 데이터 (폭설/한파 중심)
+        document.getElementById('rain-stat').innerHTML = `1mm (정상)`;
+        document.getElementById('snow-stat').innerHTML = `<span style="color:#fb7185">12cm (대설경보)</span>`;
+        document.getElementById('fire-stat').innerHTML = `42 (보통)`;
+        // 폭염 대신 한파 정보로 표시
+        document.getElementById('heat-stat').innerHTML = `<span style="color:#38bdf8">-5.2°C (한파)</span>`;
+        
+        updateLog('ALERT', '세종 북부 지역(전의, 소정) 폭설 집중 - 대응 강화');
     }
 
-    function errorLoc() { fallback("권한 거부"); }
-    function fallback(reason) {
-        document.getElementById('loc-text').innerText = `세종특별자치시 (기본값) [${reason}]`;
-        analyzeDisaster("세종시");
-    }
-
-    // 2. 재난 데이터 상세 분석 로직
-    function analyzeDisaster(area) {
-        // 실제 운영 시 API 호출 결과값 시뮬레이션
-        const weatherAPI = {
-            rain_val: 45,      // 시간당 강수량(mm)
-            snow_val: 2,       // 적설량(cm)
-            fire_idx: 82,      // 산불위험지수(0~100)
-            temp_val: 34.5     // 체감온도(°C)
-        };
-
-        // 2-1. 폭우 분석 (기상청 기준)
-        let rainTag = "";
-        if(weatherAPI.rain_val >= 30) {
-            rainTag = '<span class="level-warning">호우경보 (위험)</span>';
-            updateLog('ACTION', '저지대 및 하상도로 강제 통제 실시 (경찰력 배치)');
-        } else if(weatherAPI.rain_val >= 10) {
-            rainTag = '<span class="level-watch">주의보 (보통)</span>';
-        } else {
-            rainTag = '<span class="level-normal">정상 (0mm)</span>';
+    function openDetail(type) {
+        const modal = document.getElementById('detail-modal');
+        const title = document.getElementById('modal-title');
+        const body = document.getElementById('modal-body');
+        
+        const info = districtData[type === '폭설' ? '폭 snow' : type];
+        title.innerHTML = `<i class="fas fa-search"></i> 세종시 ${type} 세부 현황`;
+        
+        let html = `<p style="color:#94a3b8; font-size:0.8rem;">관할 구역별 실시간 수치 (${info.unit})</p>`;
+        for (const [loc, val] of Object.entries(info.data)) {
+            html += `<div class="detail-item"><span>${loc}</span><b>${val}${info.unit}</b></div>`;
         }
-        document.getElementById('rain-stat').innerHTML = `${weatherAPI.rain_val}mm/h<br>${rainTag}`;
-
-        // 2-2. 폭설 분석
-        let snowTag = weatherAPI.snow_val >= 5 ? '<span class="level-warning">대설경보</span>' : '<span class="level-normal">평시</span>';
-        document.getElementById('snow-stat').innerHTML = `${weatherAPI.snow_val}cm<br>${snowTag}`;
-
-        // 2-3. 산불위험 분석 (산림청 기준)
-        let fireTag = "";
-        if(weatherAPI.fire_idx >= 81) {
-            fireTag = '<span class="level-warning">매우 높음(심각)</span>';
-            updateLog('ACTION', '산림 인접지 순찰 및 인화물질 소지 집중 단속');
-        } else if(weatherAPI.fire_idx >= 66) {
-            fireTag = '<span class="level-watch">높음(경계)</span>';
-        } else {
-            fireTag = '<span class="level-normal">낮음~보통</span>';
-        }
-        document.getElementById('fire-stat').innerHTML = `지수: ${weatherAPI.fire_idx}<br>${fireTag}`;
-
-        // 2-4. 폭염 분석
-        let heatTag = weatherAPI.temp_val >= 35 ? '<span class="level-warning">폭염경보</span>' : '<span class="level-watch">폭염주의보</span>';
-        document.getElementById('heat-stat').innerHTML = `${weatherAPI.temp_val}°C<br>${heatTag}`;
-        if(weatherAPI.temp_val >= 33) updateLog('INFO', '폭염 대응 무더위 쉼터 인근 거동불편자 예방 순찰');
-
-        updateLog('SUCCESS', `${area} 지역 정밀 데이터 동기화 완료`);
+        html += `<div style="margin-top:15px; padding:10px; background:#0f172a; border-radius:10px; font-size:0.85rem; color:#38bdf8;">
+                    <strong>경찰 조치:</strong> ${info.police}
+                 </div>`;
+        
+        body.innerHTML = html;
+        modal.style.display = 'flex';
     }
 
-    // 3. 로그 기록 시스템
+    function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
+
     function updateLog(tag, msg) {
         const content = document.getElementById('log-content');
-        const now = new Date();
-        const time = now.toTimeString().split(' ')[0];
-        
-        let tagColor = "#94a3b8";
-        if(tag === 'ACTION') tagColor = "#fb7185";
-        if(tag === 'SUCCESS') tagColor = "#4ade80";
-        if(tag === 'SYSTEM') tagColor = "#38bdf8";
-
+        const time = new Date().toTimeString().split(' ')[0];
         const entry = document.createElement('div');
         entry.className = 'log-entry';
-        entry.innerHTML = `<span style="color:#64748b">${time}</span> <span class="tag" style="background:${tagColor}; color:#000">${tag}</span> ${msg}`;
+        entry.innerHTML = `<span style="color:#64748b">${time}</span> <b style="color:#fcd34d">[${tag}]</b> ${msg}`;
         content.prepend(entry);
     }
 </script>
-
 </body>
 </html>
