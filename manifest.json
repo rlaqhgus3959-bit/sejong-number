@@ -1,0 +1,16 @@
+﻿{
+  "name": "경찰 재난관리 시스템",
+  "short_name": "경찰재난",
+  "description": "실시간 위치 기반 재난 모니터링 시스템",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#1a1a2e",
+  "theme_color": "#16213e",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/2555/2555013.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
