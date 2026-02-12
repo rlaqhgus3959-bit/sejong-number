@@ -2,112 +2,212 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 상황실</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>세종경찰 상황판</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* iOS Design System */
-        :root {
-            --ios-bg: #000000;
-            --ios-card: #1c1c1e;
-            --ios-blue: #0a84ff;
-            --ios-red: #ff453a;
-            --ios-green: #30d158;
-            --ios-yellow: #ffd60a;
-            --ios-gray: #8e8e93;
-            --ios-text: #ffffff;
-            --ios-subtext: #aeaeb2;
-        }
-
+        /* 기본 설정 */
         body {
-            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", sans-serif;
-            background-color: var(--ios-bg);
-            color: var(--ios-text);
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Pretendard", sans-serif;
             margin: 0;
-            padding: env(safe-area-inset-top) 20px env(safe-area-inset-bottom) 20px;
+            padding: 20px;
             -webkit-tap-highlight-color: transparent;
-            user-select: none;
         }
 
+        /* 헤더 */
         header {
-            padding-top: 10px; margin-bottom: 20px;
-            display: flex; justify-content: space-between; align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
         }
-        h1 { margin: 0; font-size: 24px; font-weight: 700; }
-        .date-badge { font-size: 13px; color: var(--ios-gray); font-weight: 500; }
+        h1 { margin: 0; font-size: 22px; font-weight: 700; }
+        .date { font-size: 14px; color: #8e8e93; }
 
-        /* Section Style */
-        .section-header {
-            font-size: 13px; font-weight: 600; color: var(--ios-subtext);
-            margin: 25px 0 8px 5px; text-transform: uppercase;
+        /* 섹션 공통 */
+        .section-title {
+            font-size: 14px;
+            color: #8e8e93;
+            margin: 20px 0 10px 5px;
+            font-weight: 600;
         }
 
-        /* 1. Official Links Grid (Big Buttons) */
-        .official-grid { display: grid; grid-template-columns: 1fr; gap: 10px; }
+        /* 1. 공식 링크 버튼 (가장 중요) */
+        .link-container {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
         .official-btn {
-            background: #2c2c2e; padding: 16px; border-radius: 14px;
-            display: flex; align-items: center; justify-content: space-between;
-            text-decoration: none; color: white; transition: 0.2s;
+            background-color: #1c1c1e;
+            padding: 18px;
+            border-radius: 12px;
+            text-decoration: none;
+            color: white;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            transition: background 0.2s;
         }
-        .official-btn:active { background: #3a3a3c; transform: scale(0.98); }
-        .btn-content { display: flex; align-items: center; gap: 12px; }
-        .btn-icon {
-            width: 36px; height: 36px; border-radius: 8px;
-            display: flex; align-items: center; justify-content: center; font-size: 18px;
-        }
-        .btn-text { display: flex; flex-direction: column; gap: 2px; }
-        .btn-title { font-size: 16px; font-weight: 600; }
-        .btn-desc { font-size: 12px; color: var(--ios-subtext); }
+        .official-btn:active { background-color: #333; }
         
-        .icon-traffic { background: var(--ios-blue); color: white; }
-        .icon-report { background: var(--ios-green); color: white; }
-        .icon-contact { background: var(--ios-red); color: white; }
-
-        /* 2. Weather Cards */
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        .card {
-            background: var(--ios-card); padding: 15px; border-radius: 18px;
-            display: flex; flex-direction: column; justify-content: space-between; height: 90px;
+        .btn-left { display: flex; align-items: center; gap: 15px; }
+        .icon-box {
+            width: 36px; height: 36px; border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px;
         }
-        .card i { font-size: 20px; margin-bottom: 5px; }
-        .value { font-size: 22px; font-weight: 600; margin-top: auto; }
-        .label { font-size: 12px; color: var(--ios-subtext); }
-        .safe i { color: var(--ios-blue); } .warn i { color: var(--ios-yellow); } .danger i { color: var(--ios-red); }
+        .btn-text div:first-child { font-size: 16px; font-weight: 600; margin-bottom: 3px; }
+        .btn-text div:last-child { font-size: 12px; color: #8e8e93; }
 
-        /* 3. Reference Area (Memo) */
-        .memo-box {
-            background: var(--ios-card); border-radius: 14px; padding: 15px;
-            border: 0.5px solid #333; min-height: 100px;
+        /* 아이콘 색상 */
+        .bg-blue { background: #0a84ff; }
+        .bg-green { background: #30d158; }
+        .bg-red { background: #ff453a; }
+
+        /* 2. 기상 정보 그리드 */
+        .weather-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
         }
-        .memo-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; display: flex; gap: 6px; align-items: center; }
-        #memo-content { font-size: 13px; line-height: 1.5; color: var(--ios-subtext); }
-        .refresh-memo { background: #333; border: none; color: white; border-radius: 4px; padding: 2px 6px; font-size: 10px; margin-left: auto; }
-
-        /* 4. Controls */
-        #refresh-btn { 
-            background: #2c2c2e; border: none; width: 30px; height: 30px; border-radius: 50%; color: var(--ios-blue);
+        .weather-card {
+            background-color: #1c1c1e;
+            padding: 15px;
+            border-radius: 12px;
+            text-align: center;
         }
-        .spin { animation: spin 1s linear infinite; }
-        @keyframes spin { 100% { transform: rotate(360deg); } }
+        .weather-icon { font-size: 24px; margin-bottom: 8px; color: #0a84ff; }
+        .weather-val { font-size: 20px; font-weight: 700; display: block; }
+        .weather-label { font-size: 12px; color: #8e8e93; margin-top: 4px; display: block; }
 
+        /* 3. 메모장 */
+        .memo-area {
+            background-color: #1c1c1e;
+            border-radius: 12px;
+            padding: 15px;
+            min-height: 100px;
+            border: 1px solid #333;
+            font-size: 14px;
+            line-height: 1.6;
+        }
+        .memo-area:focus { outline: 1px solid #0a84ff; }
+
+        /* 새로고침 버튼 */
+        #refresh {
+            background: #1c1c1e; border: none; color: #0a84ff;
+            width: 35px; height: 35px; border-radius: 50%; font-size: 16px;
+        }
     </style>
 </head>
 <body>
 
-<header>
-    <div>
-        <h1>세종경찰 상황실</h1>
-        <div class="date-badge" id="today-date">2026.02.12 (목)</div>
-    </div>
-    <button id="refresh-btn" onclick="fetchData()"><i class="fas fa-rotate"></i></button>
-</header>
+    <header>
+        <div>
+            <h1>세종경찰 상황실</h1>
+            <div class="date" id="current-date">날짜 로딩중...</div>
+        </div>
+        <button id="refresh" onclick="location.reload()"><i class="fas fa-rotate-right"></i></button>
+    </header>
 
-<div class="section-header">공식 상황 보고</div>
-<div class="official-grid">
-    <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="official-btn">
-        <div class="btn-content">
-            <div class="btn-icon icon-traffic"><i class="fas fa
+    <div class="section-title">🚨 공식 상황 보고</div>
+    <div class="link-container">
+        <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="official-btn">
+            <div class="btn-left">
+                <div class="icon-box bg-blue"><i class="fas fa-road"></i></div>
+                <div class="btn-text">
+                    <div>도로/지하차도 통제</div>
+                    <div>금일 통제 현황 (공지사항)</div>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right" style="color:#555"></i>
+        </a>
+
+        <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="official-btn">
+            <div class="btn-left">
+                <div class="icon-box bg-red"><i class="fas fa-phone"></i></div>
+                <div class="btn-text">
+                    <div>비상연락망</div>
+                    <div>재난안전과 및 유관기관</div>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right" style="color:#555"></i>
+        </a>
+
+        <a href="https://www.sejong.go.kr/bbs/R1031/list.do" target="_blank" class="official-btn">
+            <div class="btn-left">
+                <div class="icon-box bg-green"><i class="fas fa-file-lines"></i></div>
+                <div class="btn-text">
+                    <div>일일 재난안전 종합보고</div>
+                    <div>당일 상황보고서 열람</div>
+                </div>
+            </div>
+            <i class="fas fa-chevron-right" style="color:#555"></i>
+        </a>
+    </div>
+
+    <div class="section-title">☁️ 실시간 기상 (세종청사)</div>
+    <div class="weather-grid">
+        <div class="weather-card">
+            <i class="fas fa-cloud-showers-heavy weather-icon"></i>
+            <span class="weather-val" id="w-rain">-</span>
+            <span class="weather-label">강수량(mm)</span>
+        </div>
+        <div class="weather-card">
+            <i class="fas fa-snowflake weather-icon" style="color:white"></i>
+            <span class="weather-val" id="w-snow">-</span>
+            <span class="weather-label">적설량(cm)</span>
+        </div>
+        <div class="weather-card">
+            <i class="fas fa-temperature-half weather-icon" style="color:#ffcc00"></i>
+            <span class="weather-val" id="w-temp">-</span>
+            <span class="weather-label">기온(°C)</span>
+        </div>
+        <div class="weather-card">
+            <i class="fas fa-wind weather-icon" style="color:#30d158"></i>
+            <span class="weather-val" id="w-wind">-</span>
+            <span class="weather-label">풍속(m/s)</span>
+        </div>
+    </div>
+
+    <div class="section-title">📝 상황 메모</div>
+    <div class="memo-area" contenteditable="true">
+        [특이사항 입력]<br>
+        - 통제 정보 확인 후 여기에 메모하세요.
+    </div>
+
+    <script>
+        // 1. 날짜 설정
+        const now = new Date();
+        const options = { year: 'numeric', month: 'long', day: 'numeric', weekday: 'short' };
+        document.getElementById('current-date').innerText = now.toLocaleDateString('ko-KR', options);
+
+        // 2. 날씨 API 연동 (오류나도 화면은 유지됨)
+        async function loadWeather() {
+            try {
+                // 세종시 좌표
+                const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo";
+                const res = await fetch(url);
+                const data = await res.json();
+                
+                const cur = data.current;
+                document.getElementById('w-rain').innerText = cur.rain;
+                document.getElementById('w-snow').innerText = cur.snowfall;
+                document.getElementById('w-temp').innerText = cur.temperature_2m;
+                document.getElementById('w-wind').innerText = cur.wind_speed_10m;
+            } catch (error) {
+                console.log("날씨 로딩 실패");
+                document.getElementById('w-temp').innerText = "N/A";
+            }
+        }
+
+        // 실행
+        loadWeather();
+    </script>
+
+</body>
+</html>
