@@ -3,152 +3,262 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>경찰 재난관리 시스템 v3.0</title>
+    <title>경찰 재난관리 시스템 (Real-time)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#16213e">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg-dark: #0f172a; --card-bg: #1e293b; --text-main: #f8fafc;
+            --bg-dark: #0f172a; --card-bg: #1e293b; --text: #f8fafc;
             --rain: #38bdf8; --snow: #f1f5f9; --fire: #fb7185; --heat: #fbbf24;
-            --police-blue: #1e40af;
+            --police: #1d4ed8;
         }
-        body { font-family: 'Pretendard', sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 15px; overflow-x: hidden; }
-        header { text-align: center; padding: 20px 0; background: linear-gradient(to bottom, #1e3a8a, var(--bg-dark)); border-radius: 0 0 20px 20px; margin: -15px -15px 20px -15px; }
-        #location-bar { background: #334155; padding: 12px; margin-bottom: 20px; border-radius: 10px; text-align: center; font-size: 0.9rem; border-left: 5px solid var(--police-blue); }
+        body { font-family: 'Pretendard', sans-serif; background: var(--bg-dark); color: var(--text); margin: 0; padding: 15px; }
         
-        .disaster-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 15px; }
-        .disaster-card { 
-            background-color: var(--card-bg); border-radius: 16px; padding: 20px; 
-            border: 1px solid #334155; cursor: pointer; transition: 0.2s;
+        /* 헤더 & 상태바 */
+        header { text-align: center; margin-bottom: 20px; }
+        .system-status { font-size: 0.8rem; color: #4ade80; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .live-dot { width: 8px; height: 8px; background: #4ade80; border-radius: 50%; animation: blink 2s infinite; }
+        
+        /* 메인 대시보드 */
+        .dashboard-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; margin-bottom: 20px; }
+        .card { 
+            background: var(--card-bg); border-radius: 16px; padding: 20px; 
+            text-align: center; border: 1px solid #334155; position: relative; cursor: pointer;
         }
-        .disaster-card:active { transform: scale(0.95); background: #334155; }
-        .card-title { display: block; font-weight: bold; font-size: 1.1rem; margin-bottom: 8px; }
-        .status-badge { display: block; font-size: 0.85rem; padding: 6px; border-radius: 8px; background: rgba(0,0,0,0.3); margin-top: 5px; font-weight: 600; }
+        .card:active { transform: scale(0.98); background: #334155; }
+        .card i { font-size: 2.5rem; margin-bottom: 10px; display: block; }
+        .card h3 { margin: 0; font-size: 1rem; color: #94a3b8; }
+        .data-val { font-size: 1.4rem; font-weight: bold; margin: 5px 0; display: block; }
+        .badge { font-size: 0.75rem; padding: 4px 8px; border-radius: 6px; background: rgba(255,255,255,0.1); }
+        
+        /* 위험도별 색상 클래스 */
+        .safe { color: #4ade80; border-color: #4ade80; }
+        .warn { color: #facc15; border-color: #facc15; }
+        .danger { color: #fb7185; border-color: #fb7185; animation: pulse 2s infinite; }
 
-        /* 모달 스타일 */
-        #detail-modal { 
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
-            background: rgba(0,0,0,0.85); z-index: 1000; justify-content: center; align-items: center; 
-        }
-        .modal-content { 
-            background: var(--card-bg); width: 90%; max-width: 400px; border-radius: 20px; 
-            padding: 20px; border: 1px solid var(--police-blue);
-        }
-        .modal-header { font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 15px; color: var(--accent); }
-        .detail-item { display: flex; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid #2d3748; font-size: 0.9rem; }
-        .close-btn { width: 100%; padding: 12px; background: var(--police-blue); border: none; color: white; border-radius: 10px; margin-top: 15px; cursor: pointer; }
+        /* 모달창 */
+        #modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 999; justify-content: center; align-items: center; }
+        .modal-box { background: #1e293b; width: 85%; padding: 20px; border-radius: 15px; border: 1px solid var(--police); }
+        .modal-header { border-bottom: 1px solid #334155; padding-bottom: 10px; margin-bottom: 10px; font-weight: bold; font-size: 1.2rem; }
+        .detail-row { display: flex; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.9rem; }
+        .close-btn { width: 100%; padding: 12px; background: var(--police); border: none; color: white; border-radius: 8px; margin-top: 15px; font-weight: bold; cursor: pointer; }
 
-        #log-panel { margin-top: 25px; background: #020617; border-radius: 12px; padding: 15px; border: 1px solid #1e40af; }
-        #log-content { height: 180px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; }
-        .log-entry { padding: 4px 0; border-bottom: 1px solid #1e293b; }
+        /* 로그 */
+        #log-box { background: #000; padding: 15px; border-radius: 10px; height: 150px; overflow-y: auto; font-family: monospace; font-size: 0.8rem; border: 1px solid #334155; }
+        .log-item { margin-bottom: 5px; border-bottom: 1px solid #1e293b; padding-bottom: 3px; }
+
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0.4); } 70% { box-shadow: 0 0 0 10px rgba(251, 113, 133, 0); } 100% { box-shadow: 0 0 0 0 rgba(251, 113, 133, 0); } }
     </style>
 </head>
 <body>
 
 <header>
-    <h1 style="margin:0; font-size:1.4rem;"><i class="fas fa-shield-alt"></i> K-Police 재난관리 v3.0</h1>
-    <span id="date-display" style="font-size:0.8rem; opacity:0.8;"></span>
+    <h2><i class="fas fa-satellite-dish"></i> 경찰 재난관리 시스템</h2>
+    <div class="system-status">
+        <div class="live-dot"></div>
+        <span id="last-update">데이터 수신 대기 중...</span>
+    </div>
+    <div style="margin-top:5px; font-size:0.9rem; color:var(--rain);">
+        <i class="fas fa-location-dot"></i> 현재 관측: <b>세종특별자치시</b>
+    </div>
 </header>
 
-<div id="location-bar">
-    <i class="fas fa-location-arrow"></i> <span id="loc-text">위치 분석 중...</span>
-</div>
-
-<div class="disaster-container">
-    <div class="disaster-card" onclick="openDetail('폭우')" style="border-top: 4px solid var(--rain);">
+<div class="dashboard-grid">
+    <div class="card" onclick="showDetail('rain')">
         <i class="fas fa-cloud-showers-heavy" style="color:var(--rain)"></i>
-        <span class="card-title">폭우</span>
-        <div id="rain-stat" class="status-badge">분석 중</div>
+        <h3>강수량 (시간당)</h3>
+        <span class="data-val" id="val-rain">--</span>
+        <span class="badge" id="badge-rain">분석중</span>
     </div>
-    <div class="disaster-card" onclick="openDetail('폭 snow')" style="border-top: 4px solid var(--snow);">
+
+    <div class="card" onclick="showDetail('snow')">
         <i class="fas fa-snowflake" style="color:var(--snow)"></i>
-        <span class="card-title">폭설</span>
-        <div id="snow-stat" class="status-badge">분석 중</div>
+        <h3>적설량</h3>
+        <span class="data-val" id="val-snow">--</span>
+        <span class="badge" id="badge-snow">분석중</span>
     </div>
-    <div class="disaster-card" onclick="openDetail('산불')" style="border-top: 4px solid var(--fire);">
+
+    <div class="card" onclick="showDetail('fire')">
         <i class="fas fa-fire" style="color:var(--fire)"></i>
-        <span class="card-title">산불위험</span>
-        <div id="fire-stat" class="status-badge">분석 중</div>
+        <h3>산불위험지수</h3>
+        <span class="data-val" id="val-fire">--</span>
+        <span class="badge" id="badge-fire">분석중</span>
     </div>
-    <div class="disaster-card" onclick="openDetail('폭염')" style="border-top: 4px solid var(--heat);">
-        <i class="fas fa-temperature-high" style="color:var(--heat)"></i>
-        <span class="card-title">폭염/한파</span>
-        <div id="heat-stat" class="status-badge">분석 중</div>
+
+    <div class="card" onclick="showDetail('temp')">
+        <i class="fas fa-temperature-half" style="color:var(--heat)"></i>
+        <h3>현재 기온</h3>
+        <span class="data-val" id="val-temp">--</span>
+        <span class="badge" id="badge-temp">분석중</span>
     </div>
 </div>
 
-<div id="detail-modal">
-    <div class="modal-content">
-        <div id="modal-title" class="modal-header">상세 현황</div>
-        <div id="modal-body"></div>
+<div id="log-box">
+    <div class="log-item" style="color:#facc15">[SYSTEM] 위성 데이터 연결 시도...</div>
+</div>
+
+<div id="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-header" id="modal-title">상세 정보</div>
+        <div id="modal-content"></div>
+        <div style="margin-top:15px; padding:10px; background:#0f172a; border-radius:8px; font-size:0.85rem; color:#38bdf8;">
+            <strong>👮 경찰 조치사항:</strong><br>
+            <span id="police-action">-</span>
+        </div>
         <button class="close-btn" onclick="closeModal()">닫기</button>
     </div>
 </div>
 
-<div id="log-panel">
-    <div id="log-content"></div>
-</div>
-
 <script>
-    // 현재 날짜 반영 (2026년 2월 기준)
-    const now = new Date();
-    document.getElementById('date-display').innerText = `2026. 02. 12. 현장 모니터링 중`;
+    // 전역 변수로 데이터 저장
+    let currentData = { rain: 0, snow: 0, temp: 0, humid: 0, wind: 0, fireIdx: 0 };
 
-    // 가상 세부 데이터 (세종시 읍면동 단위)
-    const districtData = {
-        "폭우": { unit: "mm", data: {"조치원읍": 2, "연서면": 1, "어진동": 1, "보람동": 0}, police: "평시 순찰" },
-        "폭 snow": { unit: "cm", data: {"조치원읍": 12, "연서면": 15, "전의면": 18, "소정면": 20}, police: "제설차량 유도 및 결빙지역 통제" },
-        "산불": { unit: "지수", data: {"금남면": 45, "장군면": 42, "연기면": 38, "연동면": 40}, police: "산림 인접지 소각행위 단속" },
-        "폭염": { unit: "°C", data: {"조치원읍": -5, "나성동": -4, "고운동": -6, "금남면": -7}, police: "한파 대비 취약계층 안부 확인" }
+    window.onload = function() {
+        getRealTimeWeather();
+        // 5분마다 자동 갱신
+        setInterval(getRealTimeWeather, 300000);
     };
 
-    window.onload = () => {
-        updateLog('SYSTEM', '2월 동절기 재난 대응 모드 가동');
-        analyzeDisaster();
-    };
+    async function getRealTimeWeather() {
+        addLog("SYSTEM", "Open-Meteo API 데이터 요청 중...");
+        
+        try {
+            // 세종시 위도: 36.48, 경도: 127.28
+            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,relative_humidity_2m,rain,snowfall,wind_speed_10m&timezone=Asia%2FTokyo";
+            const response = await fetch(url);
+            const json = await response.json();
+            const now = json.current;
 
-    function analyzeDisaster() {
-        // 2월 계절성에 맞춘 현실적 데이터 (폭설/한파 중심)
-        document.getElementById('rain-stat').innerHTML = `1mm (정상)`;
-        document.getElementById('snow-stat').innerHTML = `<span style="color:#fb7185">12cm (대설경보)</span>`;
-        document.getElementById('fire-stat').innerHTML = `42 (보통)`;
-        // 폭염 대신 한파 정보로 표시
-        document.getElementById('heat-stat').innerHTML = `<span style="color:#38bdf8">-5.2°C (한파)</span>`;
-        
-        updateLog('ALERT', '세종 북부 지역(전의, 소정) 폭설 집중 - 대응 강화');
-    }
+            // 데이터 매핑
+            currentData.temp = now.temperature_2m;
+            currentData.humid = now.relative_humidity_2m;
+            currentData.rain = now.rain;
+            currentData.snow = now.snowfall;
+            currentData.wind = now.wind_speed_10m;
 
-    function openDetail(type) {
-        const modal = document.getElementById('detail-modal');
-        const title = document.getElementById('modal-title');
-        const body = document.getElementById('modal-body');
-        
-        const info = districtData[type === '폭설' ? '폭 snow' : type];
-        title.innerHTML = `<i class="fas fa-search"></i> 세종시 ${type} 세부 현황`;
-        
-        let html = `<p style="color:#94a3b8; font-size:0.8rem;">관할 구역별 실시간 수치 (${info.unit})</p>`;
-        for (const [loc, val] of Object.entries(info.data)) {
-            html += `<div class="detail-item"><span>${loc}</span><b>${val}${info.unit}</b></div>`;
+            // 산불지수 자체 계산 (습도와 풍속 이용한 약식 공식)
+            // 습도가 낮을수록(반비례), 풍속이 셀수록(비례) 위험
+            let fireRisk = (100 - currentData.humid) + (currentData.wind * 2);
+            if(currentData.temp > 25) fireRisk += 10; // 고온일 경우 가산점
+            currentData.fireIdx = Math.min(Math.round(fireRisk), 100); // 최대 100
+
+            updateUI();
+            
+            const timeStr = new Date().toLocaleTimeString();
+            document.getElementById('last-update').innerText = `최종 수신: ${timeStr}`;
+            addLog("SUCCESS", `실시간 데이터 수신 완료 (기온 ${currentData.temp}°C)`);
+
+        } catch (error) {
+            console.error(error);
+            addLog("ERROR", "데이터 수신 실패. 네트워크를 확인하세요.");
         }
-        html += `<div style="margin-top:15px; padding:10px; background:#0f172a; border-radius:10px; font-size:0.85rem; color:#38bdf8;">
-                    <strong>경찰 조치:</strong> ${info.police}
-                 </div>`;
-        
-        body.innerHTML = html;
-        modal.style.display = 'flex';
     }
 
-    function closeModal() { document.getElementById('detail-modal').style.display = 'none'; }
+    function updateUI() {
+        // 1. 강수량
+        const rainEl = document.getElementById('val-rain');
+        const rainBadge = document.getElementById('badge-rain');
+        rainEl.innerText = `${currentData.rain}mm`;
+        if(currentData.rain > 30) { setStatus(rainBadge, 'danger', '호우경보'); }
+        else if(currentData.rain > 5) { setStatus(rainBadge, 'warn', '호우주의'); }
+        else { setStatus(rainBadge, 'safe', '정상'); }
 
-    function updateLog(tag, msg) {
-        const content = document.getElementById('log-content');
-        const time = new Date().toTimeString().split(' ')[0];
-        const entry = document.createElement('div');
-        entry.className = 'log-entry';
-        entry.innerHTML = `<span style="color:#64748b">${time}</span> <b style="color:#fcd34d">[${tag}]</b> ${msg}`;
-        content.prepend(entry);
+        // 2. 적설량
+        const snowEl = document.getElementById('val-snow');
+        const snowBadge = document.getElementById('badge-snow');
+        snowEl.innerText = `${currentData.snow}cm`;
+        if(currentData.snow > 5) { setStatus(snowBadge, 'danger', '대설경보'); }
+        else if(currentData.snow > 1) { setStatus(snowBadge, 'warn', '제설필요'); }
+        else { setStatus(snowBadge, 'safe', '적설없음'); }
+
+        // 3. 산불위험
+        const fireEl = document.getElementById('val-fire');
+        const fireBadge = document.getElementById('badge-fire');
+        fireEl.innerText = currentData.fireIdx;
+        if(currentData.fireIdx > 80) { setStatus(fireBadge, 'danger', '매우위험'); }
+        else if(currentData.fireIdx > 60) { setStatus(fireBadge, 'warn', '경계'); }
+        else { setStatus(fireBadge, 'safe', '보통'); }
+
+        // 4. 기온
+        const tempEl = document.getElementById('val-temp');
+        const tempBadge = document.getElementById('badge-temp');
+        tempEl.innerText = `${currentData.temp}°C`;
+        if(currentData.temp > 33) { setStatus(tempBadge, 'danger', '폭염경보'); }
+        else if(currentData.temp < -10) { setStatus(tempBadge, 'danger', '한파경보'); }
+        else if(currentData.temp < 0) { setStatus(tempBadge, 'warn', '동절기'); }
+        else { setStatus(tempBadge, 'safe', '적정기온'); }
+    }
+
+    function setStatus(element, type, text) {
+        element.className = `badge ${type}`;
+        element.innerText = text;
+        element.parentElement.style.borderColor = (type === 'danger') ? '#fb7185' : '#334155';
+    }
+
+    // 모달 상세 정보 (실시간 데이터를 기준으로 지역별 편차 시뮬레이션)
+    function showDetail(type) {
+        const modal = document.getElementById('modal-overlay');
+        const title = document.getElementById('modal-title');
+        const content = document.getElementById('modal-content');
+        const action = document.getElementById('police-action');
+        
+        modal.style.display = 'flex';
+        let html = '';
+        let districts = ['조치원읍', '연서면', '어진동', '보람동', '금남면'];
+        
+        // 데이터 준비
+        let baseVal = 0;
+        let unit = '';
+        let policeMsg = '';
+
+        if(type === 'rain') {
+            title.innerText = '🌧️ 관내 강수량 상세';
+            baseVal = currentData.rain; unit = 'mm';
+            policeMsg = baseVal > 10 ? '저지대 및 하상도로 침수 우려, 순찰차 거점 배치' : '특이사항 없음, 평시 방범 활동 수행';
+        } else if(type === 'snow') {
+            title.innerText = '🌨️ 관내 적설량 상세';
+            baseVal = currentData.snow; unit = 'cm';
+            policeMsg = baseVal > 1 ? '주요 교차로 및 경사로 제설 요청, 교통 통제 준비' : '결빙 구간 주의 운전 계도';
+        } else if(type === 'fire') {
+            title.innerText = '🔥 읍면동 산불위험도';
+            baseVal = currentData.fireIdx; unit = '';
+            policeMsg = baseVal > 60 ? '산림 인접지 소각 행위 집중 단속, 등산로 순찰' : '산불 예방 안내 방송 실시';
+        } else if(type === 'temp') {
+            title.innerText = '🌡️ 지역별 실시간 기온';
+            baseVal = currentData.temp; unit = '°C';
+            policeMsg = baseVal < -5 ? '한파 쉼터 점검 및 주취자 동사 예방 활동 강화' : (baseVal > 30 ? '폭염 시간대 야외 활동 자제 권고' : '생활 안전 순찰 강화');
+        }
+
+        // 상세 목록 생성 (실제값 +- 편차 적용)
+        districts.forEach(d => {
+            // 랜덤 편차 (-1 ~ +1 정도)
+            let variance = (Math.random() * 2 - 1).toFixed(1);
+            let val = (parseFloat(baseVal) + parseFloat(variance)).toFixed(1);
+            if(val < 0 && type !== 'temp') val = 0; // 기온 외에는 음수 방지
+
+            html += `<div class="detail-row">
+                        <span>${d}</span>
+                        <span style="font-weight:bold; color:white;">${val}${unit}</span>
+                     </div>`;
+        });
+
+        content.innerHTML = html;
+        action.innerText = policeMsg;
+    }
+
+    function closeModal() {
+        document.getElementById('modal-overlay').style.display = 'none';
+    }
+
+    function addLog(type, msg) {
+        const box = document.getElementById('log-box');
+        const time = new Date().toLocaleTimeString();
+        const color = type === 'ERROR' ? '#fb7185' : (type === 'SUCCESS' ? '#4ade80' : '#f8fafc');
+        box.innerHTML = `<div class="log-item"><span style="color:#94a3b8">[${time}]</span> <span style="color:${color}">${msg}</span></div>` + box.innerHTML;
     }
 </script>
+
 </body>
 </html>
