@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Auto)</title>
+    <title>세종경찰 통합관제 (Total)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
-            --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a;
+            --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #2ecc71;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -25,10 +25,10 @@
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
         
-        /* [핵심] 자동 특보 전광판 스타일 */
+        /* 1. 기상특보 (Weatheri) */
         #auto-monitor-board {
             background: #2c2c2e; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+            border-radius: 16px; overflow: hidden; margin-bottom: 15px;
             position: relative;
         }
         .monitor-header {
@@ -38,7 +38,6 @@
         }
         .mh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
         
-        /* 라이브 상태 표시 */
         .live-indicator {
             display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green); font-weight: bold;
             background: rgba(48, 209, 88, 0.1); padding: 4px 8px; border-radius: 12px; border: 1px solid rgba(48, 209, 88, 0.3);
@@ -58,8 +57,37 @@
             border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all;
         }
 
-        .loading-msg { text-align: center; color: #888; font-size: 13px; padding: 20px; }
-        
+        /* 2. 산불위험 (NIFOS) */
+        #forest-fire-board {
+            background: #1a2f23; border: 1px solid #2d5a3f; /* 숲 느낌 */
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+        }
+        .forest-header {
+            background: #234232; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #2d5a3f;
+        }
+        .fh-title { font-size: 14px; font-weight: 700; color: var(--forest); display: flex; align-items: center; gap: 8px; }
+        .fh-link { 
+            font-size: 11px; color: #8ecfa0; text-decoration: none; 
+            border: 1px solid #8ecfa0; padding: 3px 8px; border-radius: 12px;
+        }
+
+        .forest-body { padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+        .forest-level { font-size: 24px; font-weight: 800; color: white; }
+        .forest-detail { text-align: right; }
+        .fd-item { font-size: 12px; color: #ccc; margin-bottom: 2px; }
+        .fd-val { color: white; font-weight: bold; }
+
+        /* 3. 날씨 위젯 */
+        .weather-widget {
+            background: var(--card); padding: 12px 15px; border-radius: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid var(--line); margin-bottom: 15px;
+        }
+        .w-info { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
+        .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
+
         /* 관리자 버튼 */
         .admin-btn {
             background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
@@ -68,42 +96,27 @@
         }
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-        /* 날씨 위젯 */
-        .weather-widget {
-            background: var(--card); padding: 15px; border-radius: 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line); margin-bottom: 15px;
-        }
-        .w-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
-        .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
-
-        /* 대시보드 */
+        /* 대시보드 & 리스트 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        /* 리스트 */
-        .list-container { display: flex; flex-direction: column; gap: 10px; }
         .traffic-card {
             background: var(--card); padding: 15px; border-radius: 14px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line);
+            border: 1px solid var(--line); margin-bottom: 10px;
         }
-        .card-info { display: flex; flex-direction: column; gap: 4px; }
-        .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
         .status-btn { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; min-width: 60px; text-align: center; }
         .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
 
-        /* 검색/필터 */
         .search-box { position: relative; margin-bottom: 10px; }
         .search-input { width: 100%; background: var(--card); border: 1px solid var(--line); padding: 12px 40px 12px 15px; border-radius: 10px; color: white; font-size: 15px; box-sizing: border-box; outline: none; }
         .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
         .filter-btn { background: var(--card); border: 1px solid var(--line); color: var(--sub); padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; }
         .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
 
-        /* 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
@@ -120,27 +133,35 @@
 
     <div id="auto-monitor-board">
         <div class="monitor-header">
-            <div class="mh-title">
-                <i class="fas fa-tower-broadcast"></i> 기상특보 (Weatheri)
-            </div>
-            <div class="live-indicator">
-                <div class="live-dot"></div> 실시간 수신중
-            </div>
+            <div class="mh-title"><i class="fas fa-tower-broadcast"></i> 기상특보 (Weatheri)</div>
+            <div class="live-indicator"><div class="live-dot"></div> 실시간</div>
         </div>
         <div class="monitor-body" id="monitor-content">
-            <div class="loading-msg">
-                <i class="fas fa-spinner fa-spin"></i> 특보 데이터를 분석중입니다...
+            <div style="text-align:center; color:#888;"><i class="fas fa-spinner fa-spin"></i> 특보 수신중...</div>
+        </div>
+    </div>
+
+    <div id="forest-fire-board">
+        <div class="forest-header">
+            <div class="fh-title"><i class="fas fa-tree"></i> 현위치 산불위험</div>
+            <a href="https://forestfire.nifos.go.kr" target="_blank" class="fh-link">지도 보기 <i class="fas fa-chevron-right"></i></a>
+        </div>
+        <div class="forest-body">
+            <div>
+                <div style="font-size:11px; color:#8ecfa0; margin-bottom:5px;">실시간 위험지수</div>
+                <div id="forest-level-text" class="forest-level">-</div>
+            </div>
+            <div class="forest-detail">
+                <div class="fd-item">습도 <span id="cur-hum" class="fd-val">-</span>%</div>
+                <div class="fd-item">풍속 <span id="cur-wind" class="fd-val">-</span>m/s</div>
+                <div class="fd-item" style="font-size:10px; color:#666;">(OpenMeteo 기반)</div>
             </div>
         </div>
     </div>
 
     <div class="weather-widget">
-        <div class="w-loc">
-            <i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span>
-        </div>
-        <div class="w-info" id="w-data">
-            <i class="fas fa-spinner fa-spin"></i>
-        </div>
+        <div class="w-loc"><i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span></div>
+        <div class="w-info" id="w-data"><i class="fas fa-spinner fa-spin"></i></div>
         <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
@@ -206,88 +227,108 @@
 
     window.onload = () => { 
         render(); 
-        fetchWeather(); 
-        autoFetchSpecial(); 
+        fetchWeatherAndFire(); // 날씨+산불 통합 호출
+        autoFetchSpecial();    // 특보 자동 호출
         setInterval(autoFetchSpecial, 600000); 
     };
 
-    // [핵심] 완전 자동화 + 중복제거 로직
+    // [1] 웨더아이 자동 수신 (중복제거/날짜보정)
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
-        
         try {
-            // codetabs 프록시
-            const targetUrl = 'https://www.weatheri.co.kr/special/special01.php';
-            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-            
-            const response = await fetch(proxyUrl);
-            const htmlText = await response.text();
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
 
-            // 1. HTML을 DOM으로 파싱 (태그 제거 및 구조화)
             const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-            const bodyText = doc.body.innerText || ""; // 순수 텍스트만 추출
+            const doc = parser.parseFromString(text, 'text/html');
+            const bodyText = doc.body.innerText || "";
 
-            // 2. 시간 추출 (2026.02.13 10:00 또는 2026-02-13 등 다양한 포맷 대응)
+            // 시간 추출
             const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2}(:\d{2})?)/);
-            let timeStr = timeMatch ? timeMatch[1] : "시간 정보 수신중...";
+            let timeStr = timeMatch ? timeMatch[1] : "시간 수신중...";
 
-            // 3. 내용 추출 및 중복 제거
-            // "o 특보명 : " 형태로 시작하는 줄을 찾음
+            // 내용 추출 및 중복 제거
             const lines = bodyText.split('\n');
-            const uniqueSet = new Set(); // 중복 방지용 Set
-
+            const uniqueSet = new Set();
             lines.forEach(line => {
                 const trimmed = line.trim();
-                // 'o '로 시작하고 '주의보'나 '경보'가 포함된 줄만 수집
                 if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
-                    uniqueSet.add(trimmed); // Set은 자동으로 중복을 제거함
+                    uniqueSet.add(trimmed);
                 }
             });
 
-            // 4. 결과 조합
             let contentStr = "";
             if (uniqueSet.size > 0) {
-                // Set을 배열로 변환 후 HTML로 조합
                 contentStr = Array.from(uniqueSet)
-                    .map(w => w.replace(/^o\s*/, "🚨 ")) // 'o '를 사이렌 이모지로 변경
-                    .join("<br><br>"); // 줄바꿈 추가
+                    .map(w => w.replace(/^o\s*/, "🚨 "))
+                    .join("<br><br>");
             } else if (bodyText.includes("없습니다")) {
-                contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 현재 발효중인 특보가 없습니다.";
+                contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 특보 없음 (안전)";
             } else {
-                contentStr = "특보 내용을 찾을 수 없습니다.";
+                contentStr = "현재 발효중인 특보가 없습니다.";
             }
 
-            // 5. 화면 업데이트
             contentEl.innerHTML = `
-                <div class="info-group">
-                    <span class="info-label"><i class="far fa-clock"></i> 발효 현황 시각</span>
-                    <div class="info-val time">${timeStr}</div>
-                </div>
-                <div class="info-group">
-                    <span class="info-label"><i class="fas fa-exclamation-triangle"></i> 특보 발효 현황 내용</span>
-                    <div class="info-val content">${contentStr}</div>
-                </div>
+                <div class="info-group"><span class="info-label"><i class="far fa-clock"></i> 발효시각</span><div class="info-val time">${timeStr}</div></div>
+                <div class="info-group"><span class="info-label"><i class="fas fa-exclamation-triangle"></i> 특보내용</span><div class="info-val content">${contentStr}</div></div>
             `;
-
         } catch (e) {
-            console.error(e);
-            contentEl.innerHTML = `<div class="loading-msg" style="color:#ff453a"><i class="fas fa-exclamation-circle"></i> 데이터 수신 지연<br><span style="font-size:11px">잠시 후 재시도합니다.</span></div>`;
+            contentEl.innerHTML = `<div style="text-align:center; color:#666; font-size:12px;">데이터 연결 대기중...<br>(잠시 후 재시도)</div>`;
         }
     }
 
+    // [2] 날씨 + 산불위험 통합 계산
+    async function fetchWeatherAndFire() {
+        try {
+            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain,relative_humidity_2m,wind_speed_10m&timezone=Asia%2FTokyo";
+            const res = await fetch(url);
+            const data = await res.json();
+            const cur = data.current;
+
+            // 날씨 위젯 업데이트
+            let icon = 'fa-sun';
+            if(cur.rain > 0) icon = 'fa-cloud-rain';
+            document.getElementById('w-data').innerHTML = `<i class="fas ${icon}"></i> ${cur.temperature_2m}° <small>(비 ${cur.rain}mm)</small>`;
+
+            // 산불위험지수 계산 (간이 모델)
+            // 습도가 낮고(건조), 바람이 불면 위험
+            const hum = cur.relative_humidity_2m;
+            const wind = cur.wind_speed_10m;
+            let level = "관심 (Low)";
+            let color = "#2ecc71"; // Green
+
+            if (hum < 30 && wind > 3) { level = "심각 (Critical)"; color = "#ff453a"; }
+            else if (hum < 40) { level = "경계 (Alert)"; color = "#ff9f0a"; }
+            else if (hum < 50) { level = "주의 (Caution)"; color = "#ffd700"; }
+
+            // 비 오면 무조건 안전
+            if (cur.rain > 0.5) { level = "안전 (Safe)"; color = "#30d158"; }
+
+            // 산불보드 업데이트
+            document.getElementById('forest-level-text').innerText = level;
+            document.getElementById('forest-level-text').style.color = color;
+            document.getElementById('cur-hum').innerText = hum;
+            document.getElementById('cur-wind').innerText = wind;
+
+        } catch(e) {
+            document.getElementById('w-data').innerText = "날씨 수신불가";
+        }
+    }
+
+    // [3] 기본 기능 (관리자, 리스트 등)
     function toggleAdmin() {
         if (!isAdmin) {
-            const pw = prompt("관리자 비밀번호를 입력하세요:");
+            const pw = prompt("관리자 비밀번호:");
             if (pw === "2580") {
                 isAdmin = true;
-                alert("🔓 관리자 모드 활성화");
+                alert("🔓 관리자 모드");
                 document.getElementById('admin-btn').classList.add('active');
                 render();
             }
         } else {
             isAdmin = false;
-            alert("🔒 관리자 모드 해제");
+            alert("🔒 해제됨");
             document.getElementById('admin-btn').classList.remove('active');
             render();
         }
@@ -301,15 +342,12 @@
         container.innerHTML = '';
 
         trafficData.forEach((item, idx) => {
-            if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
+            if(item.status === 2) banCnt++; else freeCnt++;
 
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
-
-            let cls = 'st-free', txt = '해제';
-            if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
 
             const div = document.createElement('div');
             div.className = 'traffic-card';
@@ -322,7 +360,7 @@
                         ${item.sub || ''}
                     </div>
                 </div>
-                <div class="status-btn ${cls}" onclick="toggleStatus(${idx})">${txt}</div>
+                <div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제중':'해제'}</div>
             `;
             container.appendChild(div);
         });
@@ -333,10 +371,7 @@
     }
 
     function toggleStatus(idx) {
-        if (!isAdmin) {
-            alert("🚫 접근 권한이 없습니다.\n관리자 로그인 후 상태 변경이 가능합니다.");
-            return;
-        }
+        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
         localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
         render();
@@ -351,31 +386,10 @@
 
     function resetData() {
         if (!isAdmin) return alert("관리자만 가능합니다.");
-        if(confirm('데이터를 초기화하시겠습니까?')) {
+        if(confirm('초기화하시겠습니까?')) {
             localStorage.removeItem('policeData_v14');
             trafficData = JSON.parse(JSON.stringify(defaultData));
             render();
-        }
-    }
-
-    async function fetchWeather() {
-        try {
-            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain&timezone=Asia%2FTokyo";
-            const res = await fetch(url);
-            const data = await res.json();
-            const cur = data.current;
-            
-            let icon = 'fa-sun';
-            if(cur.rain > 0) icon = 'fa-cloud-rain';
-
-            document.getElementById('w-data').innerHTML = `
-                <i class="fas ${icon}"></i> ${cur.temperature_2m}°
-                <span style="font-size:12px; font-weight:400; color:#aaa; margin-left:5px;">
-                    (비 ${cur.rain}mm)
-                </span>
-            `;
-        } catch(e) {
-            document.getElementById('w-data').innerText = "날씨 수신불가";
         }
     }
 </script>
