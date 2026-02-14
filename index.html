@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (자동)</title>
+    <title>세종경찰 통합관제 (Auto)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,57 +21,52 @@
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
 
-        /* 헤더 */
         header { margin-bottom: 15px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
+        
+        /* [핵심] 자동 특보 전광판 스타일 */
+        #auto-monitor-board {
+            background: #2c2c2e; border: 1px solid var(--line);
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+            position: relative;
+        }
+        .monitor-header {
+            background: #3a3a3c; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .mh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
+        
+        /* 라이브 상태 표시 (깜빡임) */
+        .live-indicator {
+            display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green); font-weight: bold;
+            background: rgba(48, 209, 88, 0.1); padding: 4px 8px; border-radius: 12px; border: 1px solid rgba(48, 209, 88, 0.3);
+        }
+        .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 1.5s infinite; }
+
+        .monitor-body { padding: 15px; min-height: 80px; }
+        
+        .info-group { margin-bottom: 15px; }
+        .info-group:last-child { margin-bottom: 0; }
+        .info-label { font-size: 11px; color: var(--sub); text-transform: uppercase; margin-bottom: 5px; display: block; font-weight: bold; }
+        
+        .info-val { font-size: 15px; font-weight: 600; line-height: 1.5; color: #fff; }
+        .info-val.time { color: var(--orange); font-family: monospace; letter-spacing: -0.5px; }
+        .info-val.content { 
+            background: rgba(255,255,255,0.05); padding: 12px; border-radius: 8px; 
+            border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all;
+        }
+
+        .loading-msg { text-align: center; color: #888; font-size: 13px; padding: 20px; }
         
         /* 관리자 버튼 */
         .admin-btn {
             background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
             padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
-            cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 5px;
+            cursor: pointer;
         }
-        .admin-btn.active {
-            background: rgba(255, 69, 58, 0.2); color: var(--red); border-color: var(--red);
-            animation: pulse-border 2s infinite;
-        }
-
-        /* 관리자 패널 */
-        #admin-panel { display: none; background: #222; padding: 15px; border-radius: 14px; margin-bottom: 20px; border: 1px solid var(--red); }
-        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
-        .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
-
-        /* [관리자용] 수동 전광판 */
-        #special-alert-box {
-            display: none; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--red);
-            border-radius: 14px; padding: 15px; margin-bottom: 20px; cursor: pointer;
-        }
-        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .alert-badge { background: var(--red); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; animation: blink 1s infinite; }
-        .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
-        .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
-
-        /* [핵심] 기상특보 자동 뷰어 (Iframe) */
-        #kma-auto-box {
-            background: white; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-            height: 450px; position: relative;
-        }
-        .frame-header {
-            position: absolute; top: 0; left: 0; width: 100%; height: 35px;
-            background: #2c2c2e; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 15px; z-index: 10; box-sizing: border-box;
-        }
-        .fh-title { font-size: 12px; color: white; font-weight: bold; }
-        .fh-link { font-size: 11px; color: var(--blue); text-decoration: none; font-weight: bold; cursor: pointer; }
-        
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            margin-top: 35px; /* 헤더 높이만큼 밀기 */
-            background: white;
-        }
+        .admin-btn.active { color: var(--red); border-color: var(--red); }
 
         /* 날씨 위젯 */
         .weather-widget {
@@ -83,61 +78,36 @@
         .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
 
         /* 대시보드 */
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 0 15px 0; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
-        .dash-lbl { font-size: 11px; color: #ccc; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        /* 검색 & 필터 */
-        .search-box { position: relative; margin-bottom: 10px; }
-        .search-input {
-            width: 100%; background: var(--card); border: 1px solid var(--line);
-            padding: 12px 40px 12px 15px; border-radius: 10px; color: white;
-            font-size: 15px; box-sizing: border-box; outline: none;
-        }
-        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
-        .filter-btn {
-            background: var(--card); border: 1px solid var(--line); color: var(--sub);
-            padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; transition: 0.2s;
-        }
-        .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
-        
-        /* 리스트 아이템 */
+        /* 리스트 */
         .list-container { display: flex; flex-direction: column; gap: 10px; }
         .traffic-card {
             background: var(--card); padding: 15px; border-radius: 14px;
             display: flex; justify-content: space-between; align-items: center;
             border: 1px solid var(--line);
         }
-        .card-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .card-info { display: flex; flex-direction: column; gap: 4px; }
         .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
-        .loc-name { font-size: 15px; font-weight: 600; }
-        .loc-sub { font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
-        .barrier { border: 1px solid #444; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
-        .barrier.on { border-color: var(--blue); color: var(--blue); }
-
-        .status-btn {
-            font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px;
-            min-width: 55px; text-align: center; cursor: pointer; transition: 0.2s; opacity: 0.8;
-        }
+        .status-btn { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; min-width: 60px; text-align: center; }
+        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 2s infinite; }
-        .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
 
-        .admin-tools { display: flex; gap: 8px; margin-left: 10px; }
-        .tool-btn { background: #333; color: #ccc; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; }
+        /* 검색/필터 */
+        .search-box { position: relative; margin-bottom: 10px; }
+        .search-input { width: 100%; background: var(--card); border: 1px solid var(--line); padding: 12px 40px 12px 15px; border-radius: 10px; color: white; font-size: 15px; box-sizing: border-box; outline: none; }
+        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
+        .filter-btn { background: var(--card); border: 1px solid var(--line); color: var(--sub); padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; }
+        .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
 
+        /* 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
-        .link-btn {
-            background: #2c2c2e; padding: 12px; border-radius: 12px;
-            text-decoration: none; color: white; font-size: 13px;
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
+        .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        @keyframes blink { 50% { opacity: 0.5; } }
-        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
+        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -145,45 +115,23 @@
 <header>
     <div class="top-nav">
         <h1>세종경찰 통합관제</h1>
-        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">
-            <i class="fas fa-lock"></i> 관리자
-        </button>
+        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 관리자</button>
     </div>
 
-    <div id="admin-panel">
-        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력 (전광판)</div>
-        <div class="input-row">
-            <textarea id="alert-input" class="admin-input" rows="2" placeholder="전파 내용 입력"></textarea>
-            <button class="action-btn" onclick="saveAlert()">전파</button>
-            <button class="action-btn" style="background:#444;" onclick="clearAlert()">삭제</button>
+    <div id="auto-monitor-board">
+        <div class="monitor-header">
+            <div class="mh-title">
+                <i class="fas fa-tower-broadcast"></i> 기상특보 (Weatheri)
+            </div>
+            <div class="live-indicator">
+                <div class="live-dot"></div> 실시간 수신중
+            </div>
         </div>
-        
-        <div style="font-size:12px; margin:15px 0 10px; color:var(--red);">➕ 통제지점 추가</div>
-        <div class="input-row">
-            <select id="new-area" class="admin-input" style="flex:0.4">
-                <option value="조치원">조치원</option>
-                <option value="전의">전의</option>
-                <option value="부강">부강</option>
-            </select>
-            <input type="text" id="new-name" class="admin-input" placeholder="장소명">
-            <button class="action-btn" onclick="addItem()">추가</button>
+        <div class="monitor-body" id="monitor-content">
+            <div class="loading-msg">
+                <i class="fas fa-spinner fa-spin"></i> 특보 데이터를 가져오는 중입니다...
+            </div>
         </div>
-    </div>
-
-    <div id="special-alert-box">
-        <div class="alert-header">
-            <span class="alert-badge">긴급공지</span>
-            <span class="alert-time" id="alert-time"></span>
-        </div>
-        <div class="alert-content" id="alert-text"></div>
-    </div>
-
-    <div id="kma-auto-box">
-        <div class="frame-header">
-            <span class="fh-title">🚨 기상특보 실시간 현황</span>
-            <span class="fh-link" onclick="reloadFrame()">🔄 새로고침</span>
-        </div>
-        <iframe id="kma-iframe" src="https://m.weather.go.kr/m/warning/warning.jsp" title="기상특보"></iframe>
     </div>
 
     <div class="weather-widget">
@@ -191,25 +139,16 @@
             <i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span>
         </div>
         <div class="w-info" id="w-data">
-            <i class="fas fa-spinner fa-spin" style="font-size:14px"></i>
+            <i class="fas fa-spinner fa-spin"></i>
         </div>
         <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
 
 <div class="dashboard">
-    <div class="dash-item">
-        <span class="dash-val c-red" id="cnt-ban">0</span>
-        <span class="dash-lbl">현재통제</span>
-    </div>
-    <div class="dash-item">
-        <span class="dash-val" id="cnt-total">16</span>
-        <span class="dash-lbl">전체관리</span>
-    </div>
-    <div class="dash-item">
-        <span class="dash-val c-green" id="cnt-free">0</span>
-        <span class="dash-lbl">정상통행</span>
-    </div>
+    <div class="dash-item"><span class="dash-val c-red" id="cnt-ban">0</span><span style="font-size:10px;">통제</span></div>
+    <div class="dash-item"><span class="dash-val" id="cnt-total">16</span><span style="font-size:10px;">전체</span></div>
+    <div class="dash-item"><span class="dash-val c-green" id="cnt-free">0</span><span style="font-size:10px;">정상</span></div>
 </div>
 
 <div class="search-box">
@@ -243,7 +182,6 @@
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
     let isAdmin = false;
-
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2, bar:true },
         { id:2, area:'전의', name:'전의면 북암천', status:2, bar:true },
@@ -266,10 +204,62 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); loadAlert(); };
+    // 앱 시작 시 자동 실행
+    window.onload = () => { 
+        render(); 
+        fetchWeather(); 
+        autoFetchSpecial(); // 1. 즉시 실행
+        setInterval(autoFetchSpecial, 600000); // 2. 10분마다 반복 실행
+    };
 
-    function reloadFrame() {
-        document.getElementById('kma-iframe').src = document.getElementById('kma-iframe').src;
+    // [핵심] 완전 자동 크롤링 로직 (프록시 사용)
+    async function autoFetchSpecial() {
+        const contentEl = document.getElementById('monitor-content');
+        
+        try {
+            // codetabs 프록시를 통해 웨더아이 페이지 소스(HTML)를 통째로 가져옴
+            const targetUrl = 'https://www.weatheri.co.kr/special/special01.php';
+            const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+            
+            const response = await fetch(proxyUrl);
+            const text = await response.text();
+
+            // HTML 파싱 (글자 찾기)
+            // 1. 발효현황 시간 찾기 (202X-XX-XX XX:XX:XX 패턴)
+            const timeMatch = text.match(/발효현황\s*(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/);
+            let timeStr = timeMatch ? timeMatch[1] : "시간 정보 없음";
+
+            // 2. 특보 내용 찾기
+            // '특보 발효 현황 내용' 다음에 오는 텍스트를 찾음 (HTML 태그 제거 필요)
+            let contentStr = "특보 내용 없음";
+            
+            // 단순하게 'o '로 시작하는 특보 문구들을 정규식으로 찾습니다.
+            // 예: o 건조주의보 : 강원도...
+            const warnings = text.match(/o\s+[가-힣]+(주의보|경보)\s*:[^<]+/g);
+
+            if (warnings && warnings.length > 0) {
+                // 찾은 특보 문구들을 줄바꿈으로 합침
+                contentStr = warnings.map(w => w.replace(/o\s+/, "🚨 ")).join("<br><br>");
+            } else if (text.includes("없습니다")) {
+                contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 현재 발효중인 특보가 없습니다.";
+            }
+
+            // 화면 업데이트
+            contentEl.innerHTML = `
+                <div class="info-group">
+                    <span class="info-label"><i class="far fa-clock"></i> 발효 현황 시각</span>
+                    <div class="info-val time">${timeStr}</div>
+                </div>
+                <div class="info-group">
+                    <span class="info-label"><i class="fas fa-exclamation-triangle"></i> 특보 발효 현황 내용</span>
+                    <div class="info-val content">${contentStr}</div>
+                </div>
+            `;
+
+        } catch (e) {
+            console.error(e);
+            contentEl.innerHTML = `<div class="loading-msg" style="color:#ff453a"><i class="fas fa-exclamation-circle"></i> 데이터 자동 수신 실패<br><span style="font-size:11px">잠시 후 다시 시도합니다.</span></div>`;
+        }
     }
 
     function toggleAdmin() {
@@ -278,97 +268,13 @@
             if (pw === "2580") {
                 isAdmin = true;
                 alert("🔓 관리자 모드 활성화");
-                updateAdminUI();
+                document.getElementById('admin-btn').classList.add('active');
                 render();
-            } else if (pw !== null) {
-                alert("⛔ 비밀번호가 일치하지 않습니다.");
             }
         } else {
             isAdmin = false;
             alert("🔒 관리자 모드 해제");
-            updateAdminUI();
-            render();
-        }
-    }
-
-    function updateAdminUI() {
-        const btn = document.getElementById('admin-btn');
-        const panel = document.getElementById('admin-panel');
-        if (isAdmin) {
-            btn.innerHTML = '<i class="fas fa-unlock"></i> 관리모드';
-            btn.classList.add('active');
-            panel.style.display = 'block';
-        } else {
-            btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
-            btn.classList.remove('active');
-            panel.style.display = 'none';
-        }
-    }
-
-    function saveAlert() {
-        const text = document.getElementById('alert-input').value;
-        if(!text) return alert("내용을 입력하세요");
-        const now = new Date();
-        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')} 발표`;
-        localStorage.setItem('policeAlert', JSON.stringify({ text: text, time: timeStr }));
-        loadAlert();
-        alert("전파되었습니다.");
-    }
-
-    function clearAlert() {
-        if(confirm("전파 내용을 삭제하시겠습니까?")) {
-            localStorage.removeItem('policeAlert');
-            document.getElementById('alert-input').value = "";
-            loadAlert();
-        }
-    }
-
-    function loadAlert() {
-        const data = JSON.parse(localStorage.getItem('policeAlert'));
-        const box = document.getElementById('special-alert-box');
-        if(data) {
-            box.style.display = 'block';
-            document.getElementById('alert-text').innerText = data.text;
-            document.getElementById('alert-time').innerText = data.time;
-            document.getElementById('alert-input').value = data.text;
-        } else {
-            box.style.display = 'none';
-        }
-    }
-
-    function addItem() {
-        const area = document.getElementById('new-area').value;
-        const name = document.getElementById('new-name').value;
-        if (!name) return alert("장소명을 입력해주세요.");
-
-        trafficData.unshift({
-            id: Date.now(),
-            area: area,
-            name: name,
-            status: 2,
-            bar: false
-        });
-        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
-        document.getElementById('new-name').value = "";
-        render();
-    }
-
-    function editItem(idx) {
-        if(!isAdmin) return;
-        const item = trafficData[idx];
-        const newName = prompt("수정할 장소명을 입력하세요:", item.name);
-        if(newName) {
-            trafficData[idx].name = newName;
-            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
-            render();
-        }
-    }
-
-    function delItem(idx) {
-        if(!isAdmin) return;
-        if(confirm("이 항목을 삭제하시겠습니까?")) {
-            trafficData.splice(idx, 1);
-            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+            document.getElementById('admin-btn').classList.remove('active');
             render();
         }
     }
@@ -390,18 +296,6 @@
 
             let cls = 'st-free', txt = '해제';
             if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
-            if(item.status === 1) { cls = 'st-part'; txt = '부분통제'; }
-            if(item.note && item.status !== 0) txt = item.note;
-
-            let adminTools = '';
-            if(isAdmin) {
-                adminTools = `
-                    <div class="admin-tools">
-                        <button class="tool-btn" onclick="editItem(${idx})"><i class="fas fa-pen"></i></button>
-                        <button class="tool-btn" style="color:#ff453a" onclick="delItem(${idx})"><i class="fas fa-times"></i></button>
-                    </div>
-                `;
-            }
 
             const div = document.createElement('div');
             div.className = 'traffic-card';
@@ -415,7 +309,6 @@
                     </div>
                 </div>
                 <div class="status-btn ${cls}" onclick="toggleStatus(${idx})">${txt}</div>
-                ${adminTools}
             `;
             container.appendChild(div);
         });
@@ -443,15 +336,11 @@
     }
 
     function resetData() {
-        if (!isAdmin) {
-             alert("🚫 초기화는 관리자만 가능합니다.");
-             return;
-        }
-        if(confirm('데이터를 초기 상태로 되돌리시겠습니까?')) {
+        if (!isAdmin) return alert("관리자만 가능합니다.");
+        if(confirm('데이터를 초기화하시겠습니까?')) {
             localStorage.removeItem('policeData_v14');
             trafficData = JSON.parse(JSON.stringify(defaultData));
             render();
-            alert("초기화 완료");
         }
     }
 
