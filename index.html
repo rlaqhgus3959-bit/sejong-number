@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Rain)</title>
+    <title>세종경찰 통합관제 (Accordion)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,57 +25,74 @@
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
         
-        /* 1. 기상특보 전광판 */
-        #auto-monitor-board {
+        /* 공통 섹션 스타일 (아코디언) */
+        .accord-section {
             background: #2c2c2e; border: 1px solid var(--line);
             border-radius: 16px; overflow: hidden; margin-bottom: 15px;
+            transition: all 0.3s ease;
         }
-        .monitor-header {
+        
+        .accord-header {
             background: #3a3a3c; padding: 12px 15px;
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #444;
+            cursor: pointer; user-select: none;
         }
-        .mh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
-        .live-indicator {
-            font-size: 11px; color: var(--green); font-weight: bold;
-            display: flex; align-items: center; gap: 5px;
-        }
+        .accord-header:active { background: #444; }
+        
+        .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
+        .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; }
+        
+        /* 펼쳐짐/닫힘 상태 */
+        .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
+        .accord-section.open .accord-content { display: block; }
+        .accord-section.open .ah-toggle { transform: rotate(180deg); }
+
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 1. 기상특보 내부 스타일 */
+        .live-indicator { font-size: 11px; color: var(--green); font-weight: bold; display: flex; align-items: center; gap: 5px; margin-left: auto; margin-right: 10px; }
         .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 1.5s infinite; }
-        .monitor-body { padding: 15px; min-height: 70px; }
         
         .info-group { margin-bottom: 12px; }
         .info-group:last-child { margin-bottom: 0; }
-        .info-label { font-size: 11px; color: var(--sub); text-transform: uppercase; margin-bottom: 4px; display: block; font-weight: bold; }
+        .info-label { font-size: 11px; color: var(--sub); font-weight: bold; display: block; margin-bottom: 4px; }
         .info-val { font-size: 15px; font-weight: 600; line-height: 1.4; color: #fff; }
         .info-val.time { color: var(--orange); font-family: monospace; }
-        .info-val.content { 
-            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; 
-            border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all;
-        }
+        .info-val.content { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all; }
 
-        /* 2. 강우량 상세 보드 (NEW) */
-        #rain-board {
-            background: #1c1c1e; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-        }
-        .rain-header {
-            background: rgba(10, 132, 255, 0.1); padding: 12px 15px;
-            border-bottom: 1px solid var(--line);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .rain-avg-title { font-size: 14px; font-weight: 700; color: var(--blue); }
-        .rain-avg-val { font-size: 18px; font-weight: 800; color: white; }
-        
+        /* 2. 강우량 내부 스타일 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(4, 1fr); 
-            gap: 1px; background: #333; /* border lines */
+            gap: 1px; background: #444; border: 1px solid #444;
         }
-        .rain-cell {
-            background: #2c2c2e; padding: 10px 5px; text-align: center;
-        }
+        .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
         .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
         .rain-val { font-size: 13px; font-weight: 700; color: white; }
         .rain-val.wet { color: var(--blue); }
+        .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
+        .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
+
+        /* 3. 통제구역 리스트 스타일 (3열 배치) */
+        .list-container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr 1fr; /* 한 줄에 3개 */
+            gap: 8px; 
+        }
+        .traffic-card {
+            background: #1c1c1e; padding: 10px; border-radius: 12px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            border: 1px solid var(--line); min-height: 90px;
+        }
+        .card-info { margin-bottom: 6px; }
+        .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 5px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
+        .loc-name { font-size: 12px; font-weight: 600; line-height: 1.3; word-break: keep-all; }
+        
+        .status-btn { 
+            font-size: 11px; font-weight: 700; padding: 6px; border-radius: 6px; 
+            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
+        }
+        .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
+        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
 
         /* 관리자 버튼 */
         .admin-btn {
@@ -85,43 +102,22 @@
         }
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-        /* 대시보드 */
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
-        .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
-        .dash-val { font-size: 20px; font-weight: 700; display: block; }
-        .c-red { color: var(--red); } .c-green { color: var(--green); }
+        /* 검색/필터 (통제구역 내부로 이동) */
+        .filter-area { margin-bottom: 15px; }
+        .search-input { width: 100%; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; margin-bottom: 8px; box-sizing: border-box; }
+        .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
+        .filter-btn.active { background: #eee; color: black; font-weight: 700; }
 
-        /* [수정] 통제 리스트 (2열 배치) */
-        .list-container { 
-            display: grid; 
-            grid-template-columns: 1fr 1fr; /* 한 줄에 2개 */
-            gap: 10px; 
-        }
-        .traffic-card {
-            background: var(--card); padding: 12px; border-radius: 14px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            border: 1px solid var(--line); min-height: 80px;
-        }
-        .card-info { margin-bottom: 8px; }
-        .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
-        .loc-name { font-size: 14px; font-weight: 600; line-height: 1.3; }
-        .loc-sub { font-size: 11px; color: #888; margin-top: 2px; }
-        
-        .status-btn { 
-            font-size: 12px; font-weight: 700; padding: 8px; border-radius: 8px; 
-            text-align: center; width: 100%; box-sizing: border-box;
-        }
-        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); }
-        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-
-        .search-box { position: relative; margin-bottom: 10px; }
-        .search-input { width: 100%; background: var(--card); border: 1px solid var(--line); padding: 12px 40px 12px 15px; border-radius: 10px; color: white; font-size: 15px; box-sizing: border-box; outline: none; }
-        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
-        .filter-btn { background: var(--card); border: 1px solid var(--line); color: var(--sub); padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; }
-        .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
-
+        /* 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* 대시보드 (헤더 아래 고정) */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .dash-item { background: #2c2c2e; padding: 10px; border-radius: 12px; text-align: center; }
+        .dash-val { font-size: 18px; font-weight: 700; display: block; }
+        .c-red { color: var(--red); } .c-green { color: var(--green); }
 
         @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
@@ -133,56 +129,60 @@
         <h1>세종경찰 통합관제</h1>
         <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 관리자</button>
     </div>
-
-    <div id="auto-monitor-board">
-        <div class="monitor-header">
-            <div class="mh-title"><i class="fas fa-tower-broadcast"></i> 기상특보 (Weatheri)</div>
-            <div class="live-indicator"><div class="live-dot"></div>실시간</div>
-        </div>
-        <div class="monitor-body" id="monitor-content">
-            <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
-        </div>
-    </div>
-
-    <div id="rain-board">
-        <div class="rain-header">
-            <div class="rain-avg-title"><i class="fas fa-cloud-showers-heavy"></i> 7개 읍면 일평균</div>
-            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
-        </div>
-        <div class="rain-grid" id="rain-grid">
-            <div class="rain-cell"><div class="rain-loc">조치원</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">연서면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">전의면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">전동면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">소정면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">부강면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">연동면</div><div class="rain-val">-</div></div>
-            <div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>
-        </div>
-    </div>
 </header>
 
 <div class="dashboard">
-    <div class="dash-item"><span class="dash-val c-red" id="cnt-ban">0</span><span style="font-size:10px;">통제</span></div>
-    <div class="dash-item"><span class="dash-val" id="cnt-total">16</span><span style="font-size:10px;">전체</span></div>
-    <div class="dash-item"><span class="dash-val c-green" id="cnt-free">0</span><span style="font-size:10px;">정상</span></div>
+    <div class="dash-item"><span class="dash-val c-red" id="cnt-ban">0</span><span style="font-size:10px;">통제중</span></div>
+    <div class="dash-item"><span class="dash-val" id="cnt-total">16</span><span style="font-size:10px;">전체관리</span></div>
+    <div class="dash-item"><span class="dash-val" id="avg-rain-top">-</span><span style="font-size:10px;">평균강우</span></div>
 </div>
 
-<div class="search-box">
-    <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
-    <i class="fas fa-search" style="position:absolute; right:15px; top:12px; color:#666"></i>
+<div class="accord-section open" id="sec-weather">
+    <div class="accord-header" onclick="toggleSection('sec-weather')">
+        <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
+        <div class="live-indicator"><div class="live-dot"></div>실시간</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content" id="monitor-content">
+        <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
+    </div>
 </div>
 
-<div class="filter-group">
-    <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
-    <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제중</button>
-    <button class="filter-btn" onclick="setFilter('free', this)">🟢 해제됨</button>
-    <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
-    <button class="filter-btn" onclick="setFilter('전의', this)">전의면</button>
-    <button class="filter-btn" onclick="setFilter('부강', this)">부강면</button>
+<div class="accord-section" id="sec-rain"> <div class="accord-header" onclick="toggleSection('sec-rain')">
+        <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 강우량</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="rain-avg-box">
+            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균</div>
+            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        </div>
+        <div class="rain-grid" id="rain-grid">
+            </div>
+    </div>
 </div>
 
-<div class="list-container" id="list"></div>
+<div class="accord-section open" id="sec-control">
+    <div class="accord-header" onclick="toggleSection('sec-control')">
+        <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-area">
+            <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
+            <div class="filter-group">
+                <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
+                <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제</button>
+                <button class="filter-btn" onclick="setFilter('free', this)">🟢 정상</button>
+                <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
+                <button class="filter-btn" onclick="setFilter('전의', this)">전의</button>
+                <button class="filter-btn" onclick="setFilter('부강', this)">부강</button>
+            </div>
+        </div>
+        
+        <div class="list-container" id="list"></div>
+    </div>
+</div>
 
 <div class="official-links">
     <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="link-btn"><i class="fas fa-bullhorn" style="color:var(--blue)"></i> 도로통제 공지</a>
@@ -223,13 +223,18 @@
 
     window.onload = () => { 
         render(); 
-        fetchDetailRain(); // 상세 강우량
-        autoFetchSpecial(); // 특보 자동
+        fetchDetailRain(); 
+        autoFetchSpecial(); 
         setInterval(fetchDetailRain, 600000); 
         setInterval(autoFetchSpecial, 600000);
     };
 
-    // [1] 상세 강우량 (7개 읍면 + 평균)
+    // [0] 아코디언 토글 함수
+    function toggleSection(id) {
+        document.getElementById(id).classList.toggle('open');
+    }
+
+    // [1] 상세 강우량
     async function fetchDetailRain() {
         const locs = [
             { name: '조치원', lat: 36.601, lon: 127.301 },
@@ -241,7 +246,6 @@
             { name: '연동면', lat: 36.560, lon: 127.320 }
         ];
 
-        // 좌표를 쉼표로 연결하여 한 번에 요청
         const lats = locs.map(l => l.lat).join(',');
         const lons = locs.map(l => l.lon).join(',');
         
@@ -249,24 +253,16 @@
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=precipitation_sum&timezone=Asia%2FTokyo`;
             const res = await fetch(url);
             const data = await res.json();
-            
-            // 데이터 배열 처리 (단일 위치면 객체, 다중 위치면 배열로 옴)
             const results = Array.isArray(data) ? data : [data];
             
             let totalRain = 0;
             let html = '';
 
             results.forEach((r, idx) => {
-                const todayRain = r.daily.precipitation_sum[0] || 0; // 오늘의 강수량
+                const todayRain = r.daily.precipitation_sum[0] || 0;
                 totalRain += todayRain;
-                
                 const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
-                html += `
-                    <div class="rain-cell">
-                        <div class="rain-loc">${locs[idx].name}</div>
-                        <div class="${valClass}">${todayRain}<small>mm</small></div>
-                    </div>
-                `;
+                html += `<div class="rain-cell"><div class="rain-loc">${locs[idx].name}</div><div class="${valClass}">${todayRain}<small>mm</small></div></div>`;
             });
 
             html += `<div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>`;
@@ -274,14 +270,14 @@
 
             const avgRain = (totalRain / locs.length).toFixed(1);
             document.getElementById('avg-rain-val').innerText = `${avgRain} mm`;
+            document.getElementById('avg-rain-top').innerText = `${avgRain}`;
 
         } catch(e) {
-            console.error(e);
             document.getElementById('avg-rain-val').innerText = "오류";
         }
     }
 
-    // [2] 웨더아이 특보 자동 수신
+    // [2] 웨더아이 특보 자동
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         try {
@@ -323,7 +319,7 @@
         }
     }
 
-    // [3] 기본 기능 (관리자, 2열 리스트 등)
+    // [3] 기본 기능
     function toggleAdmin() {
         if (!isAdmin) {
             const pw = prompt("관리자 비밀번호:");
@@ -349,33 +345,28 @@
         container.innerHTML = '';
 
         trafficData.forEach((item, idx) => {
-            if(item.status === 2) banCnt++; else freeCnt++;
+            if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
 
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
 
-            // 2열 그리드에 맞춘 카드 디자인
+            // 3열 그리드 카드
             const div = document.createElement('div');
             div.className = 'traffic-card';
             div.innerHTML = `
                 <div class="card-info">
                     <span class="area-tag">${item.area}</span>
                     <div class="loc-name">${item.name}</div>
-                    <div class="loc-sub">
-                        <span class="barrier ${item.bar?'on':''}">${item.bar?'차단기O':'차단기X'}</span>
-                        ${item.sub || ''}
-                    </div>
                 </div>
-                <div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제중':'해제'}</div>
+                <div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div>
             `;
             container.appendChild(div);
         });
 
         document.getElementById('cnt-total').innerText = trafficData.length;
         document.getElementById('cnt-ban').innerText = banCnt;
-        document.getElementById('cnt-free').innerText = freeCnt;
     }
 
     function toggleStatus(idx) {
