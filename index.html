@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (재난포털)</title>
+    <title>세종경찰 통합관제 (스마트)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -36,41 +36,48 @@
             animation: pulse-border 2s infinite;
         }
 
-        /* 관리자 패널 */
-        #admin-panel { display: none; background: #222; padding: 15px; border-radius: 14px; margin-bottom: 20px; border: 1px solid var(--red); }
-        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
-        .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
-        .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
-
-        /* [관리자용] 수동 전광판 */
-        #special-alert-box {
-            display: none; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--red);
-            border-radius: 14px; padding: 15px; margin-bottom: 20px; cursor: pointer;
-        }
-        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .alert-badge { background: var(--red); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; animation: blink 1s infinite; }
-        .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
-        .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
-
-        /* [핵심] 국민재난안전포털 뷰어 (Iframe) */
-        #safekorea-frame-box {
-            background: white; border: 1px solid var(--line);
+        /* [NEW] 스마트 특보 분석기 */
+        #smart-parser-box {
+            background: #2c2c2e; border: 1px solid var(--line);
             border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-            height: 450px; position: relative;
         }
-        .frame-header {
-            position: absolute; top: 0; left: 0; width: 100%; height: 35px;
-            background: #2c2c2e; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 15px; z-index: 10; box-sizing: border-box;
+        .parser-header {
+            background: #3a3a3c; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
         }
-        .fh-title { font-size: 12px; color: white; font-weight: bold; display: flex; align-items: center; gap: 5px; }
-        .fh-link { font-size: 11px; color: var(--blue); text-decoration: none; font-weight: bold; cursor: pointer; }
-        
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            margin-top: 35px; /* 헤더 높이만큼 밀기 */
-            background: white;
+        .ph-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .ph-btn { 
+            background: var(--blue); color: white; border: none; 
+            padding: 5px 12px; border-radius: 15px; font-size: 12px; font-weight: bold; cursor: pointer;
         }
+
+        /* 입력 모드 UI */
+        #input-mode { padding: 15px; display: none; }
+        .paste-area {
+            width: 100%; height: 80px; background: #222; border: 1px solid #444; color: white;
+            border-radius: 8px; padding: 10px; font-size: 12px; box-sizing: border-box; margin-bottom: 10px;
+        }
+        .guide-text { font-size: 11px; color: #888; margin-bottom: 8px; }
+        .btn-group { display: flex; gap: 8px; }
+        .p-btn { flex: 1; padding: 10px; border-radius: 8px; border: none; font-weight: bold; cursor: pointer; font-size: 13px; }
+        .btn-link { background: #444; color: white; }
+        .btn-save { background: var(--green); color: black; }
+
+        /* 결과 뷰어 UI */
+        #view-mode { padding: 0; }
+        .warn-list { padding: 15px; }
+        .warn-card { 
+            background: rgba(255, 69, 58, 0.1); border-left: 4px solid var(--red);
+            border-radius: 8px; padding: 12px; margin-bottom: 10px;
+        }
+        .warn-title { color: var(--red); font-weight: 700; font-size: 15px; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
+        .warn-loc { color: #ddd; font-size: 13px; line-height: 1.4; word-break: keep-all; }
+        .time-badge { 
+            display: inline-block; background: #444; color: #ccc; 
+            font-size: 11px; padding: 2px 6px; border-radius: 4px; margin-bottom: 10px; 
+        }
+        .empty-state { text-align: center; padding: 30px 10px; color: #666; font-size: 13px; }
 
         /* 날씨 위젯 */
         .weather-widget {
@@ -135,7 +142,6 @@
         }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        @keyframes blink { 50% { opacity: 0.5; } }
         @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
     </style>
 </head>
@@ -149,40 +155,39 @@
         </button>
     </div>
 
-    <div id="admin-panel">
-        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력</div>
-        <div class="input-row">
-            <textarea id="alert-input" class="admin-input" rows="2" placeholder="전파 내용 입력"></textarea>
-            <button class="action-btn" onclick="saveAlert()">전파</button>
-            <button class="action-btn" style="background:#444;" onclick="clearAlert()">삭제</button>
+    <div id="smart-parser-box">
+        <div class="parser-header">
+            <div class="ph-title"><i class="fas fa-tower-broadcast"></i> 기상특보 현황판</div>
+            <button class="ph-btn" onclick="toggleInputMode()">
+                <i class="fas fa-pen"></i> 수정/입력
+            </button>
         </div>
-        
-        <div style="font-size:12px; margin:15px 0 10px; color:var(--red);">➕ 통제지점 추가</div>
-        <div class="input-row">
-            <select id="new-area" class="admin-input" style="flex:0.4">
-                <option value="조치원">조치원</option>
-                <option value="전의">전의</option>
-                <option value="부강">부강</option>
-            </select>
-            <input type="text" id="new-name" class="admin-input" placeholder="장소명">
-            <button class="action-btn" onclick="addItem()">추가</button>
-        </div>
-    </div>
 
-    <div id="special-alert-box">
-        <div class="alert-header">
-            <span class="alert-badge">긴급공지</span>
-            <span class="alert-time" id="alert-time"></span>
+        <div id="view-mode">
+            <div class="warn-list" id="warn-result">
+                <div class="empty-state">
+                    입력된 특보가 없습니다.<br>
+                    우측 상단 <b>[수정/입력]</b>을 눌러 등록해주세요.
+                </div>
+            </div>
         </div>
-        <div class="alert-content" id="alert-text"></div>
-    </div>
 
-    <div id="safekorea-frame-box">
-        <div class="frame-header">
-            <span class="fh-title">🚨 국민재난안전포털 특보</span>
-            <span class="fh-link" onclick="reloadFrame()">🔄 새로고침</span>
+        <div id="input-mode">
+            <div class="guide-text">
+                1. 아래 <b>[기상청 열기]</b> 버튼을 누르세요.<br>
+                2. 기상청 페이지의 텍스트 전체를 복사하세요.<br>
+                3. 아래 칸에 붙여넣고 <b>[분석 및 저장]</b>을 누르세요.
+            </div>
+            <textarea id="paste-area" class="paste-area" placeholder="여기에 기상청 텍스트를 붙여넣으세요..."></textarea>
+            <div class="btn-group">
+                <button class="p-btn btn-link" onclick="window.open('https://www.weather.go.kr/w/weather/warning/list.do')">
+                    <i class="fas fa-external-link-alt"></i> 기상청 열기
+                </button>
+                <button class="p-btn btn-save" onclick="parseAndSave()">
+                    <i class="fas fa-magic"></i> 분석 및 저장
+                </button>
+            </div>
         </div>
-        <iframe id="safekorea-iframe" src="https://m.safekorea.go.kr/idsiSFK/neo/sfk/cs/sfc/wtr/wtrList.html?menuSeq=64" title="국민재난안전포털"></iframe>
     </div>
 
     <div class="weather-widget">
@@ -265,10 +270,84 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); loadAlert(); };
+    window.onload = () => { render(); fetchWeather(); loadWarnData(); };
 
-    function reloadFrame() {
-        document.getElementById('safekorea-iframe').src = document.getElementById('safekorea-iframe').src;
+    // [핵심] 스마트 파서 기능
+    function toggleInputMode() {
+        const inputMode = document.getElementById('input-mode');
+        const viewMode = document.getElementById('view-mode');
+        
+        if (inputMode.style.display === 'none' || inputMode.style.display === '') {
+            inputMode.style.display = 'block';
+            viewMode.style.display = 'none';
+        } else {
+            inputMode.style.display = 'none';
+            viewMode.style.display = 'block';
+        }
+    }
+
+    function parseAndSave() {
+        const text = document.getElementById('paste-area').value;
+        if (!text) return alert("텍스트를 붙여넣어주세요.");
+
+        // 1. 발표 시각 추출 (예: 발표시각 : 2023년 07월 15일 10:00)
+        let timeStr = "발표시각 미확인";
+        const timeMatch = text.match(/발표시각\s*:\s*([0-9\.년월일\s\:]+)/);
+        if (timeMatch) timeStr = timeMatch[1].trim();
+
+        // 2. 특보 내용 추출 (o 특보명 : 지역)
+        const lines = text.split('\n');
+        let warnList = [];
+
+        lines.forEach(line => {
+            line = line.trim();
+            if (line.startsWith('o')) {
+                // "o 건조주의보 : 경상북도..." 분리
+                const parts = line.substring(1).split(':');
+                if (parts.length >= 2) {
+                    warnList.push({
+                        title: parts[0].trim(),
+                        loc: parts[1].trim()
+                    });
+                }
+            }
+        });
+
+        // 3. 저장
+        const data = { time: timeStr, list: warnList };
+        localStorage.setItem('kmaParsedData', JSON.stringify(data));
+        
+        // 4. 화면 갱신 및 모드 전환
+        loadWarnData();
+        toggleInputMode();
+        document.getElementById('paste-area').value = ''; // 초기화
+    }
+
+    function loadWarnData() {
+        const saved = localStorage.getItem('kmaParsedData');
+        const container = document.getElementById('warn-result');
+        
+        if (!saved) return; // 기본 상태 유지
+
+        const data = JSON.parse(saved);
+        let html = `<div class="time-badge"><i class="far fa-clock"></i> ${data.time}</div>`;
+
+        if (data.list.length === 0) {
+            html += `<div class="empty-state">
+                        <i class="fas fa-check-circle" style="color:var(--green); font-size:24px; margin-bottom:10px;"></i><br>
+                        발효중인 특보가 없습니다.
+                     </div>`;
+        } else {
+            data.list.forEach(item => {
+                html += `
+                    <div class="warn-card">
+                        <div class="warn-title"><i class="fas fa-triangle-exclamation"></i> ${item.title}</div>
+                        <div class="warn-loc">${item.loc}</div>
+                    </div>
+                `;
+            });
+        }
+        container.innerHTML = html;
     }
 
     function toggleAdmin() {
@@ -296,42 +375,11 @@
         if (isAdmin) {
             btn.innerHTML = '<i class="fas fa-unlock"></i> 관리모드';
             btn.classList.add('active');
-            panel.style.display = 'block';
+            if(panel) panel.style.display = 'block';
         } else {
             btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
             btn.classList.remove('active');
-            panel.style.display = 'none';
-        }
-    }
-
-    function saveAlert() {
-        const text = document.getElementById('alert-input').value;
-        if(!text) return alert("내용을 입력하세요");
-        const now = new Date();
-        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')} 발표`;
-        localStorage.setItem('policeAlert', JSON.stringify({ text: text, time: timeStr }));
-        loadAlert();
-        alert("전파되었습니다.");
-    }
-
-    function clearAlert() {
-        if(confirm("전파 내용을 삭제하시겠습니까?")) {
-            localStorage.removeItem('policeAlert');
-            document.getElementById('alert-input').value = "";
-            loadAlert();
-        }
-    }
-
-    function loadAlert() {
-        const data = JSON.parse(localStorage.getItem('policeAlert'));
-        const box = document.getElementById('special-alert-box');
-        if(data) {
-            box.style.display = 'block';
-            document.getElementById('alert-text').innerText = data.text;
-            document.getElementById('alert-time').innerText = data.time;
-            document.getElementById('alert-input').value = data.text;
-        } else {
-            box.style.display = 'none';
+            if(panel) panel.style.display = 'none';
         }
     }
 
