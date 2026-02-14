@@ -38,7 +38,7 @@
         }
         .mh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
         
-        /* 라이브 상태 표시 (깜빡임) */
+        /* 라이브 상태 표시 */
         .live-indicator {
             display: flex; align-items: center; gap: 5px; font-size: 11px; color: var(--green); font-weight: bold;
             background: rgba(48, 209, 88, 0.1); padding: 4px 8px; border-radius: 12px; border: 1px solid rgba(48, 209, 88, 0.3);
@@ -129,7 +129,7 @@
         </div>
         <div class="monitor-body" id="monitor-content">
             <div class="loading-msg">
-                <i class="fas fa-spinner fa-spin"></i> 특보 데이터를 가져오는 중입니다...
+                <i class="fas fa-spinner fa-spin"></i> 특보 데이터를 분석중입니다...
             </div>
         </div>
     </div>
@@ -204,47 +204,61 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    // 앱 시작 시 자동 실행
     window.onload = () => { 
         render(); 
         fetchWeather(); 
-        autoFetchSpecial(); // 1. 즉시 실행
-        setInterval(autoFetchSpecial, 600000); // 2. 10분마다 반복 실행
+        autoFetchSpecial(); 
+        setInterval(autoFetchSpecial, 600000); 
     };
 
-    // [핵심] 완전 자동 크롤링 로직 (프록시 사용)
+    // [핵심] 완전 자동화 + 중복제거 로직
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         
         try {
-            // codetabs 프록시를 통해 웨더아이 페이지 소스(HTML)를 통째로 가져옴
+            // codetabs 프록시
             const targetUrl = 'https://www.weatheri.co.kr/special/special01.php';
             const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
             
             const response = await fetch(proxyUrl);
-            const text = await response.text();
+            const htmlText = await response.text();
 
-            // HTML 파싱 (글자 찾기)
-            // 1. 발효현황 시간 찾기 (202X-XX-XX XX:XX:XX 패턴)
-            const timeMatch = text.match(/발효현황\s*(\d{4}-\d{2}-\d{2}\s\d{2}:\d{2}:\d{2})/);
-            let timeStr = timeMatch ? timeMatch[1] : "시간 정보 없음";
+            // 1. HTML을 DOM으로 파싱 (태그 제거 및 구조화)
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
+            const bodyText = doc.body.innerText || ""; // 순수 텍스트만 추출
 
-            // 2. 특보 내용 찾기
-            // '특보 발효 현황 내용' 다음에 오는 텍스트를 찾음 (HTML 태그 제거 필요)
-            let contentStr = "특보 내용 없음";
-            
-            // 단순하게 'o '로 시작하는 특보 문구들을 정규식으로 찾습니다.
-            // 예: o 건조주의보 : 강원도...
-            const warnings = text.match(/o\s+[가-힣]+(주의보|경보)\s*:[^<]+/g);
+            // 2. 시간 추출 (2026.02.13 10:00 또는 2026-02-13 등 다양한 포맷 대응)
+            const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2}(:\d{2})?)/);
+            let timeStr = timeMatch ? timeMatch[1] : "시간 정보 수신중...";
 
-            if (warnings && warnings.length > 0) {
-                // 찾은 특보 문구들을 줄바꿈으로 합침
-                contentStr = warnings.map(w => w.replace(/o\s+/, "🚨 ")).join("<br><br>");
-            } else if (text.includes("없습니다")) {
+            // 3. 내용 추출 및 중복 제거
+            // "o 특보명 : " 형태로 시작하는 줄을 찾음
+            const lines = bodyText.split('\n');
+            const uniqueSet = new Set(); // 중복 방지용 Set
+
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                // 'o '로 시작하고 '주의보'나 '경보'가 포함된 줄만 수집
+                if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
+                    uniqueSet.add(trimmed); // Set은 자동으로 중복을 제거함
+                }
+            });
+
+            // 4. 결과 조합
+            let contentStr = "";
+            if (uniqueSet.size > 0) {
+                // Set을 배열로 변환 후 HTML로 조합
+                contentStr = Array.from(uniqueSet)
+                    .map(w => w.replace(/^o\s*/, "🚨 ")) // 'o '를 사이렌 이모지로 변경
+                    .join("<br><br>"); // 줄바꿈 추가
+            } else if (bodyText.includes("없습니다")) {
                 contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 현재 발효중인 특보가 없습니다.";
+            } else {
+                contentStr = "특보 내용을 찾을 수 없습니다.";
             }
 
-            // 화면 업데이트
+            // 5. 화면 업데이트
             contentEl.innerHTML = `
                 <div class="info-group">
                     <span class="info-label"><i class="far fa-clock"></i> 발효 현황 시각</span>
@@ -258,7 +272,7 @@
 
         } catch (e) {
             console.error(e);
-            contentEl.innerHTML = `<div class="loading-msg" style="color:#ff453a"><i class="fas fa-exclamation-circle"></i> 데이터 자동 수신 실패<br><span style="font-size:11px">잠시 후 다시 시도합니다.</span></div>`;
+            contentEl.innerHTML = `<div class="loading-msg" style="color:#ff453a"><i class="fas fa-exclamation-circle"></i> 데이터 수신 지연<br><span style="font-size:11px">잠시 후 재시도합니다.</span></div>`;
         }
     }
 
