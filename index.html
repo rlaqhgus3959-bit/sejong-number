@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (보안)</title>
+    <title>세종경찰 통합관제 Pro</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -26,7 +26,7 @@
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
         
-        /* 관리자 버튼 스타일 */
+        /* 관리자 버튼 */
         .admin-btn {
             background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
             padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
@@ -36,6 +36,12 @@
             background: rgba(255, 69, 58, 0.2); color: var(--red); border-color: var(--red);
             animation: pulse-border 2s infinite;
         }
+
+        /* 관리자 전용 입력창 (숨김 상태) */
+        #admin-panel { display: none; background: #222; padding: 15px; border-radius: 14px; margin-bottom: 20px; border: 1px solid var(--red); }
+        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .admin-input { background: #333; border: none; color: white; padding: 10px; border-radius: 8px; flex: 1; }
+        .add-btn { background: var(--blue); color: white; border: none; padding: 10px; border-radius: 8px; width: 100%; font-weight: bold; }
 
         /* 날씨 위젯 */
         .weather-widget {
@@ -74,7 +80,7 @@
             display: flex; justify-content: space-between; align-items: center;
             border: 1px solid var(--line);
         }
-        .card-info { display: flex; flex-direction: column; gap: 4px; }
+        .card-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
         .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
         .loc-name { font-size: 15px; font-weight: 600; }
         .loc-sub { font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
@@ -86,10 +92,13 @@
             font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px;
             min-width: 55px; text-align: center; cursor: pointer; transition: 0.2s; opacity: 0.8;
         }
-        .status-btn:active { transform: scale(0.95); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
         .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 2s infinite; }
         .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
+
+        /* 관리자용 수정/삭제 버튼 */
+        .admin-tools { display: flex; gap: 8px; margin-left: 10px; }
+        .tool-btn { background: #333; color: #ccc; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; }
 
         /* 링크 섹션 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
@@ -111,6 +120,20 @@
         <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">
             <i class="fas fa-lock"></i> 관리자
         </button>
+    </div>
+
+    <div id="admin-panel">
+        <div style="font-size:12px; margin-bottom:10px; color:#ff453a;">🚩 새로운 통제지점 추가</div>
+        <div class="input-row">
+            <select id="new-area" class="admin-input" style="flex:0.4">
+                <option value="조치원">조치원</option>
+                <option value="전의">전의</option>
+                <option value="부강">부강</option>
+                <option value="기타">기타</option>
+            </select>
+            <input type="text" id="new-name" class="admin-input" placeholder="장소명 (예: 신규 지하차도)">
+        </div>
+        <button class="add-btn" onclick="addItem()">+ 리스트에 추가</button>
     </div>
 
     <div class="weather-widget">
@@ -169,7 +192,6 @@
 <script>
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
-    // 관리자 상태 변수
     let isAdmin = false;
 
     const defaultData = [
@@ -202,8 +224,9 @@
             const pw = prompt("관리자 비밀번호를 입력하세요:");
             if (pw === "2580") {
                 isAdmin = true;
-                alert("🔓 관리자 모드가 활성화되었습니다.\n이제 통제 상태를 변경할 수 있습니다.");
+                alert("🔓 관리자 모드: 추가, 수정, 삭제가 가능합니다.");
                 updateAdminUI();
+                render(); // 리스트에 수정/삭제 버튼 표시를 위해 갱신
             } else if (pw !== null) {
                 alert("⛔ 비밀번호가 일치하지 않습니다.");
             }
@@ -211,17 +234,61 @@
             isAdmin = false;
             alert("🔒 관리자 모드가 해제되었습니다.");
             updateAdminUI();
+            render();
         }
     }
 
     function updateAdminUI() {
         const btn = document.getElementById('admin-btn');
+        const panel = document.getElementById('admin-panel');
         if (isAdmin) {
             btn.innerHTML = '<i class="fas fa-unlock"></i> 관리모드';
             btn.classList.add('active');
+            panel.style.display = 'block';
         } else {
             btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
             btn.classList.remove('active');
+            panel.style.display = 'none';
+        }
+    }
+
+    // [기능 1] 항목 추가
+    function addItem() {
+        const area = document.getElementById('new-area').value;
+        const name = document.getElementById('new-name').value;
+        if (!name) return alert("장소명을 입력해주세요.");
+
+        trafficData.unshift({
+            id: Date.now(),
+            area: area,
+            name: name,
+            status: 2, // 기본값 통제
+            bar: false
+        });
+        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+        document.getElementById('new-name').value = "";
+        render();
+    }
+
+    // [기능 2] 항목 수정
+    function editItem(idx) {
+        if(!isAdmin) return;
+        const item = trafficData[idx];
+        const newName = prompt("수정할 장소명을 입력하세요:", item.name);
+        if(newName) {
+            trafficData[idx].name = newName;
+            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+            render();
+        }
+    }
+
+    // [기능 3] 항목 삭제
+    function delItem(idx) {
+        if(!isAdmin) return;
+        if(confirm("이 항목을 삭제하시겠습니까?")) {
+            trafficData.splice(idx, 1);
+            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+            render();
         }
     }
 
@@ -235,7 +302,6 @@
         trafficData.forEach((item, idx) => {
             if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
 
-            // 필터링 로직 수정 (부강 추가)
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
@@ -245,6 +311,17 @@
             if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
             if(item.status === 1) { cls = 'st-part'; txt = '부분통제'; }
             if(item.note && item.status !== 0) txt = item.note;
+
+            // 관리자용 버튼 HTML 생성
+            let adminTools = '';
+            if(isAdmin) {
+                adminTools = `
+                    <div class="admin-tools">
+                        <button class="tool-btn" onclick="editItem(${idx})"><i class="fas fa-pen"></i></button>
+                        <button class="tool-btn" style="color:#ff453a" onclick="delItem(${idx})"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+            }
 
             const div = document.createElement('div');
             div.className = 'traffic-card';
@@ -258,6 +335,7 @@
                     </div>
                 </div>
                 <div class="status-btn ${cls}" onclick="toggleStatus(${idx})">${txt}</div>
+                ${adminTools}
             `;
             container.appendChild(div);
         });
@@ -267,13 +345,11 @@
         document.getElementById('cnt-free').innerText = freeCnt;
     }
 
-    // 상태 변경 (보안 적용)
     function toggleStatus(idx) {
         if (!isAdmin) {
-            alert("🚫 접근 권한이 없습니다.\n우측 상단 '관리자' 버튼을 눌러 로그인(2580) 하세요.");
+            alert("🚫 접근 권한이 없습니다.\n관리자 로그인 후 상태 변경이 가능합니다.");
             return;
         }
-
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
         localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
         render();
