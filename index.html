@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (v37)</title>
+    <title>세종경찰 통합관제 (Sejong First)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -25,7 +25,7 @@
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
         
-        /* 아코디언 섹션 */
+        /* 아코디언 공통 */
         .accord-section {
             background: #2c2c2e; border: 1px solid var(--line);
             border-radius: 16px; overflow: hidden; margin-bottom: 15px;
@@ -39,24 +39,36 @@
         }
         .accord-header:active { background: #444; }
         
-        .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
-        .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; }
+        .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
+        .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
+        /* 세종 특보 요약 (헤더에 표시) */
+        .sejong-summary {
+            font-size: 13px; font-weight: 600; color: #ccc;
+            background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px;
+            display: inline-block; margin-left: auto; /* 우측 정렬 */
+        }
+        .sejong-summary.safe { color: var(--green); }
+        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
+
         .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
         .accord-section.open .accord-content { display: block; }
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
 
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* 기상특보 스타일 */
-        .live-indicator { font-size: 11px; color: var(--green); font-weight: bold; display: flex; align-items: center; gap: 5px; margin-left: auto; margin-right: 10px; }
-        .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 1.5s infinite; }
+        /* 기상특보 상세 내용 */
         .info-group { margin-bottom: 12px; }
         .info-group:last-child { margin-bottom: 0; }
         .info-label { font-size: 11px; color: var(--sub); font-weight: bold; display: block; margin-bottom: 4px; }
-        .info-val { font-size: 15px; font-weight: 600; line-height: 1.4; color: #fff; }
+        .info-val { font-size: 14px; font-weight: 500; line-height: 1.5; color: #fff; }
         .info-val.time { color: var(--orange); font-family: monospace; }
-        .info-val.content { background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all; }
+        .info-val.content { 
+            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; 
+            border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all; 
+            font-size: 13px;
+        }
 
         /* 강우량 스타일 */
         .rain-grid {
@@ -70,10 +82,10 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* [수정] 통제구역 리스트 (4열 배치) */
+        /* 통제구역 리스트 (4열) */
         .list-container { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4개씩 */
+            grid-template-columns: repeat(4, 1fr); 
             gap: 6px; 
         }
         .traffic-card {
@@ -92,7 +104,7 @@
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
 
-        /* [이동] 대시보드 (섹션 내부용) */
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
         .dash-val { font-size: 18px; font-weight: 700; display: block; }
@@ -116,8 +128,6 @@
         /* 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-
-        @keyframes blink { 0% { opacity: 1; } 50% { opacity: 0.3; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -129,11 +139,10 @@
     </div>
 </header>
 
-<div class="accord-section open" id="sec-weather">
+<div class="accord-section" id="sec-weather">
     <div class="accord-header" onclick="toggleSection('sec-weather')">
         <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
-        <div class="live-indicator"><div class="live-dot"></div>실시간</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+        <div id="sejong-status" class="sejong-summary">확인중...</div> <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content" id="monitor-content">
         <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
@@ -150,8 +159,7 @@
             <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
-        <div class="rain-grid" id="rain-grid">
-            </div>
+        <div class="rain-grid" id="rain-grid"></div>
     </div>
 </div>
 
@@ -205,22 +213,22 @@
 
     let isAdmin = false;
     const defaultData = [
-        { id:1, area:'조치원', name:'조치원읍 세월교', status:2, bar:true },
-        { id:2, area:'전의', name:'전의면 북암천', status:2, bar:true },
-        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true, note:'5해제/1통제' },
-        { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2, bar:true },
-        { id:5, area:'부강', name:'부용가교', status:2, bar:true },
-        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true, note:'P/L' },
-        { id:7, area:'전의', name:'전동면 청람리', status:0, bar:false },
-        { id:8, area:'조치원', name:'조치원읍 내창천', status:0, bar:true },
-        { id:9, area:'조치원', name:'봉암하상도로', status:0, bar:true },
-        { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0, bar:true },
-        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0, bar:false },
-        { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0, bar:false },
-        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0, bar:false },
-        { id:14, area:'전의', name:'소정면사무소 앞', status:0, bar:false },
-        { id:15, area:'전의', name:'전의중학교 앞', status:0, bar:false },
-        { id:16, area:'조치원', name:'욱일지하차도', status:0, bar:true }
+        { id:1, area:'조치원', name:'조치원읍 세월교', status:2 },
+        { id:2, area:'전의', name:'전의면 북암천', status:2 },
+        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1 },
+        { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2 },
+        { id:5, area:'부강', name:'부용가교', status:2 },
+        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
+        { id:7, area:'전의', name:'전동면 청람리', status:0 },
+        { id:8, area:'조치원', name:'조치원읍 내창천', status:0 },
+        { id:9, area:'조치원', name:'봉암하상도로', status:0 },
+        { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0 },
+        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0 },
+        { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0 },
+        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 },
+        { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
+        { id:15, area:'전의', name:'전의중학교 앞', status:0 },
+        { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
@@ -281,6 +289,8 @@
 
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
+        const headerStatusEl = document.getElementById('sejong-status');
+
         try {
             const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
             const res = await fetch(proxyUrl);
@@ -295,13 +305,31 @@
 
             const lines = bodyText.split('\n');
             const uniqueSet = new Set();
+            let sejongAlert = null; // 세종시 특보 저장용
+
             lines.forEach(line => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
                     uniqueSet.add(trimmed);
+                    // 세종시 특보 확인
+                    if (trimmed.includes("세종")) {
+                        // 특보 이름 추출 (ex: 호우주의보)
+                        const alertName = trimmed.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/);
+                        if (alertName) sejongAlert = alertName[0];
+                    }
                 }
             });
 
+            // 1. 헤더에 세종시 현황 표시 (접혀있어도 보임)
+            if (sejongAlert) {
+                headerStatusEl.innerText = `세종: ${sejongAlert}`;
+                headerStatusEl.className = "sejong-summary warn";
+            } else {
+                headerStatusEl.innerText = "세종: 특보 없음";
+                headerStatusEl.className = "sejong-summary safe";
+            }
+
+            // 2. 상세 내용 표시 (펼쳐야 보임)
             let contentStr = "";
             if (uniqueSet.size > 0) {
                 contentStr = Array.from(uniqueSet).map(w => w.replace(/^o\s*/, "🚨 ")).join("<br>");
@@ -313,10 +341,11 @@
 
             contentEl.innerHTML = `
                 <div class="info-group"><span class="info-label">발효시각</span><div class="info-val time">${timeStr}</div></div>
-                <div class="info-group"><span class="info-label">특보내용</span><div class="info-val content">${contentStr}</div></div>
+                <div class="info-group"><span class="info-label">전국 특보 내용</span><div class="info-val content">${contentStr}</div></div>
             `;
         } catch (e) {
             contentEl.innerHTML = `<div style="text-align:center; color:#666;">대기중...</div>`;
+            headerStatusEl.innerText = "연결 실패";
         }
     }
 
@@ -352,7 +381,6 @@
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
 
-            // 4열 그리드 카드
             const div = document.createElement('div');
             div.className = 'traffic-card';
             div.innerHTML = `
