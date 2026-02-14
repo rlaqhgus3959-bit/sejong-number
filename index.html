@@ -82,23 +82,11 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 통제구역 & CCTV 리스트 (공통) */
-        .list-container { 
-            display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4열 */
-            gap: 6px; 
-        }
-        /* CCTV는 3열로 좀 더 크게 */
+        /* CCTV 3열 리스트 */
         .cctv-container {
             display: grid;
-            grid-template-columns: repeat(3, 1fr); /* 3열 */
+            grid-template-columns: repeat(3, 1fr);
             gap: 8px;
-        }
-
-        .traffic-card {
-            background: #1c1c1e; padding: 8px; border-radius: 10px;
-            display: flex; flex-direction: column; justify-content: space-between;
-            border: 1px solid var(--line); min-height: 80px;
         }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -107,7 +95,27 @@
             position: relative;
         }
         .cctv-card:active { background: #333; }
+        
+        .cctv-icon { 
+            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
+            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
+        }
+        .cctv-btn {
+            background: #333; color: #ccc; font-size: 11px; padding: 6px; 
+            text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
+        }
 
+        /* 통제구역 4열 리스트 */
+        .list-container { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); 
+            gap: 6px; 
+        }
+        .traffic-card {
+            background: #1c1c1e; padding: 8px; border-radius: 10px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            border: 1px solid var(--line); min-height: 80px;
+        }
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
@@ -118,15 +126,6 @@
         }
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-        
-        .cctv-icon { 
-            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
-            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
-        }
-        .cctv-btn {
-            background: #333; color: #ccc; font-size: 11px; padding: 6px; 
-            text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
-        }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
@@ -152,6 +151,29 @@
         /* 링크 */
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+        /* [NEW] CCTV 팝업 모달 */
+        #cctv-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
+        }
+        .cctv-modal-header {
+            padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; }
+        .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; }
+        .cctv-frame-container { flex: 1; position: relative; background: #000; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        .cctv-fallback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; width: 80%;
+        }
+        .fallback-btn {
+            background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px;
+            text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
+        }
     </style>
 </head>
 <body>
@@ -249,6 +271,21 @@
     <button onclick="resetData()" style="background:none; border:none; color:#666; text-decoration:underline;">[관리자] 데이터 초기화</button>
 </div>
 
+<div id="cctv-modal">
+    <div class="cctv-modal-header">
+        <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
+        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="cctv-frame-container">
+        <iframe id="cctv-frame" src=""></iframe>
+        
+        <div class="cctv-fallback">
+            <div style="color:white; margin-bottom:10px; font-size:14px;">화면이 보이지 않나요?</div>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">새창으로 열기</a>
+        </div>
+    </div>
+</div>
+
 <script>
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
@@ -274,10 +311,9 @@
         { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // CCTV 데이터 (추가 가능)
+    // CCTV 데이터 (URL)
     const cctvData = [
         { area: '조치원', name: '상리사거리', url: 'https://kko.to/j2CULRRMDQ' },
-        // 추후 추가: { area: '전의', name: 'OO사거리', url: '...' }
     ];
 
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
@@ -315,7 +351,9 @@
 
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            div.onclick = () => window.open(item.url, '_blank');
+            // 클릭 시 팝업 열기
+            div.onclick = () => openCCTV(item.name, item.url);
+            
             div.innerHTML = `
                 <div>
                     <span class="area-tag">${item.area}</span>
@@ -330,6 +368,20 @@
         if(container.innerHTML === '') {
             container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
         }
+    }
+
+    // CCTV 팝업 열기
+    function openCCTV(name, url) {
+        document.getElementById('cctv-title').innerText = name + " CCTV";
+        document.getElementById('cctv-frame').src = url;
+        document.getElementById('cctv-link-btn').href = url;
+        document.getElementById('cctv-modal').style.display = 'flex';
+    }
+
+    // CCTV 팝업 닫기
+    function closeCCTV() {
+        document.getElementById('cctv-modal').style.display = 'none';
+        document.getElementById('cctv-frame').src = ""; // 영상 정지
     }
 
     // --- 강우량 관련 ---
@@ -433,7 +485,6 @@
         }
     }
 
-    // --- 기본 기능 ---
     function toggleAdmin() {
         if (!isAdmin) {
             const pw = prompt("관리자 비밀번호:");
