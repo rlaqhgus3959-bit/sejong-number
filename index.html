@@ -150,6 +150,7 @@
     <button class="filter-btn" onclick="setFilter('free', this)">🟢 해제됨</button>
     <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
     <button class="filter-btn" onclick="setFilter('전의', this)">전의면</button>
+    <button class="filter-btn" onclick="setFilter('부강', this)">부강면</button>
 </div>
 
 <div class="list-container" id="list"></div>
@@ -195,10 +196,9 @@
 
     window.onload = () => { render(); fetchWeather(); };
 
-    // [핵심] 관리자 모드 토글 함수
+    // 관리자 모드 토글
     function toggleAdmin() {
         if (!isAdmin) {
-            // 로그인 시도
             const pw = prompt("관리자 비밀번호를 입력하세요:");
             if (pw === "2580") {
                 isAdmin = true;
@@ -208,14 +208,12 @@
                 alert("⛔ 비밀번호가 일치하지 않습니다.");
             }
         } else {
-            // 로그아웃
             isAdmin = false;
             alert("🔒 관리자 모드가 해제되었습니다.");
             updateAdminUI();
         }
     }
 
-    // 관리자 UI 업데이트
     function updateAdminUI() {
         const btn = document.getElementById('admin-btn');
         if (isAdmin) {
@@ -237,9 +235,10 @@
         trafficData.forEach((item, idx) => {
             if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
 
+            // 필터링 로직 수정 (부강 추가)
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
-            if((currFilter === '조치원' || currFilter === '전의') && item.area !== currFilter) return;
+            if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
 
             let cls = 'st-free', txt = '해제';
@@ -268,15 +267,13 @@
         document.getElementById('cnt-free').innerText = freeCnt;
     }
 
-    // [핵심] 상태 변경 함수 (보안 적용)
+    // 상태 변경 (보안 적용)
     function toggleStatus(idx) {
-        // 관리자가 아니면 거부
         if (!isAdmin) {
             alert("🚫 접근 권한이 없습니다.\n우측 상단 '관리자' 버튼을 눌러 로그인(2580) 하세요.");
             return;
         }
 
-        // 관리자라면 상태 변경 허용
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
         localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
         render();
