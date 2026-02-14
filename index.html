@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Auto)</title>
+    <title>통합관제 (전국특보)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,22 +42,32 @@
         .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
         .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
 
-        /* [NEW] 자동 특보 전광판 */
+        /* [핵심] 전국 특보 전광판 */
         #auto-alert-box {
             background: #2c2c2e; border: 1px solid var(--line);
             border-radius: 14px; padding: 15px; margin-bottom: 20px;
-            cursor: pointer; transition: 0.2s; min-height: 50px;
+            cursor: pointer; transition: 0.2s;
         }
         #auto-alert-box.has-alert {
-            background: rgba(255, 69, 58, 0.1); border-color: var(--red);
-            animation: pulse-border 2s infinite;
+            background: rgba(255, 69, 58, 0.05); border-color: var(--red);
         }
         
-        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .alert-badge { background: #444; color: #ccc; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; }
-        .has-alert .alert-badge { background: var(--red); color: white; }
+        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 8px; }
+        .alert-badge { background: #444; color: #ccc; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
+        .has-alert .alert-badge { background: var(--red); color: white; animation: blink 2s infinite; }
         
-        .alert-content { font-size: 14px; font-weight: 600; color: white; line-height: 1.5; white-space: pre-wrap; }
+        /* 스크롤 영역 설정 */
+        .alert-content-area {
+            max-height: 180px; /* 높이 제한 */
+            overflow-y: auto;  /* 스크롤 허용 */
+            font-size: 13px; 
+            line-height: 1.6; 
+            color: #ddd; 
+            white-space: pre-wrap; /* 줄바꿈 유지 */
+        }
+        .alert-content-area::-webkit-scrollbar { width: 4px; }
+        .alert-content-area::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
+
         .alert-sub { font-size: 11px; color: var(--sub); margin-top: 8px; display: flex; justify-content: space-between; }
 
         /* 날씨 위젯 */
@@ -122,6 +132,7 @@
         }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes blink { 50% { opacity: 0.5; } }
         @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
     </style>
 </head>
@@ -151,12 +162,12 @@
     <div id="auto-alert-box" onclick="window.open('https://www.weather.go.kr/w/weather/warning/list.do')">
         <div class="alert-header">
             <span class="alert-badge" id="alert-badge">기상청 연결중...</span>
-            <i class="fas fa-chevron-right" style="color:#666; font-size:12px"></i>
+            <div style="font-size:11px; color:#aaa;">
+                <span id="alert-time">-</span> 갱신
+            </div>
         </div>
-        <div class="alert-content" id="alert-text">특보 데이터를 가져오는 중입니다.</div>
-        <div class="alert-sub">
-            <span id="alert-time">-</span>
-            <span>기상청 제공</span>
+        <div class="alert-content-area" id="alert-text">
+            데이터를 불러오는 중입니다...
         </div>
     </div>
 
@@ -242,7 +253,7 @@
 
     window.onload = () => { render(); fetchWeather(); fetchKmaAlert(); };
 
-    // [핵심] 기상청 텍스트 긁어오기 (CORS 우회)
+    // [핵심] 전국 기상특보 가져오기 (필터 없음)
     async function fetchKmaAlert() {
         const box = document.getElementById('auto-alert-box');
         const badge = document.getElementById('alert-badge');
@@ -250,45 +261,37 @@
         const timeEl = document.getElementById('alert-time');
 
         try {
-            // allorigins.win 프록시를 통해 기상청 페이지 소스 가져오기
             const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.weather.go.kr/w/weather/warning/list.do');
             const res = await fetch(proxyUrl);
             const json = await res.json();
             const html = json.contents;
 
-            // HTML 파싱을 위한 임시 엘리먼트
             const parser = new DOMParser();
             const doc = parser.parseFromString(html, 'text/html');
-            
-            // 기상청 페이지의 특보 텍스트 영역 클래스 찾기 (.dosq_text)
             const alertElement = doc.querySelector('.dosq_text');
             
             if (alertElement) {
                 let fullText = alertElement.innerText.trim();
                 
-                // "세종" 키워드가 포함된 문장 찾기 (없으면 전체 표시 or 없음 표시)
-                if (fullText.includes("세종")) {
-                    badge.innerText = "🚨 세종시 특보 발효중";
-                    content.innerText = fullText; // 전체 내용 보여주기 (세종 포함된)
-                    box.classList.add('has-alert');
-                } else if (fullText.includes("발효중인 특보가 없습니다")) {
+                if(fullText.includes("없습니다")) {
                     badge.innerText = "특보 없음";
-                    content.innerText = "현재 세종시에 발효중인 기상 특보가 없습니다.";
-                    content.style.color = "#aaa";
+                    content.innerText = "현재 발효중인 기상특보가 없습니다.";
+                    content.style.color = "#888";
                     box.classList.remove('has-alert');
                 } else {
-                    // 타지역 특보만 있는 경우
-                    badge.innerText = "타지역 특보중";
-                    content.innerText = "현재 세종시에는 특보가 없습니다.\n(전국 현황 확인은 클릭)";
-                    content.style.color = "#aaa";
-                    box.classList.remove('has-alert');
+                    badge.innerText = "🚨 전국 기상특보";
+                    // 가독성을 위해 'o' 불릿을 줄바꿈으로 변경
+                    let formattedText = fullText.replace(/o /g, "\n\n• ");
+                    content.innerText = formattedText;
+                    content.style.color = "white";
+                    box.classList.add('has-alert');
                 }
             } else {
-                content.innerText = "특보 정보를 불러올 수 없습니다. (클릭하여 확인)";
+                content.innerText = "특보 데이터를 불러올 수 없습니다.";
             }
 
             const now = new Date();
-            timeEl.innerText = `${now.getHours()}:${now.getMinutes()} 갱신`;
+            timeEl.innerText = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
 
         } catch (e) {
             console.error(e);
