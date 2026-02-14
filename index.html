@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>통합관제 (전국특보)</title>
+    <title>세종경찰 통합관제 (KBS)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,42 +42,37 @@
         .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
         .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
 
-        /* [핵심] 전국 특보 전광판 */
-        #auto-alert-box {
-            background: #2c2c2e; border: 1px solid var(--line);
-            border-radius: 14px; padding: 15px; margin-bottom: 20px;
-            cursor: pointer; transition: 0.2s;
+        /* [관리자용] 수동 전광판 */
+        #special-alert-box {
+            display: none; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--red);
+            border-radius: 14px; padding: 15px; margin-bottom: 20px; cursor: pointer;
         }
-        #auto-alert-box.has-alert {
-            background: rgba(255, 69, 58, 0.05); border-color: var(--red);
-        }
-        
-        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; border-bottom: 1px solid #444; padding-bottom: 8px; }
-        .alert-badge { background: #444; color: #ccc; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 6px; }
-        .has-alert .alert-badge { background: var(--red); color: white; animation: blink 2s infinite; }
-        
-        /* 스크롤 영역 설정 */
-        .alert-content-area {
-            max-height: 180px; /* 높이 제한 */
-            overflow-y: auto;  /* 스크롤 허용 */
-            font-size: 13px; 
-            line-height: 1.6; 
-            color: #ddd; 
-            white-space: pre-wrap; /* 줄바꿈 유지 */
-        }
-        .alert-content-area::-webkit-scrollbar { width: 4px; }
-        .alert-content-area::-webkit-scrollbar-thumb { background: #555; border-radius: 2px; }
-
-        .alert-sub { font-size: 11px; color: var(--sub); margin-top: 8px; display: flex; justify-content: space-between; }
+        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .alert-badge { background: var(--red); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; animation: blink 1s infinite; }
+        .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
+        .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
 
         /* 날씨 위젯 */
         .weather-widget {
             background: var(--card); padding: 15px; border-radius: 16px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line); margin-bottom: 10px;
+            border: 1px solid var(--line); margin-bottom: 20px;
         }
         .w-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
         .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
+
+        /* [NEW] KBS 재난포털 화면 */
+        .kbs-container {
+            border: 1px solid var(--line); border-radius: 16px; overflow: hidden;
+            background: white; margin-bottom: 25px; height: 500px; position: relative;
+        }
+        .kbs-title {
+            position: absolute; top: 10px; left: 10px; z-index: 10;
+            background: rgba(0,0,0,0.8); color: white; padding: 6px 12px;
+            border-radius: 20px; font-size: 12px; font-weight: bold;
+            display: flex; align-items: center; gap: 6px;
+        }
+        iframe { width: 100%; height: 100%; border: none; }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 0 15px 0; }
@@ -147,7 +142,14 @@
     </div>
 
     <div id="admin-panel">
-        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">➕ 통제지점 추가</div>
+        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력</div>
+        <div class="input-row">
+            <textarea id="alert-input" class="admin-input" rows="2" placeholder="전파 내용 입력"></textarea>
+            <button class="action-btn" onclick="saveAlert()">전파</button>
+            <button class="action-btn" style="background:#444;" onclick="clearAlert()">삭제</button>
+        </div>
+        
+        <div style="font-size:12px; margin:15px 0 10px; color:var(--red);">➕ 통제지점 추가</div>
         <div class="input-row">
             <select id="new-area" class="admin-input" style="flex:0.4">
                 <option value="조치원">조치원</option>
@@ -159,16 +161,12 @@
         </div>
     </div>
 
-    <div id="auto-alert-box" onclick="window.open('https://www.weather.go.kr/w/weather/warning/list.do')">
+    <div id="special-alert-box">
         <div class="alert-header">
-            <span class="alert-badge" id="alert-badge">기상청 연결중...</span>
-            <div style="font-size:11px; color:#aaa;">
-                <span id="alert-time">-</span> 갱신
-            </div>
+            <span class="alert-badge">긴급공지</span>
+            <span class="alert-time" id="alert-time"></span>
         </div>
-        <div class="alert-content-area" id="alert-text">
-            데이터를 불러오는 중입니다...
-        </div>
+        <div class="alert-content" id="alert-text"></div>
     </div>
 
     <div class="weather-widget">
@@ -181,6 +179,11 @@
         <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
+
+<div class="kbs-container">
+    <div class="kbs-title"><i class="fas fa-tower-broadcast"></i> KBS 재난포털 특보</div>
+    <iframe src="https://d.kbs.co.kr/special/special" title="KBS 특보"></iframe>
+</div>
 
 <div class="dashboard">
     <div class="dash-item">
@@ -251,54 +254,7 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); fetchKmaAlert(); };
-
-    // [핵심] 전국 기상특보 가져오기 (필터 없음)
-    async function fetchKmaAlert() {
-        const box = document.getElementById('auto-alert-box');
-        const badge = document.getElementById('alert-badge');
-        const content = document.getElementById('alert-text');
-        const timeEl = document.getElementById('alert-time');
-
-        try {
-            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.weather.go.kr/w/weather/warning/list.do');
-            const res = await fetch(proxyUrl);
-            const json = await res.json();
-            const html = json.contents;
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const alertElement = doc.querySelector('.dosq_text');
-            
-            if (alertElement) {
-                let fullText = alertElement.innerText.trim();
-                
-                if(fullText.includes("없습니다")) {
-                    badge.innerText = "특보 없음";
-                    content.innerText = "현재 발효중인 기상특보가 없습니다.";
-                    content.style.color = "#888";
-                    box.classList.remove('has-alert');
-                } else {
-                    badge.innerText = "🚨 전국 기상특보";
-                    // 가독성을 위해 'o' 불릿을 줄바꿈으로 변경
-                    let formattedText = fullText.replace(/o /g, "\n\n• ");
-                    content.innerText = formattedText;
-                    content.style.color = "white";
-                    box.classList.add('has-alert');
-                }
-            } else {
-                content.innerText = "특보 데이터를 불러올 수 없습니다.";
-            }
-
-            const now = new Date();
-            timeEl.innerText = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')}`;
-
-        } catch (e) {
-            console.error(e);
-            badge.innerText = "연결 실패";
-            content.innerText = "기상청 연결 실패. 클릭하여 직접 확인하세요.";
-        }
-    }
+    window.onload = () => { render(); fetchWeather(); loadAlert(); };
 
     function toggleAdmin() {
         if (!isAdmin) {
@@ -330,6 +286,37 @@
             btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
             btn.classList.remove('active');
             panel.style.display = 'none';
+        }
+    }
+
+    function saveAlert() {
+        const text = document.getElementById('alert-input').value;
+        if(!text) return alert("내용을 입력하세요");
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')} 발표`;
+        localStorage.setItem('policeAlert', JSON.stringify({ text: text, time: timeStr }));
+        loadAlert();
+        alert("전파되었습니다.");
+    }
+
+    function clearAlert() {
+        if(confirm("전파 내용을 삭제하시겠습니까?")) {
+            localStorage.removeItem('policeAlert');
+            document.getElementById('alert-input').value = "";
+            loadAlert();
+        }
+    }
+
+    function loadAlert() {
+        const data = JSON.parse(localStorage.getItem('policeAlert'));
+        const box = document.getElementById('special-alert-box');
+        if(data) {
+            box.style.display = 'block';
+            document.getElementById('alert-text').innerText = data.text;
+            document.getElementById('alert-time').innerText = data.time;
+            document.getElementById('alert-input').value = data.text;
+        } else {
+            box.style.display = 'none';
         }
     }
 
