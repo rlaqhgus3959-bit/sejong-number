@@ -1,14 +1,3 @@
-해당 페이지(Mepv2.safekorea.go.kr/...) 역시 보안상의 이유로 외부 앱에서 직접 데이터를 가져오는 것이 차단되어 있습니다. (이전과 마찬가지로 흰 화면이나 로딩 실패가 뜰 수 있습니다.)
-따라서 가장 확실한 해결책인 [스마트 텍스트 분석기] 기능을 업그레이드하여 적용해 드립니다.
-사용 방법은 아주 간단합니다:
- * 앱 내의 [재난포털 열기] 버튼을 누릅니다.
- * 나오는 화면의 글씨를 복사합니다.
- * 앱에 붙여넣기만 하면, 알아서 **[제목 / 구역 / 시각 / 내용]**을 쏙쏙 뽑아서 보여줍니다.
-🛠️ v28.0 최종 완성 (재난포털 스마트 분석)
- * 맞춤 분석: 국민재난안전포털의 텍스트 형식(제목, 구역, 일시)을 정확히 인식하도록 알고리즘을 짰습니다.
- * 오류 해결: 더 이상 흰 화면이나 로딩 실패 스트레스를 받지 않으셔도 됩니다.
- * 데이터 저장: 한 번 분석한 내용은 앱을 껐다 켜도 유지됩니다.
-[아래 코드를 index.html에 전체 덮어쓰기 하세요]
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -179,17 +168,17 @@
 
     <div id="smart-parser-box">
         <div class="parser-header">
-            <div class="ph-title"><i class="fas fa-robot"></i> 재난포털 스마트 분석</div>
+            <div class="ph-title"><i class="fas fa-file-signature"></i> 기상특보 갈무리 현황</div>
             <button class="ph-btn" onclick="toggleParserMode()">
-                <i class="fas fa-pen"></i> 입력하기
+                <i class="fas fa-pen"></i> 분석/입력
             </button>
         </div>
 
         <div id="view-mode">
             <div id="result-content" class="result-container">
                 <div class="empty-state">
-                    입력된 특보 정보가 없습니다.<br>
-                    우측 상단 <b>[입력하기]</b>를 눌러주세요.
+                    분석된 특보 데이터가 없습니다.<br>
+                    우측 상단 <b>[분석/입력]</b>을 눌러주세요.
                 </div>
             </div>
         </div>
@@ -197,16 +186,16 @@
         <div id="input-mode">
             <div class="guide-box">
                 <span class="guide-step">① 아래 <b>[재난포털 열기]</b> 버튼 클릭</span>
-                <span class="guide-step">② 화면의 글씨들을 꾹 눌러 <b>전체 복사</b></span>
-                <span class="guide-step">③ 이곳에 <b>붙여넣기</b> 하고 <b>분석 저장</b> 클릭</span>
+                <span class="guide-step">② 특보 내용(제목,지역,시간 등)을 <b>전체 복사</b></span>
+                <span class="guide-step">③ 이곳에 <b>붙여넣기</b> 하고 <b>[분석 저장]</b> 클릭</span>
             </div>
             <textarea id="paste-area" class="paste-area" placeholder="재난포털 내용을 여기에 붙여넣으세요..."></textarea>
             <div class="btn-group">
-                <button class="p-btn btn-link" onclick="window.open('https://m.safekorea.go.kr/idsiSFK/neo/sfk/cs/sfc/wtr/wtrList.html?menuSeq=64')">
+                <button class="p-btn btn-link" onclick="window.open('https://Mepv2.safekorea.go.kr/weather/showSpecialReport.do')">
                     <i class="fas fa-external-link-alt"></i> 재난포털 열기
                 </button>
                 <button class="p-btn btn-save" onclick="analyzeText()">
-                    <i class="fas fa-check"></i> 분석 및 저장
+                    <i class="fas fa-check"></i> 분석 저장
                 </button>
             </div>
         </div>
@@ -307,7 +296,7 @@
 
     window.onload = () => { render(); fetchWeather(); loadParsedData(); };
 
-    // [핵심] 텍스트 분석기 로직
+    // [핵심] 재난포털 텍스트 정밀 분석기
     function toggleParserMode() {
         const input = document.getElementById('input-mode');
         const view = document.getElementById('view-mode');
@@ -322,40 +311,50 @@
 
     function analyzeText() {
         const rawText = document.getElementById('paste-area').value;
-        if(!rawText) return alert("텍스트를 붙여넣어주세요.");
+        if(!rawText) return alert("내용을 붙여넣어주세요.");
 
-        // 재난포털 텍스트 패턴 분석
-        let result = { title: "확인불가", time: "미상", area: "전체", content: "" };
+        let result = { 
+            title: "제목 없음", 
+            time: "시각 미상", 
+            area: "전체 또는 미상", 
+            content: "" 
+        };
 
-        // 1. 발표시각 추출 (YYYY.MM.DD HH:mm 패턴)
-        const timeMatch = rawText.match(/(\d{4}\.\d{2}\.\d{2}\.?\s\d{2}:\d{2})/);
+        // 1. 특보명 추출 (호우주의보, 대설경보 등)
+        const titleMatch = rawText.match(/(호우|대설|태풍|강풍|풍랑|한파|폭염|건조|지진)(주의보|경보)/);
+        if(titleMatch) result.title = titleMatch[0];
+
+        // 2. 발표시각 추출 (YYYY.MM.DD HH:mm 패턴)
+        const timeMatch = rawText.match(/(\d{4}[\.\-]\d{2}[\.\-]\d{2}\.?\s+\d{2}:\d{2})/);
         if(timeMatch) result.time = timeMatch[1];
 
-        // 2. 특보명 추출 (호우주의보, 대설경보 등)
-        const titleMatch = rawText.match(/(호우|대설|태풍|강풍|풍랑|한파|폭염|건조)(주의보|경보)/);
-        if(titleMatch) result.title = titleMatch[0];
-        
-        // 3. 내용 추출 (o ... 또는 - ... 로 시작하는 줄)
+        // 3. 해당구역/내용 추출
+        // 'o' 또는 '-' 로 시작하는 줄이나 '세종'이 포함된 줄을 찾음
         const lines = rawText.split('\n');
         let contentArr = [];
         lines.forEach(line => {
             line = line.trim();
             if(line.startsWith('o') || line.startsWith('-') || line.includes(':')) {
+                // "o 호우주의보 : 세종" 같은 패턴에서 지역만 추출 시도
+                if(line.includes(':') && line.includes(result.title)) {
+                    let parts = line.split(':');
+                    if(parts[1]) result.area = parts[1].trim(); // 구역 업데이트
+                }
                 contentArr.push(line);
             }
         });
+        
         result.content = contentArr.join('<br>');
-        if(!result.content) result.content = rawText.substring(0, 100) + "..."; // 못 찾으면 앞부분이라도
+        if(!result.content) result.content = rawText.substring(0, 150) + "...";
 
-        // 저장
-        localStorage.setItem('smartParsed', JSON.stringify(result));
+        localStorage.setItem('safekoreaParsed', JSON.stringify(result));
         loadParsedData();
         toggleParserMode();
         document.getElementById('paste-area').value = "";
     }
 
     function loadParsedData() {
-        const saved = localStorage.getItem('smartParsed');
+        const saved = localStorage.getItem('safekoreaParsed');
         const container = document.getElementById('result-content');
         if(!saved) return;
 
@@ -370,7 +369,7 @@
                 <span class="info-value val-time">${data.time}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">상세내용 및 구역</span>
+                <span class="info-label">해당구역 및 상세내용</span>
                 <span class="info-value">${data.content}</span>
             </div>
         `;
@@ -402,11 +401,11 @@
         if (isAdmin) {
             btn.innerHTML = '<i class="fas fa-unlock"></i> 관리모드';
             btn.classList.add('active');
-            panel.style.display = 'block';
+            if(panel) panel.style.display = 'block';
         } else {
             btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
             btn.classList.remove('active');
-            panel.style.display = 'none';
+            if(panel) panel.style.display = 'none';
         }
     }
 
@@ -553,4 +552,3 @@
 
 </body>
 </html>
-
