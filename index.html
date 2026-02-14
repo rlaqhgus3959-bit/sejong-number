@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (KWeather)</title>
+    <title>세종경찰 통합관제 (재난포털)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,27 +42,35 @@
         .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
         .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
 
-        /* [핵심] 케이웨더 특보 요약판 */
-        #kweather-box {
-            background: #2c2c2e; border: 1px solid var(--line);
+        /* [관리자용] 수동 전광판 */
+        #special-alert-box {
+            display: none; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--red);
+            border-radius: 14px; padding: 15px; margin-bottom: 20px; cursor: pointer;
+        }
+        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+        .alert-badge { background: var(--red); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; animation: blink 1s infinite; }
+        .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
+        .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
+
+        /* [핵심] 국민재난안전포털 뷰어 (Iframe) */
+        #safekorea-frame-box {
+            background: white; border: 1px solid var(--line);
             border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-            cursor: pointer;
+            height: 450px; position: relative;
         }
-        .kw-header {
-            background: #3a3a3c; padding: 12px 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #444;
+        .frame-header {
+            position: absolute; top: 0; left: 0; width: 100%; height: 35px;
+            background: #2c2c2e; display: flex; align-items: center; justify-content: space-between;
+            padding: 0 15px; z-index: 10; box-sizing: border-box;
         }
-        .kw-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: #fff; }
-        .kw-time { font-size: 12px; color: var(--orange); font-weight: 600; }
+        .fh-title { font-size: 12px; color: white; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .fh-link { font-size: 11px; color: var(--blue); text-decoration: none; font-weight: bold; cursor: pointer; }
         
-        .kw-body { 
-            padding: 15px; min-height: 60px; 
-            font-size: 14px; line-height: 1.6; color: #ddd; white-space: pre-wrap;
+        iframe { 
+            width: 100%; height: 100%; border: none; 
+            margin-top: 35px; /* 헤더 높이만큼 밀기 */
+            background: white;
         }
-        .kw-body.has-alert { color: white; font-weight: 500; }
-        
-        .no-data { text-align: center; color: #888; padding: 10px; font-size: 13px; }
 
         /* 날씨 위젯 */
         .weather-widget {
@@ -127,6 +135,7 @@
         }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes blink { 50% { opacity: 0.5; } }
         @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
     </style>
 </head>
@@ -160,22 +169,20 @@
         </div>
     </div>
 
-    <div id="special-alert-box" style="display:none; background:rgba(255,69,58,0.1); border:1px solid var(--red); border-radius:14px; padding:15px; margin-bottom:20px;">
-        <div class="alert-header" style="margin-bottom:8px; display:flex; justify-content:space-between;">
-            <span class="alert-badge" style="background:var(--red); color:white; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700;">긴급공지</span>
-            <span id="alert-time" style="font-size:12px; color:var(--red);"></span>
+    <div id="special-alert-box">
+        <div class="alert-header">
+            <span class="alert-badge">긴급공지</span>
+            <span class="alert-time" id="alert-time"></span>
         </div>
-        <div id="alert-text" style="font-size:15px; font-weight:700; color:white; white-space:pre-wrap;"></div>
+        <div class="alert-content" id="alert-text"></div>
     </div>
 
-    <div id="kweather-box" onclick="window.open('https://wwwnew.kweather.co.kr/kma/kma_special.html')">
-        <div class="kw-header">
-            <span class="kw-title"><i class="fas fa-tower-broadcast"></i> 기상특보 발효현황</span>
-            <span class="kw-time" id="kw-time">-</span>
+    <div id="safekorea-frame-box">
+        <div class="frame-header">
+            <span class="fh-title">🚨 국민재난안전포털 특보</span>
+            <span class="fh-link" onclick="reloadFrame()">🔄 새로고침</span>
         </div>
-        <div class="kw-body" id="kw-content">
-            <div class="no-data"><i class="fas fa-spinner fa-spin"></i> 데이터 수신중...</div>
-        </div>
+        <iframe id="safekorea-iframe" src="https://m.safekorea.go.kr/idsiSFK/neo/sfk/cs/sfc/wtr/wtrList.html?menuSeq=64" title="국민재난안전포털"></iframe>
     </div>
 
     <div class="weather-widget">
@@ -258,64 +265,10 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); fetchKweather(); loadAlert(); };
+    window.onload = () => { render(); fetchWeather(); loadAlert(); };
 
-    // [핵심] 케이웨더 텍스트 긁어오기 (CORS 우회)
-    async function fetchKweather() {
-        const timeEl = document.getElementById('kw-time');
-        const contentEl = document.getElementById('kw-content');
-
-        try {
-            // allorigins.win 프록시 사용 (케이웨더 페이지)
-            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://wwwnew.kweather.co.kr/kma/kma_special.html');
-            const res = await fetch(proxyUrl);
-            const json = await res.json();
-            const html = json.contents;
-
-            // HTML 파싱
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(html, 'text/html');
-            const bodyText = doc.body.innerText;
-
-            // 1. 발효현황 시간 추출
-            // "발효현황2026.02.13 10:00" 같은 패턴 찾기
-            const timeMatch = bodyText.match(/발효현황\s*(\d{4}\.\d{2}\.\d{2}\s\d{2}:\d{2})/);
-            if (timeMatch) {
-                timeEl.innerText = timeMatch[1];
-            } else {
-                timeEl.innerText = "시간 미확인";
-            }
-
-            // 2. 특보 발효 현황 내용 추출
-            const startMarker = "특보 발효 현황 내용";
-            const endMarker = "예비특보"; // 또는 "상세정보" 등 다음 섹션 키워드
-            
-            const startIndex = bodyText.indexOf(startMarker);
-            
-            if (startIndex !== -1) {
-                // 뒷부분 내용 자르기 (endMarker가 없으면 적당히 자름)
-                let extracted = bodyText.substring(startIndex + startMarker.length);
-                const endIndex = extracted.indexOf("상세정보");
-                if (endIndex !== -1) extracted = extracted.substring(0, endIndex);
-                
-                extracted = extracted.trim();
-
-                // 가독성 개선: "o 특보명" 앞에 줄바꿈
-                extracted = extracted.replace(/o /g, "\n\n🚨 ");
-
-                if(extracted.includes("없음")) {
-                    contentEl.innerHTML = '<div class="no-data"><i class="fas fa-check-circle" style="color:var(--green)"></i> 현재 발효중인 특보가 없습니다.</div>';
-                } else {
-                    contentEl.innerText = extracted;
-                    contentEl.classList.add('has-alert');
-                }
-            } else {
-                contentEl.innerHTML = '<div class="no-data">특보 내용을 찾을 수 없습니다.</div>';
-            }
-
-        } catch (e) {
-            contentEl.innerHTML = '<div class="no-data">연결 실패 (일시적 오류)</div>';
-        }
+    function reloadFrame() {
+        document.getElementById('safekorea-iframe').src = document.getElementById('safekorea-iframe').src;
     }
 
     function toggleAdmin() {
