@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Sejong First)</title>
+    <title>세종경찰 통합관제 (CCTV)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,23 +42,23 @@
         .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
-        /* 세종 특보 요약 (헤더에 표시) */
-        .sejong-summary {
-            font-size: 13px; font-weight: 600; color: #ccc;
-            background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px;
-            display: inline-block; margin-left: auto; /* 우측 정렬 */
-        }
-        .sejong-summary.safe { color: var(--green); }
-        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
-
         .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
         .accord-section.open .accord-content { display: block; }
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
 
+        /* 세종 특보 요약 */
+        .sejong-summary {
+            font-size: 13px; font-weight: 600; color: #ccc;
+            background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px;
+            display: inline-block; margin-left: auto;
+        }
+        .sejong-summary.safe { color: var(--green); }
+        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
+
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* 기상특보 상세 내용 */
+        /* 기상특보 상세 */
         .info-group { margin-bottom: 12px; }
         .info-group:last-child { margin-bottom: 0; }
         .info-label { font-size: 11px; color: var(--sub); font-weight: bold; display: block; margin-bottom: 4px; }
@@ -70,7 +70,7 @@
             font-size: 13px;
         }
 
-        /* 강우량 스타일 */
+        /* 강우량 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(4, 1fr); 
             gap: 1px; background: #444; border: 1px solid #444;
@@ -82,17 +82,32 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 통제구역 리스트 (4열) */
+        /* 통제구역 & CCTV 리스트 (공통) */
         .list-container { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); 
+            grid-template-columns: repeat(4, 1fr); /* 4열 */
             gap: 6px; 
         }
+        /* CCTV는 3열로 좀 더 크게 */
+        .cctv-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr); /* 3열 */
+            gap: 8px;
+        }
+
         .traffic-card {
             background: #1c1c1e; padding: 8px; border-radius: 10px;
             display: flex; flex-direction: column; justify-content: space-between;
             border: 1px solid var(--line); min-height: 80px;
         }
+        .cctv-card {
+            background: #1c1c1e; padding: 10px; border-radius: 12px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            border: 1px solid var(--line); min-height: 90px; cursor: pointer;
+            position: relative;
+        }
+        .cctv-card:active { background: #333; }
+
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
@@ -103,6 +118,15 @@
         }
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
+        
+        .cctv-icon { 
+            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
+            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
+        }
+        .cctv-btn {
+            background: #333; color: #ccc; font-size: 11px; padding: 6px; 
+            text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
+        }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
@@ -142,7 +166,8 @@
 <div class="accord-section" id="sec-weather">
     <div class="accord-header" onclick="toggleSection('sec-weather')">
         <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
-        <div id="sejong-status" class="sejong-summary">확인중...</div> <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+        <div id="sejong-status" class="sejong-summary">확인중...</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content" id="monitor-content">
         <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
@@ -163,13 +188,29 @@
     </div>
 </div>
 
+<div class="accord-section open" id="sec-cctv">
+    <div class="accord-header" onclick="toggleSection('sec-cctv')">
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:10px;">
+            <button class="filter-btn active" onclick="setCCTVFilter('all', this)">전체</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
+        </div>
+        <div class="cctv-container" id="cctv-list">
+            </div>
+    </div>
+</div>
+
 <div class="accord-section open" id="sec-control">
     <div class="accord-header" onclick="toggleSection('sec-control')">
         <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        
         <div class="dashboard">
             <div class="dash-item">
                 <span class="dash-val c-red" id="cnt-ban">0</span>
@@ -212,6 +253,8 @@
     if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
     let isAdmin = false;
+    
+    // 도로 통제 데이터
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 },
         { id:2, area:'전의', name:'전의면 북암천', status:2 },
@@ -231,11 +274,19 @@
         { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
+    // CCTV 데이터 (추가 가능)
+    const cctvData = [
+        { area: '조치원', name: '상리사거리', url: 'https://kko.to/j2CULRRMDQ' },
+        // 추후 추가: { area: '전의', name: 'OO사거리', url: '...' }
+    ];
+
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
+    let cctvFilter = 'all';
 
     window.onload = () => { 
         render(); 
+        renderCCTV();
         fetchDetailRain(); 
         autoFetchSpecial(); 
         setInterval(fetchDetailRain, 600000); 
@@ -246,6 +297,42 @@
         document.getElementById(id).classList.toggle('open');
     }
 
+    // --- CCTV 관련 ---
+    function setCCTVFilter(type, btn) {
+        cctvFilter = type;
+        const group = btn.parentElement;
+        group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderCCTV();
+    }
+
+    function renderCCTV() {
+        const container = document.getElementById('cctv-list');
+        container.innerHTML = '';
+        
+        cctvData.forEach(item => {
+            if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
+
+            const div = document.createElement('div');
+            div.className = 'cctv-card';
+            div.onclick = () => window.open(item.url, '_blank');
+            div.innerHTML = `
+                <div>
+                    <span class="area-tag">${item.area}</span>
+                    <div class="loc-name">${item.name}</div>
+                </div>
+                <div class="cctv-icon"><i class="fas fa-video"></i></div>
+                <div class="cctv-btn">영상보기</div>
+            `;
+            container.appendChild(div);
+        });
+        
+        if(container.innerHTML === '') {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
+        }
+    }
+
+    // --- 강우량 관련 ---
     async function fetchDetailRain() {
         const locs = [
             { name: '조치원', lat: 36.601, lon: 127.301 },
@@ -287,6 +374,7 @@
         }
     }
 
+    // --- 기상특보 관련 ---
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
@@ -305,22 +393,19 @@
 
             const lines = bodyText.split('\n');
             const uniqueSet = new Set();
-            let sejongAlert = null; // 세종시 특보 저장용
+            let sejongAlert = null;
 
             lines.forEach(line => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
                     uniqueSet.add(trimmed);
-                    // 세종시 특보 확인
                     if (trimmed.includes("세종")) {
-                        // 특보 이름 추출 (ex: 호우주의보)
                         const alertName = trimmed.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/);
                         if (alertName) sejongAlert = alertName[0];
                     }
                 }
             });
 
-            // 1. 헤더에 세종시 현황 표시 (접혀있어도 보임)
             if (sejongAlert) {
                 headerStatusEl.innerText = `세종: ${sejongAlert}`;
                 headerStatusEl.className = "sejong-summary warn";
@@ -329,7 +414,6 @@
                 headerStatusEl.className = "sejong-summary safe";
             }
 
-            // 2. 상세 내용 표시 (펼쳐야 보임)
             let contentStr = "";
             if (uniqueSet.size > 0) {
                 contentStr = Array.from(uniqueSet).map(w => w.replace(/^o\s*/, "🚨 ")).join("<br>");
@@ -349,6 +433,7 @@
         }
     }
 
+    // --- 기본 기능 ---
     function toggleAdmin() {
         if (!isAdmin) {
             const pw = prompt("관리자 비밀번호:");
@@ -369,12 +454,12 @@
     function render() {
         const container = document.getElementById('list');
         const searchVal = document.getElementById('search').value.toLowerCase();
-        let banCnt = 0, freeCnt = 0;
+        let banCnt = 0;
         
         container.innerHTML = '';
 
         trafficData.forEach((item, idx) => {
-            if(item.status === 2) banCnt++; else freeCnt++;
+            if(item.status === 2) banCnt++;
 
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
@@ -406,7 +491,7 @@
 
     function setFilter(type, btn) {
         currFilter = type;
-        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.filter-area .filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
         render();
     }
