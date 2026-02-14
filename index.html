@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Master)</title>
+    <title>세종경찰 통합관제 (요약)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -52,6 +52,28 @@
         .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
         .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
 
+        /* [핵심] 기상특보 요약 카드 */
+        #kma-summary-box {
+            background: #2c2c2e; border: 1px solid var(--line);
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+        }
+        .summary-header {
+            background: #3a3a3c; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .sh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .sh-time { font-size: 11px; color: #ccc; }
+        
+        .summary-body { padding: 15px; min-height: 50px; }
+        
+        /* 개별 특보 아이템 스타일 */
+        .warn-item { margin-bottom: 12px; padding-bottom: 12px; border-bottom: 1px solid #333; }
+        .warn-item:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+        .warn-name { font-size: 15px; font-weight: 700; color: var(--red); margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+        .warn-loc { font-size: 13px; color: #ddd; line-height: 1.5; word-break: keep-all; }
+        .no-warn { color: #888; text-align: center; padding: 10px; font-size: 13px; }
+
         /* 날씨 위젯 */
         .weather-widget {
             background: var(--card); padding: 15px; border-radius: 16px;
@@ -60,24 +82,6 @@
         }
         .w-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
         .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
-
-        /* [핵심] 모니터링 컨테이너 (KBS & 금강) */
-        .monitor-grid { display: grid; grid-template-columns: 1fr; gap: 20px; margin-bottom: 25px; }
-        
-        .monitor-box {
-            border: 1px solid var(--line); border-radius: 14px; overflow: hidden;
-            background: white; height: 350px; position: relative;
-        }
-        .monitor-label {
-            position: absolute; top: 0; left: 0; width: 100%;
-            padding: 8px 12px; font-size: 12px; font-weight: bold; z-index: 10;
-            display: flex; justify-content: space-between; align-items: center;
-            backdrop-filter: blur(5px);
-        }
-        .lbl-kbs { background: rgba(0, 56, 147, 0.85); color: white; } /* KBS 파랑 */
-        .lbl-geum { background: rgba(0, 100, 0, 0.85); color: white; } /* 금강 초록 */
-        
-        iframe { width: 100%; height: 100%; border: none; margin-top: 30px; }
 
         /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 0 15px 0; }
@@ -148,7 +152,7 @@
     </div>
 
     <div id="admin-panel">
-        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력 (전광판)</div>
+        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력</div>
         <div class="input-row">
             <textarea id="alert-input" class="admin-input" rows="2" placeholder="전파 내용 입력"></textarea>
             <button class="action-btn" onclick="saveAlert()">전파</button>
@@ -175,6 +179,16 @@
         <div class="alert-content" id="alert-text"></div>
     </div>
 
+    <div id="kma-summary-box">
+        <div class="summary-header">
+            <span class="sh-title"><i class="fas fa-cloud-bolt"></i> 기상특보 현황</span>
+            <span class="sh-time" id="kma-time">로딩중...</span>
+        </div>
+        <div class="summary-body" id="kma-content">
+            <div class="no-warn">데이터를 불러오는 중입니다...</div>
+        </div>
+    </div>
+
     <div class="weather-widget">
         <div class="w-loc">
             <i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span>
@@ -185,26 +199,6 @@
         <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
-
-<div class="monitor-grid">
-    
-    <div class="monitor-box">
-        <div class="monitor-label lbl-kbs">
-            <span>🚨 KBS 특보</span>
-            <i class="fas fa-external-link-alt" onclick="window.open('https://d.kbs.co.kr/special/special')"></i>
-        </div>
-        <iframe src="https://d.kbs.co.kr/special/special"></iframe>
-    </div>
-
-    <div class="monitor-box">
-        <div class="monitor-label lbl-geum">
-            <span>🌊 금강홍수통제소</span>
-            <i class="fas fa-external-link-alt" onclick="window.open('https://www.geumriver.go.kr/html/flood/link.html')"></i>
-        </div>
-        <iframe src="https://www.geumriver.go.kr/html/flood/link.html"></iframe>
-    </div>
-
-</div>
 
 <div class="dashboard">
     <div class="dash-item">
@@ -275,7 +269,71 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); loadAlert(); };
+    window.onload = () => { render(); fetchWeather(); fetchKmaAlert(); };
+
+    // [핵심] 기상특보 데이터 파싱 및 표시
+    async function fetchKmaAlert() {
+        const timeEl = document.getElementById('kma-time');
+        const contentEl = document.getElementById('kma-content');
+
+        try {
+            // 기상청 날씨누리 원본 페이지 데이터 가져오기
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.weather.go.kr/w/weather/warning/list.do');
+            const res = await fetch(proxyUrl);
+            const json = await res.json();
+            const html = json.contents;
+
+            // HTML 파싱
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const alertText = doc.querySelector('.dosq_text') ? doc.querySelector('.dosq_text').innerText : "";
+
+            // 1. 발표 시각 찾기
+            const timeMatch = alertText.match(/발표시각 : (.*)/);
+            if (timeMatch) {
+                timeEl.innerText = timeMatch[1].trim();
+            } else {
+                timeEl.innerText = "시간 정보 없음";
+            }
+
+            // 2. 특보 내용 파싱 (o 특보명 : 지역)
+            // 'o' 로 시작하는 줄을 찾아서 분리
+            const lines = alertText.split('\n');
+            let htmlOutput = "";
+            let hasAlert = false;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('o')) {
+                    hasAlert = true;
+                    // "o 건조주의보 : 경상북도..." 형태 분리
+                    const parts = line.substring(1).split(':');
+                    if (parts.length >= 2) {
+                        const name = parts[0].trim();
+                        const loc = parts[1].trim();
+                        
+                        htmlOutput += `
+                            <div class="warn-item">
+                                <div class="warn-name"><i class="fas fa-triangle-exclamation"></i> ${name}</div>
+                                <div class="warn-loc">${loc}</div>
+                            </div>
+                        `;
+                    }
+                }
+            });
+
+            if (hasAlert) {
+                contentEl.innerHTML = htmlOutput;
+            } else if (alertText.includes("없습니다")) {
+                contentEl.innerHTML = '<div class="no-warn"><i class="fas fa-check-circle" style="color:var(--green)"></i> 현재 발효중인 특보가 없습니다.</div>';
+            } else {
+                contentEl.innerHTML = '<div class="no-warn">특보 내용을 불러올 수 없습니다.</div>';
+            }
+
+        } catch (e) {
+            contentEl.innerHTML = '<div class="no-warn">연결 실패 (새로고침 요망)</div>';
+        }
+    }
 
     function toggleAdmin() {
         if (!isAdmin) {
