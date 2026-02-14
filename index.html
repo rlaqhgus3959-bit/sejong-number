@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (최종)</title>
+    <title>세종경찰 통합관제 (특보요약)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -42,35 +42,31 @@
         .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
         .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
 
-        /* [관리자용] 수동 전광판 */
-        #special-alert-box {
-            display: none; background: rgba(255, 69, 58, 0.1); border: 1px solid var(--red);
-            border-radius: 14px; padding: 15px; margin-bottom: 20px; cursor: pointer;
+        /* [핵심] 기상특보 요약 뷰어 */
+        #kma-summary-box {
+            background: #2c2c2e; border: 1px solid var(--line);
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px; min-height: 100px;
         }
-        .alert-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
-        .alert-badge { background: var(--red); color: white; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; animation: blink 1s infinite; }
-        .alert-time { font-size: 12px; color: var(--red); font-weight: 600; }
-        .alert-content { font-size: 15px; font-weight: 700; color: white; line-height: 1.4; white-space: pre-wrap; }
-
-        /* [핵심] 기상특보 뷰어 (Iframe) */
-        #kma-frame-box {
-            background: white; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
-            height: 300px; position: relative;
+        .summary-header {
+            background: #3a3a3c; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
         }
-        .frame-header {
-            position: absolute; top: 0; left: 0; width: 100%; height: 35px;
-            background: #2c2c2e; display: flex; align-items: center; justify-content: space-between;
-            padding: 0 15px; z-index: 10; box-sizing: border-box;
-        }
-        .fh-title { font-size: 12px; color: white; font-weight: bold; }
-        .fh-link { font-size: 11px; color: var(--blue); text-decoration: none; }
+        .sh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+        .sh-time { font-size: 11px; color: #ccc; }
         
-        iframe { 
-            width: 100%; height: 100%; border: none; 
-            margin-top: 35px; /* 헤더 높이만큼 밀기 */
-            background: white;
+        .summary-body { padding: 15px; max-height: 300px; overflow-y: auto; }
+        
+        /* 특보 리스트 아이템 */
+        .warn-card { 
+            background: rgba(255,255,255,0.05); border-radius: 10px; padding: 12px; margin-bottom: 10px; border-left: 4px solid var(--red);
         }
+        .warn-card:last-child { margin-bottom: 0; }
+        .warn-title { font-size: 15px; font-weight: 700; color: var(--red); margin-bottom: 6px; display: flex; align-items: center; gap: 6px; }
+        .warn-area { font-size: 13px; color: #ddd; line-height: 1.5; word-break: keep-all; }
+        
+        .no-data { text-align: center; color: #888; padding: 20px; font-size: 13px; }
+        .loading { text-align: center; color: #aaa; padding: 20px; font-size: 13px; }
 
         /* 날씨 위젯 */
         .weather-widget {
@@ -135,7 +131,6 @@
         }
 
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
-        @keyframes blink { 50% { opacity: 0.5; } }
         @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
     </style>
 </head>
@@ -169,20 +164,22 @@
         </div>
     </div>
 
-    <div id="special-alert-box">
+    <div id="special-alert-box" style="display:none; background:rgba(255,69,58,0.1); border:1px solid var(--red); border-radius:14px; padding:15px; margin-bottom:20px;">
         <div class="alert-header">
-            <span class="alert-badge">긴급공지</span>
-            <span class="alert-time" id="alert-time"></span>
+            <span class="alert-badge" style="background:var(--red); color:white; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700;">긴급공지</span>
+            <span id="alert-time" style="font-size:12px; color:var(--red);"></span>
         </div>
-        <div class="alert-content" id="alert-text"></div>
+        <div id="alert-text" style="font-size:15px; font-weight:700; color:white; white-space:pre-wrap;"></div>
     </div>
 
-    <div id="kma-frame-box">
-        <div class="frame-header">
-            <span class="fh-title">🚨 기상특보 실시간 (기상청)</span>
-            <a href="https://m.weather.go.kr/m/warning/warning.jsp" target="_blank" class="fh-link">전체보기 <i class="fas fa-chevron-right"></i></a>
+    <div id="kma-summary-box">
+        <div class="summary-header">
+            <span class="sh-title"><i class="fas fa-bullhorn"></i> 기상특보 현황</span>
+            <span class="sh-time" id="kma-time"></span>
         </div>
-        <iframe src="https://m.weather.go.kr/m/warning/warning.jsp" title="기상특보"></iframe>
+        <div class="summary-body" id="kma-content">
+            <div class="loading"><i class="fas fa-spinner fa-spin"></i> 특보 정보를 가져오는 중...</div>
+        </div>
     </div>
 
     <div class="weather-widget">
@@ -265,8 +262,67 @@
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
     let currFilter = 'all';
 
-    window.onload = () => { render(); fetchWeather(); loadAlert(); };
+    window.onload = () => { render(); fetchWeather(); fetchKmaAlert(); loadAlert(); };
 
+    // [핵심] 기상청 특보 갈무리 (스마트 요약)
+    async function fetchKmaAlert() {
+        const timeEl = document.getElementById('kma-time');
+        const contentEl = document.getElementById('kma-content');
+
+        try {
+            // 기상청 날씨누리 데이터 우회 요청
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.weather.go.kr/w/weather/warning/list.do');
+            const res = await fetch(proxyUrl);
+            const json = await res.json();
+            const html = json.contents;
+
+            // HTML 파싱
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const alertText = doc.querySelector('.dosq_text') ? doc.querySelector('.dosq_text').innerText : "";
+
+            // 1. 발표 시각
+            const timeMatch = alertText.match(/발표시각 : (.*)/);
+            if (timeMatch) timeEl.innerText = timeMatch[1].trim();
+
+            // 2. 특보 파싱 (o 특보명 : 지역)
+            const lines = alertText.split('\n');
+            let htmlOutput = "";
+            let hasAlert = false;
+
+            lines.forEach(line => {
+                line = line.trim();
+                if (line.startsWith('o')) {
+                    hasAlert = true;
+                    const parts = line.substring(1).split(':');
+                    if (parts.length >= 2) {
+                        const name = parts[0].trim();
+                        const loc = parts[1].trim();
+                        
+                        htmlOutput += `
+                            <div class="warn-card">
+                                <div class="warn-title"><i class="fas fa-triangle-exclamation"></i> ${name}</div>
+                                <div class="warn-area">${loc}</div>
+                            </div>
+                        `;
+                    }
+                }
+            });
+
+            if (hasAlert) {
+                contentEl.innerHTML = htmlOutput;
+            } else if (alertText.includes("없습니다")) {
+                contentEl.innerHTML = '<div class="no-data"><i class="fas fa-check-circle" style="color:var(--green); font-size:20px; margin-bottom:5px;"></i><br>현재 발효중인 특보가 없습니다.</div>';
+            } else {
+                contentEl.innerHTML = '<div class="no-data">특보 내용을 불러올 수 없습니다.</div>';
+            }
+
+        } catch (e) {
+            contentEl.innerHTML = '<div class="no-data">데이터 로딩 실패 (일시적 오류)</div>';
+        }
+    }
+
+    // 관리자 및 기타 기능
     function toggleAdmin() {
         if (!isAdmin) {
             const pw = prompt("관리자 비밀번호를 입력하세요:");
@@ -311,7 +367,7 @@
     }
 
     function clearAlert() {
-        if(confirm("전파 내용을 삭제하시겠습니까?")) {
+        if(confirm("삭제하시겠습니까?")) {
             localStorage.removeItem('policeAlert');
             document.getElementById('alert-input').value = "";
             loadAlert();
