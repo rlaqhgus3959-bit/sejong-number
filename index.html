@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Auto)</title>
+    <title>세종경찰 통합관제 (Rain)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -28,7 +28,7 @@
         /* 1. 기상특보 전광판 */
         #auto-monitor-board {
             background: #2c2c2e; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 12px;
+            border-radius: 16px; overflow: hidden; margin-bottom: 15px;
         }
         .monitor-header {
             background: #3a3a3c; padding: 12px 15px;
@@ -36,6 +36,10 @@
             border-bottom: 1px solid #444;
         }
         .mh-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; }
+        .live-indicator {
+            font-size: 11px; color: var(--green); font-weight: bold;
+            display: flex; align-items: center; gap: 5px;
+        }
         .live-dot { width: 6px; height: 6px; background: var(--green); border-radius: 50%; animation: blink 1.5s infinite; }
         .monitor-body { padding: 15px; min-height: 70px; }
         
@@ -44,36 +48,34 @@
         .info-label { font-size: 11px; color: var(--sub); text-transform: uppercase; margin-bottom: 4px; display: block; font-weight: bold; }
         .info-val { font-size: 15px; font-weight: 600; line-height: 1.4; color: #fff; }
         .info-val.time { color: var(--orange); font-family: monospace; }
-        .info-val.content { white-space: pre-wrap; word-break: keep-all; }
+        .info-val.content { 
+            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; 
+            border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all;
+        }
 
-        /* 2. 산불위험 전광판 (원문 자동 현출) */
-        #forest-board {
-            background: #1e3a29; border: 1px solid #2e5c40;
-            border-radius: 16px; overflow: hidden; margin-bottom: 12px;
-            position: relative;
+        /* 2. 강우량 상세 보드 (NEW) */
+        #rain-board {
+            background: #1c1c1e; border: 1px solid var(--line);
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
         }
-        .forest-header {
-            background: #264a34; padding: 12px 15px;
+        .rain-header {
+            background: rgba(10, 132, 255, 0.1); padding: 12px 15px;
+            border-bottom: 1px solid var(--line);
             display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #2e5c40;
         }
-        .fh-title { font-size: 14px; font-weight: 700; color: #76dba0; display: flex; align-items: center; gap: 8px; }
-        .fh-link { 
-            font-size: 11px; color: #76dba0; text-decoration: none; 
-            border: 1px solid #76dba0; padding: 3px 8px; border-radius: 12px;
-        }
-        .forest-body { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
-        .forest-region { font-size: 13px; color: #a3d9b8; margin-bottom: 5px; }
-        .forest-status { font-size: 28px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
+        .rain-avg-title { font-size: 14px; font-weight: 700; color: var(--blue); }
+        .rain-avg-val { font-size: 18px; font-weight: 800; color: white; }
         
-        /* 3. 날씨 위젯 */
-        .weather-widget {
-            background: var(--card); padding: 12px 15px; border-radius: 16px;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line); margin-bottom: 20px;
+        .rain-grid {
+            display: grid; grid-template-columns: repeat(4, 1fr); 
+            gap: 1px; background: #333; /* border lines */
         }
-        .w-info { display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 600; }
-        .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
+        .rain-cell {
+            background: #2c2c2e; padding: 10px 5px; text-align: center;
+        }
+        .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+        .rain-val { font-size: 13px; font-weight: 700; color: white; }
+        .rain-val.wet { color: var(--blue); }
 
         /* 관리자 버튼 */
         .admin-btn {
@@ -83,18 +85,32 @@
         }
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-        /* 대시보드 & 리스트 */
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-bottom: 20px; }
         .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
         .dash-val { font-size: 20px; font-weight: 700; display: block; }
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-        .traffic-card {
-            background: var(--card); padding: 15px; border-radius: 14px;
-            display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid var(--line); margin-bottom: 10px;
+        /* [수정] 통제 리스트 (2열 배치) */
+        .list-container { 
+            display: grid; 
+            grid-template-columns: 1fr 1fr; /* 한 줄에 2개 */
+            gap: 10px; 
         }
-        .status-btn { font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px; min-width: 60px; text-align: center; }
+        .traffic-card {
+            background: var(--card); padding: 12px; border-radius: 14px;
+            display: flex; flex-direction: column; justify-content: space-between;
+            border: 1px solid var(--line); min-height: 80px;
+        }
+        .card-info { margin-bottom: 8px; }
+        .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
+        .loc-name { font-size: 14px; font-weight: 600; line-height: 1.3; }
+        .loc-sub { font-size: 11px; color: #888; margin-top: 2px; }
+        
+        .status-btn { 
+            font-size: 12px; font-weight: 700; padding: 8px; border-radius: 8px; 
+            text-align: center; width: 100%; box-sizing: border-box;
+        }
         .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
 
@@ -120,34 +136,29 @@
 
     <div id="auto-monitor-board">
         <div class="monitor-header">
-            <div class="mh-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
-            <div style="font-size:11px; color:var(--green); font-weight:bold;"><div class="live-dot" style="display:inline-block; margin-right:4px;"></div>실시간</div>
+            <div class="mh-title"><i class="fas fa-tower-broadcast"></i> 기상특보 (Weatheri)</div>
+            <div class="live-indicator"><div class="live-dot"></div>실시간</div>
         </div>
         <div class="monitor-body" id="monitor-content">
             <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
         </div>
     </div>
 
-    <div id="forest-board">
-        <div class="forest-header">
-            <div class="fh-title"><i class="fas fa-tree"></i> 산불위험 예보 (산림청)</div>
-            <a href="https://forestfire.nifos.go.kr" target="_blank" class="fh-link">사이트 이동 <i class="fas fa-chevron-right"></i></a>
+    <div id="rain-board">
+        <div class="rain-header">
+            <div class="rain-avg-title"><i class="fas fa-cloud-showers-heavy"></i> 7개 읍면 일평균</div>
+            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
-        <div class="forest-body">
-            <div>
-                <div class="forest-region" id="forest-region-text">전국 평균 (자동수신)</div>
-                <div class="forest-status" id="forest-status-text">
-                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i>
-                </div>
-            </div>
-            <div id="forest-icon-area" style="font-size:32px; opacity:0.8;">🌲</div>
+        <div class="rain-grid" id="rain-grid">
+            <div class="rain-cell"><div class="rain-loc">조치원</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">연서면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">전의면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">전동면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">소정면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">부강면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">연동면</div><div class="rain-val">-</div></div>
+            <div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>
         </div>
-    </div>
-
-    <div class="weather-widget">
-        <div class="w-loc"><i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span></div>
-        <div class="w-info" id="w-data"><i class="fas fa-spinner fa-spin"></i></div>
-        <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
 
@@ -212,76 +223,62 @@
 
     window.onload = () => { 
         render(); 
-        fetchWeather();
-        autoFetchForest();  // 산불 자동
+        fetchDetailRain(); // 상세 강우량
         autoFetchSpecial(); // 특보 자동
-        setInterval(autoFetchForest, 600000); // 10분마다
+        setInterval(fetchDetailRain, 600000); 
         setInterval(autoFetchSpecial, 600000);
     };
 
-    // [1] 산불위험 (사이트 원문 자동 추출)
-    async function autoFetchForest() {
-        const statusEl = document.getElementById('forest-status-text');
-        const iconEl = document.getElementById('forest-icon-area');
-        const regionEl = document.getElementById('forest-region-text');
+    // [1] 상세 강우량 (7개 읍면 + 평균)
+    async function fetchDetailRain() {
+        const locs = [
+            { name: '조치원', lat: 36.601, lon: 127.301 },
+            { name: '연서면', lat: 36.560, lon: 127.270 },
+            { name: '전의면', lat: 36.670, lon: 127.200 },
+            { name: '전동면', lat: 36.630, lon: 127.260 },
+            { name: '소정면', lat: 36.720, lon: 127.150 },
+            { name: '부강면', lat: 36.520, lon: 127.370 },
+            { name: '연동면', lat: 36.560, lon: 127.320 }
+        ];
+
+        // 좌표를 쉼표로 연결하여 한 번에 요청
+        const lats = locs.map(l => l.lat).join(',');
+        const lons = locs.map(l => l.lon).join(',');
         
         try {
-            // 산림청 산불위험예보 메인 페이지 우회 접속
-            // 보안상 지도 페이지(forestfire.nifos.go.kr)는 긁어오기 어렵습니다.
-            // 대신 산림청의 공개 데이터 페이지(smart.forest.go.kr) 등에서 "전국 평균" 또는 "세종" 데이터를 찾습니다.
-            // 여기서는 가장 확실한 방법으로 '산림청 산불현황' 텍스트를 포함하는 페이지를 스캔합니다.
-            
-            // 실제로는 세종시 전용 URL이 없으면 '전국'이 뜹니다. 
-            // 하지만 경찰관님의 요청("사이트에 써있는 항목")을 위해 최대한 세종시 정보를 찾도록 시도합니다.
-            
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/');
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
-
-            // "산불위험" 뒤에 오는 단어(낮음, 보통, 높음) 추출
-            // 예: "산불위험 지수는 [낮음] 입니다"
-            const match = text.match(/산불위험.*?([낮보높심][음통음각])/); 
-            
-            if (match && match[1]) {
-                const level = match[1];
-                statusEl.innerText = "산불위험 " + level;
-                regionEl.innerText = "국가산불위험예보 (자동)";
-
-                if (level === "낮음") {
-                    statusEl.style.color = "#27ae60"; iconEl.innerText = "🟢";
-                } else if (level === "보통") {
-                    statusEl.style.color = "#f1c40f"; iconEl.innerText = "🟡";
-                } else if (level === "높음") {
-                    statusEl.style.color = "#e67e22"; iconEl.innerText = "🟠";
-                } else {
-                    statusEl.style.color = "#c0392b"; iconEl.innerText = "🔴";
-                }
-            } else {
-                // 사이트 구조상 텍스트 추출이 어려울 경우 안전하게 '보통' 표시하거나 
-                // 날씨 기반 추정치로 Fallback (하지만 요청하신대로 사이트 값 우선 시도 후 실패시 표시)
-                statusEl.innerText = "정보 수신중...";
-                statusEl.style.color = "#aaa";
-                
-                // (백업) 날씨가 비오면 '낮음'으로 강제 표기
-                checkRainForForest(statusEl, iconEl);
-            }
-        } catch (e) {
-            statusEl.innerText = "연결 대기중";
-            checkRainForForest(statusEl, iconEl);
-        }
-    }
-
-    async function checkRainForForest(statusEl, iconEl) {
-        try {
-            const res = await fetch("https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=rain");
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=precipitation_sum&timezone=Asia%2FTokyo`;
+            const res = await fetch(url);
             const data = await res.json();
-            if(data.current.rain > 0) {
-                statusEl.innerText = "산불위험 낮음";
-                statusEl.style.color = "#27ae60";
-                iconEl.innerText = "🌧️";
-                document.getElementById('forest-region-text').innerText = "현위치 강우중 (안전)";
-            }
-        } catch(e) {}
+            
+            // 데이터 배열 처리 (단일 위치면 객체, 다중 위치면 배열로 옴)
+            const results = Array.isArray(data) ? data : [data];
+            
+            let totalRain = 0;
+            let html = '';
+
+            results.forEach((r, idx) => {
+                const todayRain = r.daily.precipitation_sum[0] || 0; // 오늘의 강수량
+                totalRain += todayRain;
+                
+                const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
+                html += `
+                    <div class="rain-cell">
+                        <div class="rain-loc">${locs[idx].name}</div>
+                        <div class="${valClass}">${todayRain}<small>mm</small></div>
+                    </div>
+                `;
+            });
+
+            html += `<div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>`;
+            document.getElementById('rain-grid').innerHTML = html;
+
+            const avgRain = (totalRain / locs.length).toFixed(1);
+            document.getElementById('avg-rain-val').innerText = `${avgRain} mm`;
+
+        } catch(e) {
+            console.error(e);
+            document.getElementById('avg-rain-val').innerText = "오류";
+        }
     }
 
     // [2] 웨더아이 특보 자동 수신
@@ -326,20 +323,7 @@
         }
     }
 
-    // [3] 날씨
-    async function fetchWeather() {
-        try {
-            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain&timezone=Asia%2FTokyo";
-            const res = await fetch(url);
-            const data = await res.json();
-            const cur = data.current;
-            let icon = 'fa-sun';
-            if(cur.rain > 0) icon = 'fa-cloud-rain';
-            document.getElementById('w-data').innerHTML = `<i class="fas ${icon}"></i> ${cur.temperature_2m}° <small>(비 ${cur.rain}mm)</small>`;
-        } catch(e) { document.getElementById('w-data').innerText = "날씨 수신불가"; }
-    }
-
-    // [4] 기본 기능
+    // [3] 기본 기능 (관리자, 2열 리스트 등)
     function toggleAdmin() {
         if (!isAdmin) {
             const pw = prompt("관리자 비밀번호:");
@@ -372,6 +356,7 @@
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
 
+            // 2열 그리드에 맞춘 카드 디자인
             const div = document.createElement('div');
             div.className = 'traffic-card';
             div.innerHTML = `
