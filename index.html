@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (CCTV)</title>
+    <title>세종경찰 통합관제 (Total)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -12,7 +12,7 @@
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
-            --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a;
+            --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -82,12 +82,14 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
+        /* 산불 스타일 (NEW) */
+        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
+        .forest-region { font-size: 13px; color: #aaa; margin-bottom: 5px; }
+        .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
+        .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
+
         /* CCTV 3열 리스트 */
-        .cctv-container {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 8px;
-        }
+        .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -95,7 +97,6 @@
             position: relative;
         }
         .cctv-card:active { background: #333; }
-        
         .cctv-icon { 
             font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
             background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
@@ -106,11 +107,7 @@
         }
 
         /* 통제구역 4열 리스트 */
-        .list-container { 
-            display: grid; 
-            grid-template-columns: repeat(4, 1fr); 
-            gap: 6px; 
-        }
+        .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
         .traffic-card {
             background: #1c1c1e; padding: 8px; border-radius: 10px;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -119,7 +116,6 @@
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
-        
         .status-btn { 
             font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; 
             text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
@@ -152,7 +148,7 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        /* [NEW] CCTV 팝업 모달 */
+        /* CCTV 팝업 모달 */
         #cctv-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
@@ -224,6 +220,30 @@
         </div>
         <div class="cctv-container" id="cctv-list">
             </div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
+            * 버튼 클릭시 팝업으로 영상이 재생됩니다.
+        </div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-forest">
+    <div class="accord-header" onclick="toggleSection('sec-forest')">
+        <div class="ah-title"><i class="fas fa-tree"></i> 산불위험 예보</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="forest-body">
+            <div>
+                <div class="forest-region" id="forest-region-text">국가산불위험예보 (자동)</div>
+                <div class="forest-status" id="forest-status-text">
+                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i>
+                </div>
+            </div>
+            <div style="text-align:right;">
+                <div id="forest-icon-area" style="font-size:32px; opacity:0.8; margin-bottom:5px;">🌲</div>
+                <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
+            </div>
+        </div>
     </div>
 </div>
 
@@ -278,7 +298,6 @@
     </div>
     <div class="cctv-frame-container">
         <iframe id="cctv-frame" src=""></iframe>
-        
         <div class="cctv-fallback">
             <div style="color:white; margin-bottom:10px; font-size:14px;">화면이 보이지 않나요?</div>
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">새창으로 열기</a>
@@ -291,7 +310,6 @@
 
     let isAdmin = false;
     
-    // 도로 통제 데이터
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 },
         { id:2, area:'전의', name:'전의면 북암천', status:2 },
@@ -311,9 +329,8 @@
         { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // CCTV 데이터 (URL)
     const cctvData = [
-        { area: '조치원', name: '상리사거리', url: 'https://kko.to/j2CULRRMDQ' },
+        { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' },
     ];
 
     let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
@@ -325,12 +342,48 @@
         renderCCTV();
         fetchDetailRain(); 
         autoFetchSpecial(); 
+        autoFetchForest(); // 산불 자동
         setInterval(fetchDetailRain, 600000); 
         setInterval(autoFetchSpecial, 600000);
+        setInterval(autoFetchForest, 600000);
     };
 
     function toggleSection(id) {
         document.getElementById(id).classList.toggle('open');
+    }
+
+    // --- 산불 관련 (자동) ---
+    async function autoFetchForest() {
+        const statusEl = document.getElementById('forest-status-text');
+        const iconEl = document.getElementById('forest-icon-area');
+        
+        try {
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/');
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
+
+            const match = text.match(/산불위험.*?([낮보높심][음통음각])/); 
+            
+            if (match && match[1]) {
+                const level = match[1];
+                statusEl.innerText = "산불위험 " + level;
+
+                if (level === "낮음") {
+                    statusEl.style.color = "#27ae60"; iconEl.innerText = "🟢";
+                } else if (level === "보통") {
+                    statusEl.style.color = "#f1c40f"; iconEl.innerText = "🟡";
+                } else if (level === "높음") {
+                    statusEl.style.color = "#e67e22"; iconEl.innerText = "🟠";
+                } else {
+                    statusEl.style.color = "#c0392b"; iconEl.innerText = "🔴";
+                }
+            } else {
+                statusEl.innerText = "정보 수신중";
+                statusEl.style.color = "#aaa";
+            }
+        } catch (e) {
+            statusEl.innerText = "연결 대기중";
+        }
     }
 
     // --- CCTV 관련 ---
@@ -351,7 +404,6 @@
 
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            // 클릭 시 팝업 열기
             div.onclick = () => openCCTV(item.name, item.url);
             
             div.innerHTML = `
@@ -370,7 +422,6 @@
         }
     }
 
-    // CCTV 팝업 열기
     function openCCTV(name, url) {
         document.getElementById('cctv-title').innerText = name + " CCTV";
         document.getElementById('cctv-frame').src = url;
@@ -378,10 +429,9 @@
         document.getElementById('cctv-modal').style.display = 'flex';
     }
 
-    // CCTV 팝업 닫기
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
-        document.getElementById('cctv-frame').src = ""; // 영상 정지
+        document.getElementById('cctv-frame').src = "";
     }
 
     // --- 강우량 관련 ---
