@@ -6,6 +6,7 @@
     <title>세종경찰 통합관제 (Total)</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
+        /* 기존 스타일 유지 */
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
@@ -94,7 +95,6 @@
         .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
-        
         .shelter-btn {
             background: #333; color: white; text-align: center; padding: 12px 0;
             border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none;
@@ -234,8 +234,8 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼을 누르면 <b>네이버 지도 앱이 자동 실행</b>되어 현위치에서 안내를 시작합니다.<br>
-             (앱이 없을 경우 웹 길찾기로 연결됩니다)
+             * 버튼 클릭 시 <b>네이버 지도 앱</b>이 실행되어 <b>네비게이션</b>이 시작됩니다.<br>
+             (앱 미설치 시 웹 길찾기로 연결됩니다)
         </div>
     </div>
 </div>
@@ -344,7 +344,7 @@
 
     let isAdmin = false;
     
-    // [최종 수정] 13개소 정확한 GPS 좌표 + 네비게이션 앱 연동
+    // [핵심] 13개소 정확한 위도(lat), 경도(lng) 데이터 + 자동차 네비게이션 연동
     const shelterData = [
         { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
         { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
@@ -414,7 +414,7 @@
         }, 500);
     }
 
-    // --- [핵심] 앱 강제 실행 및 웹 폴백 로직 ---
+    // --- [핵심] 앱 강제 실행 및 자동차 네비게이션 연결 로직 ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -423,14 +423,15 @@
             const div = document.createElement('div');
             div.className = 'shelter-card';
             
-            // 1. 앱 호출 URL (nmap://): 네이버 지도 앱의 '자동차 길찾기' 기능 강제 호출
-            // dlat, dlng: 목적지 좌표 (필수)
-            // dname: 목적지 이름 (앱에 표시될 이름)
+            // 1. 앱 호출 URL (nmap://route/car)
+            // dlat, dlng: 도착지 좌표 (필수)
+            // dname: 도착지 이름 (필수)
+            // 이 스킴은 네이버 지도 앱을 열고 바로 '자동차 경로 탐색'을 실행합니다.
             const appUrl = `nmap://route/car?dlat=${item.lat}&dlng=${item.lng}&dname=${encodeURIComponent(item.name)}&appname=sejong_police`;
             
-            // 2. 웹 폴백 URL: 앱이 없을 경우 모바일 웹 지도 길찾기 화면으로 이동
-            // sname=현위치 : 출발지를 현위치로 고정
-            // ex, ey : 도착지 좌표를 강제 지정하여 엉뚱한 곳 검색 방지
+            // 2. 앱 없을 경우 웹 폴백 (m.map.naver.com)
+            // sname=현위치 : 출발지 강제 설정
+            // ex, ey : 도착지 좌표 강제 설정 (검색 결과로 빠지지 않게 함)
             const webUrl = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&ex=${item.lng}&ey=${item.lat}&pathType=0&showMap=true`;
 
             div.innerHTML = `
@@ -438,7 +439,7 @@
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
                 <button class="shelter-btn" onclick="openNavi('${appUrl}', '${webUrl}')">
-                    <i class="fas fa-location-arrow"></i> 길찾기
+                    <i class="fas fa-location-arrow"></i> 앱으로 길찾기
                 </button>
             `;
             container.appendChild(div);
@@ -453,13 +454,13 @@
             // 앱 실행 시도
             location.href = appUrl;
 
-            // 앱이 설치되어 있지 않거나 실행 실패 시, 1.5초 후 웹페이지로 이동
+            // 앱 실행 실패(미설치) 시 1.5초 후 웹 페이지로 이동
             setTimeout(function() {
-                if (document.hidden) return; // 이미 앱으로 넘어갔으면 실행 안함
+                if (document.hidden) return; // 앱이 실행되어 브라우저가 백그라운드로 갔다면 중단
                 window.location.href = webUrl;
             }, 1500);
         } else {
-            // PC 환경에서는 바로 웹 지도로 새 창 열기
+            // PC면 바로 웹으로 새창
             window.open(webUrl, '_blank');
         }
     }
