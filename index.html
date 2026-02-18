@@ -247,7 +247,7 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
-             * 버튼 클릭 시 네이버 지도 <b>현위치 → 대피소</b> 길찾기가 실행됩니다.
+             * 버튼 클릭 시 네이버 지도 <b>'가는길'</b> 검색 결과로 연결됩니다.
         </div>
     </div>
 </div>
@@ -356,21 +356,21 @@
 
     let isAdmin = false;
     
-    // 조치원 대피소 데이터 (13개소)
+    // 조치원 대피소 데이터 (13개소) - 검색 정확도를 위해 'query' 필드(검색어) 추가
     const shelterData = [
-        { name: "조치원 자이 아파트", addr: "도원로 16", cap: "4.3만" },
-        { name: "엘리프 세종", addr: "서북부4로 10", cap: "4만" },
-        { name: "세종 e편한세상", addr: "섭골길 59", cap: "2.8만" },
-        { name: "신흥 푸르지오", addr: "도원로 16", cap: "2.1만" },
-        { name: "죽림 우방유쉘", addr: "산막길 17", cap: "1.6만" },
-        { name: "욱일 아파트", addr: "충현로 159", cap: "7.5천" },
-        { name: "신흥 주공 2단지", addr: "이화로 5", cap: "7.2천" },
-        { name: "신동아 파밀리에", addr: "도장말길 30", cap: "6.8천" },
-        { name: "일신 유니빌", addr: "신안새동네길 26", cap: "2.9천" },
-        { name: "행복코아(메가박스)", addr: "새내로 122", cap: "1.8천" },
-        { name: "풍산 아파트", addr: "새내8길 22", cap: "1천" },
-        { name: "고대 학술정보관", addr: "세종로 2511", cap: "859명" },
-        { name: "홍대 교사A동", addr: "세종로 2639", cap: "377명" }
+        { name: "조치원 자이 아파트", query: "세종 조치원자이아파트", addr: "도원로 16", cap: "4.3만" },
+        { name: "엘리프 세종", query: "세종 엘리프세종", addr: "서북부4로 10", cap: "4만" },
+        { name: "세종 e편한세상", query: "세종 e편한세상", addr: "섭골길 59", cap: "2.8만" },
+        { name: "신흥 푸르지오", query: "세종 신흥푸르지오", addr: "도원로 16", cap: "2.1만" },
+        { name: "죽림 우방유쉘", query: "세종 죽림우방유쉘", addr: "산막길 17", cap: "1.6만" },
+        { name: "욱일 아파트", query: "세종 조치원 욱일아파트", addr: "충현로 159", cap: "7.5천" },
+        { name: "신흥 주공 2단지", query: "세종 신흥주공2단지", addr: "이화로 5", cap: "7.2천" },
+        { name: "신동아 파밀리에", query: "세종 조치원 신동아파밀리에", addr: "도장말길 30", cap: "6.8천" },
+        { name: "일신 유니빌", query: "세종 조치원 일신유니빌", addr: "신안새동네길 26", cap: "2.9천" },
+        { name: "행복코아(메가박스)", query: "세종 조치원 메가박스", addr: "새내로 122", cap: "1.8천" },
+        { name: "풍산 아파트", query: "세종 조치원 풍산아파트", addr: "새내8길 22", cap: "1천" },
+        { name: "고대 학술정보관", query: "고려대학교 세종캠퍼스 학술정보관", addr: "세종로 2511", cap: "859명" },
+        { name: "홍대 교사A동", query: "홍익대학교 세종캠퍼스 A동", addr: "세종로 2639", cap: "377명" }
     ];
 
     const defaultData = [
@@ -411,9 +411,8 @@
     // --- [기능] 수동 업데이트 ---
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
-        icon.classList.add('spin'); // 회전 애니메이션 시작
+        icon.classList.add('spin'); 
         
-        // 병렬로 데이터 호출
         await Promise.all([
             render(),
             renderCCTV(),
@@ -424,18 +423,19 @@
         ]);
 
         setTimeout(() => {
-            icon.classList.remove('spin'); // 애니메이션 종료
+            icon.classList.remove('spin'); 
         }, 500);
     }
 
-    // --- 대피소 렌더링 (길찾기 파라미터 추가) ---
+    // --- 대피소 렌더링 (네이버 통합검색 길찾기 링크 적용) ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
         shelterData.forEach(item => {
-            // sname=현위치 : 출발지를 '현위치'로 강제 설정하여 앱이나 웹에서 GPS 기반 길찾기 유도
-            const mapLink = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&pathType=0`;
+            // "장소명 + 가는길"로 검색하면 네이버가 자동으로 현재위치 -> 목적지 경로를 보여줍니다.
+            // 예: "세종 조치원자이아파트 가는길"
+            const mapLink = `https://search.naver.com/search.naver?query=${encodeURIComponent(item.query + " 가는길")}`;
 
             const div = document.createElement('div');
             div.className = 'shelter-card';
