@@ -94,8 +94,6 @@
         .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
-        
-        /* 버튼 스타일 수정: 누르는 느낌 강조 */
         .shelter-btn {
             background: #333; color: white; text-align: center; padding: 12px 0;
             border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none;
@@ -235,8 +233,8 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼을 누르면 <b>네이버 지도 어플</b>이 켜집니다.<br>
-             * 어플이 켜진 후 하단 <b>[도착]</b> 버튼을 누르면 현위치에서 안내가 시작됩니다.
+             * 버튼을 누르면 <b>네이버 지도 어플</b>이 즉시 실행됩니다.<br>
+             (어플이 없을 경우 웹 길찾기 화면으로 자동 연결됩니다)
         </div>
     </div>
 </div>
@@ -345,21 +343,21 @@
 
     let isAdmin = false;
     
-    // [데이터 수정] fullAddr: 정확한 도로명 주소 (앱 검색 정확도 향상)
+    // [최종] 정확한 좌표 데이터 (앱 강제 실행용)
     const shelterData = [
-        { name: "조치원 자이", addr: "도원로 16", fullAddr: "세종특별자치시 조치원읍 도원로 16", cap: "4.3만" },
-        { name: "엘리프 세종", addr: "서북부4로 10", fullAddr: "세종특별자치시 조치원읍 서북부4로 10", cap: "4만" },
-        { name: "세종 e편한세상", addr: "섭골길 59", fullAddr: "세종특별자치시 조치원읍 섭골길 59", cap: "2.8만" },
-        { name: "신흥 푸르지오", addr: "도원로 16", fullAddr: "세종특별자치시 조치원읍 도원로 16", cap: "2.1만" },
-        { name: "죽림 우방유쉘", addr: "산막길 17", fullAddr: "세종특별자치시 조치원읍 산막길 17", cap: "1.6만" },
-        { name: "욱일 아파트", addr: "충현로 159", fullAddr: "세종특별자치시 조치원읍 충현로 159", cap: "7.5천" },
-        { name: "신흥 주공 2단지", addr: "이화로 5", fullAddr: "세종특별자치시 조치원읍 이화로 5", cap: "7.2천" },
-        { name: "신동아 파밀리에", addr: "도장말길 30", fullAddr: "세종특별자치시 조치원읍 도장말길 30", cap: "6.8천" },
-        { name: "일신 유니빌", addr: "신안새동네길 26-10", fullAddr: "세종특별자치시 조치원읍 신안새동네길 26-10", cap: "2.9천" },
-        { name: "행복코아(메가박스)", addr: "새내로 122", fullAddr: "세종특별자치시 조치원읍 새내로 122", cap: "1.8천" },
-        { name: "풍산 아파트", addr: "새내8길 22-13", fullAddr: "세종특별자치시 조치원읍 새내8길 22-13", cap: "1천" },
-        { name: "고대 학술정보관", addr: "세종로 2511", fullAddr: "세종특별자치시 조치원읍 세종로 2511", cap: "859명" },
-        { name: "홍대 교사A동", addr: "세종로 2639", fullAddr: "세종특별자치시 조치원읍 세종로 2639", cap: "377명" }
+        { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
+        { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
+        { name: "세종 e편한세상", addr: "섭골길 59", lat: 36.6155634, lng: 127.2845473, cap: "2.8만" },
+        { name: "신흥 푸르지오", addr: "도원로 16", lat: 36.5923161, lng: 127.2896392, cap: "2.1만" },
+        { name: "죽림 우방유쉘", addr: "산막길 17", lat: 36.5935897, lng: 127.2950107, cap: "1.6만" },
+        { name: "욱일 아파트", addr: "충현로 159", lat: 36.6028531, lng: 127.2932152, cap: "7.5천" },
+        { name: "신흥 주공 2단지", addr: "이화로 5", lat: 36.594329, lng: 127.2899895, cap: "7.2천" },
+        { name: "신동아 파밀리에", addr: "도장말길 30", lat: 36.5896798, lng: 127.297771, cap: "6.8천" },
+        { name: "일신 유니빌", addr: "신안새동네길 26-10", lat: 36.6148933, lng: 127.2916206, cap: "2.9천" },
+        { name: "행복코아(메가박스)", addr: "새내로 122", lat: 36.6028353, lng: 127.2981478, cap: "1.8천" },
+        { name: "풍산 아파트", addr: "새내8길 22-13", lat: 36.598922, lng: 127.3000296, cap: "1천" },
+        { name: "고대 학술정보관", addr: "세종로 2511", lat: 36.6100271, lng: 127.2871182, cap: "859명" },
+        { name: "홍대 교사A동", addr: "세종로 2639", lat: 36.6209818, lng: 127.2873566, cap: "377명" }
     ];
 
     const defaultData = [
@@ -415,26 +413,27 @@
         }, 500);
     }
 
-    // --- [중요] 앱 강제 실행 로직 ---
+    // --- [중요] 앱 실행 및 웹 폴백 로직 ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
         shelterData.forEach(item => {
-            const encodedQuery = encodeURIComponent(item.fullAddr);
-            
-            // 1. 앱 스킴 (nmap://): 앱을 강제로 엽니다.
-            const appUrl = `nmap://search?query=${encodedQuery}&appname=sejong_police`;
-            // 2. 웹 폴백 (https://): 앱이 없으면 웹으로 엽니다.
-            const webUrl = `https://m.map.naver.com/search2/search.naver?query=${encodedQuery}`;
-
             const div = document.createElement('div');
             div.className = 'shelter-card';
+            
+            // 1. 앱 스킴 (nmap://): 정확한 좌표와 이름으로 네이버 지도 앱 길찾기 호출
+            const appUrl = `nmap://route/public?dlat=${item.lat}&dlng=${item.lng}&dname=${encodeURIComponent(item.name)}&appname=sejong_police`;
+            
+            // 2. 웹 폴백 (m.map.naver.com): 앱이 없을 때 모바일 웹으로 정확한 좌표 연결
+            // 네이버 지도 모바일 웹 길찾기 URL: 도착지 좌표(ex=lng, ey=lat)를 직접 지정하여 검색 오류 방지
+            const webUrl = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&ex=${item.lng}&ey=${item.lat}&pathType=0&showMap=true`;
+
             div.innerHTML = `
                 <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:5px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
-                <button class="shelter-btn" onclick="executeApp('${appUrl}', '${webUrl}')">
+                <button class="shelter-btn" onclick="openNavi('${appUrl}', '${webUrl}')">
                     <i class="fas fa-location-arrow"></i> 앱으로 길찾기
                 </button>
             `;
@@ -442,24 +441,21 @@
         });
     }
 
-    // 앱 실행 시도 -> 실패시 웹으로 이동하는 스크립트
-    function executeApp(appUrl, webUrl) {
-        // 모바일인지 확인
+    function openNavi(appUrl, webUrl) {
+        // 아이폰/안드로이드 체크
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (isMobile) {
-            // 앱 실행 시도
+            // 1. 앱 실행 시도
             location.href = appUrl;
-            
-            // 앱이 설치 안되어있으면 1.5초 후 웹으로 이동 (타임아웃 방식)
+
+            // 2. 앱 설치 안된 경우를 대비해 1.5초 뒤 웹으로 이동 (앱이 뜨면 브라우저가 백그라운드로 가서 실행 안됨)
             setTimeout(function() {
-                // 앱으로 이동했다면 이 코드는 실행되지 않거나 무시됨
-                // 만약 여전히 브라우저에 남아있다면 웹으로 이동
-                if (document.hidden) return; // 앱으로 넘어갔으면 중단
+                if (document.hidden) return; // 앱이 실행되어 브라우저가 숨겨졌으면 중단
                 window.location.href = webUrl;
             }, 1500);
         } else {
-            // PC면 바로 웹으로
+            // PC에서는 바로 새창으로 웹 지도
             window.open(webUrl, '_blank');
         }
     }
