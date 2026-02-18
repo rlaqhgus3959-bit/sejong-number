@@ -94,6 +94,7 @@
         .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        
         .shelter-btn {
             background: #333; color: white; text-align: center; padding: 12px 0;
             border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none;
@@ -233,8 +234,8 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼을 누르면 <b>네이버 지도 어플</b>이 즉시 실행됩니다.<br>
-             (어플이 없을 경우 웹 길찾기 화면으로 자동 연결됩니다)
+             * 버튼을 누르면 <b>네이버 지도 앱이 자동 실행</b>되어 현위치에서 안내를 시작합니다.<br>
+             (앱이 없을 경우 웹 길찾기로 연결됩니다)
         </div>
     </div>
 </div>
@@ -343,7 +344,7 @@
 
     let isAdmin = false;
     
-    // [최종] 정확한 좌표 데이터 (앱 강제 실행용)
+    // [최종 수정] 13개소 정확한 GPS 좌표 + 네비게이션 앱 연동
     const shelterData = [
         { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
         { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
@@ -413,7 +414,7 @@
         }, 500);
     }
 
-    // --- [중요] 앱 실행 및 웹 폴백 로직 ---
+    // --- [핵심] 앱 강제 실행 및 웹 폴백 로직 ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -422,11 +423,14 @@
             const div = document.createElement('div');
             div.className = 'shelter-card';
             
-            // 1. 앱 스킴 (nmap://): 정확한 좌표와 이름으로 네이버 지도 앱 길찾기 호출
-            const appUrl = `nmap://route/public?dlat=${item.lat}&dlng=${item.lng}&dname=${encodeURIComponent(item.name)}&appname=sejong_police`;
+            // 1. 앱 호출 URL (nmap://): 네이버 지도 앱의 '자동차 길찾기' 기능 강제 호출
+            // dlat, dlng: 목적지 좌표 (필수)
+            // dname: 목적지 이름 (앱에 표시될 이름)
+            const appUrl = `nmap://route/car?dlat=${item.lat}&dlng=${item.lng}&dname=${encodeURIComponent(item.name)}&appname=sejong_police`;
             
-            // 2. 웹 폴백 (m.map.naver.com): 앱이 없을 때 모바일 웹으로 정확한 좌표 연결
-            // 네이버 지도 모바일 웹 길찾기 URL: 도착지 좌표(ex=lng, ey=lat)를 직접 지정하여 검색 오류 방지
+            // 2. 웹 폴백 URL: 앱이 없을 경우 모바일 웹 지도 길찾기 화면으로 이동
+            // sname=현위치 : 출발지를 현위치로 고정
+            // ex, ey : 도착지 좌표를 강제 지정하여 엉뚱한 곳 검색 방지
             const webUrl = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&ex=${item.lng}&ey=${item.lat}&pathType=0&showMap=true`;
 
             div.innerHTML = `
@@ -434,7 +438,7 @@
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
                 <button class="shelter-btn" onclick="openNavi('${appUrl}', '${webUrl}')">
-                    <i class="fas fa-location-arrow"></i> 앱으로 길찾기
+                    <i class="fas fa-location-arrow"></i> 길찾기
                 </button>
             `;
             container.appendChild(div);
@@ -442,20 +446,20 @@
     }
 
     function openNavi(appUrl, webUrl) {
-        // 아이폰/안드로이드 체크
+        // 모바일 환경 체크
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (isMobile) {
-            // 1. 앱 실행 시도
+            // 앱 실행 시도
             location.href = appUrl;
 
-            // 2. 앱 설치 안된 경우를 대비해 1.5초 뒤 웹으로 이동 (앱이 뜨면 브라우저가 백그라운드로 가서 실행 안됨)
+            // 앱이 설치되어 있지 않거나 실행 실패 시, 1.5초 후 웹페이지로 이동
             setTimeout(function() {
-                if (document.hidden) return; // 앱이 실행되어 브라우저가 숨겨졌으면 중단
+                if (document.hidden) return; // 이미 앱으로 넘어갔으면 실행 안함
                 window.location.href = webUrl;
             }, 1500);
         } else {
-            // PC에서는 바로 새창으로 웹 지도
+            // PC 환경에서는 바로 웹 지도로 새 창 열기
             window.open(webUrl, '_blank');
         }
     }
