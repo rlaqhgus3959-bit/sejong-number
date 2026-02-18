@@ -89,28 +89,43 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 */
-        .shelter-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .shelter-card {
-            background: #1c1c1e; border: 1px solid #333; padding: 12px; border-radius: 10px;
-            display: flex; flex-direction: column; gap: 5px;
+        /* --- [수정됨] 대피소 스타일 (4열) --- */
+        .shelter-list { 
+            display: grid; 
+            grid-template-columns: repeat(4, 1fr); /* 한 줄에 4개 */
+            gap: 5px; 
         }
-        .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
-        .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        .shelter-card {
+            background: #1c1c1e; border: 1px solid #333; padding: 8px 4px; /* 패딩 축소 */
+            border-radius: 8px;
+            display: flex; flex-direction: column; gap: 3px;
+            text-align: center; /* 가운데 정렬 */
+        }
+        .shelter-name { 
+            font-size: 11px; font-weight: 700; color: #fff; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+        .shelter-addr { 
+            font-size: 9px; color: #888; 
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+        }
+        .shelter-cap { 
+            font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 2px; 
+        }
         
-        /* 카카오맵 버튼 */
+        /* 버튼 작게 조정 */
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
-            text-align: center; padding: 12px 0;
-            border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none;
+            text-align: center; padding: 6px 0;
+            border-radius: 6px; font-size: 11px; font-weight: 800; text-decoration: none;
             display: block; margin-top: auto; border: none;
-            transition: all 0.2s; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
             cursor: pointer;
         }
-        .shelter-btn:active { transform: scale(0.98); opacity: 0.9; }
-        .shelter-btn i { margin-right: 5px; color: #3b1e1e; }
+        .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
+        .shelter-btn i { font-size: 10px; }
 
+        /* CCTV, 통제구역 등 기존 스타일 유지 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -241,8 +256,7 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼 클릭 시 <b>카카오맵</b>이 실행되어 <b>네비게이션</b>이 시작됩니다.<br>
-             (앱 미설치 시 웹 길찾기로 자동 연결됩니다)
+             * 버튼 클릭 시 <b>카카오맵 네비게이션</b>이 실행됩니다.
         </div>
     </div>
 </div>
@@ -347,8 +361,6 @@
 </div>
 
 <script>
-    // [중요] 기존의 서비스 워커 등록 코드(sw.js)를 삭제하여 캐시 문제 해결
-    
     let isAdmin = false;
     
     // [카카오맵용] 정확한 좌표 데이터
@@ -361,9 +373,9 @@
         { name: "욱일 아파트", addr: "충현로 159", lat: 36.6028531, lng: 127.2932152, cap: "7.5천" },
         { name: "신흥 주공 2단지", addr: "이화로 5", lat: 36.594329, lng: 127.2899895, cap: "7.2천" },
         { name: "신동아 파밀리에", addr: "도장말길 30", lat: 36.5896798, lng: 127.297771, cap: "6.8천" },
-        { name: "일신 유니빌", addr: "신안새동네길 26-10", lat: 36.6148933, lng: 127.2916206, cap: "2.9천" },
-        { name: "행복코아(메가박스)", addr: "새내로 122", lat: 36.6028353, lng: 127.2981478, cap: "1.8천" },
-        { name: "풍산 아파트", addr: "새내8길 22-13", lat: 36.598922, lng: 127.3000296, cap: "1천" },
+        { name: "일신 유니빌", addr: "신안새동네길 26", lat: 36.6148933, lng: 127.2916206, cap: "2.9천" },
+        { name: "행복코아", addr: "새내로 122", lat: 36.6028353, lng: 127.2981478, cap: "1.8천" },
+        { name: "풍산 아파트", addr: "새내8길 22", lat: 36.598922, lng: 127.3000296, cap: "1천" },
         { name: "고대 학술정보관", addr: "세종로 2511", lat: 36.6100271, lng: 127.2871182, cap: "859명" },
         { name: "홍대 교사A동", addr: "세종로 2639", lat: 36.6209818, lng: 127.2873566, cap: "377명" }
     ];
@@ -421,7 +433,7 @@
         }, 500);
     }
 
-    // --- [핵심] 카카오맵 연동 기능 (함수 호출 방식) ---
+    // --- [카카오맵 연동] ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -431,11 +443,11 @@
             div.className = 'shelter-card';
             
             div.innerHTML = `
-                <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:5px;"></i>${item.name}</div>
+                <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:2px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
                 <button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')">
-                    <i class="fas fa-location-arrow"></i> 카카오맵 길찾기
+                    <i class="fas fa-location-arrow"></i> 길찾기
                 </button>
             `;
             container.appendChild(div);
@@ -445,27 +457,23 @@
     function openKakaoNavi(lat, lng, name) {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
-        // 1. 카카오맵 앱 실행 URL (자동차 길찾기 모드)
+        // 1. 앱 실행
         const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        
-        // 2. 앱 없을 때 웹 지도 URL (길찾기 결과 화면)
+        // 2. 웹 폴백
         const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
 
         if (isMobile) {
-            // 앱 실행 시도
             location.href = appUrl;
-            
-            // 앱 실행 실패 시 (1.5초 후) 웹으로 이동하는 폴백
             setTimeout(() => {
                 if (document.hidden) return; 
                 window.location.href = webUrl;
             }, 1500);
         } else {
-            // PC는 바로 웹으로
             window.open(webUrl, '_blank');
         }
     }
 
+    // --- 나머지 기능들 (동일) ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         const iconEl = document.getElementById('forest-icon-area');
