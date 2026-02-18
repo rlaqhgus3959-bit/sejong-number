@@ -2,16 +2,18 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 통합관제 (Total)</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-            --shelter: #ffd60a; --kakao: #FAE100; /* 카카오 시그니처 컬러 */
+            --shelter: #ffd60a; --kakao: #FAE100;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -97,7 +99,7 @@
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
         
-        /* 카카오맵 버튼 스타일 (노란색 강조) */
+        /* 카카오맵 버튼 */
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
             text-align: center; padding: 12px 0;
@@ -240,7 +242,7 @@
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
              * 버튼 클릭 시 <b>카카오맵</b>이 실행되어 <b>네비게이션</b>이 시작됩니다.<br>
-             (앱 미설치 시 웹으로 연결됩니다)
+             (앱 미설치 시 웹 길찾기로 자동 연결됩니다)
         </div>
     </div>
 </div>
@@ -345,11 +347,11 @@
 </div>
 
 <script>
-    if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
-
+    // [중요] 기존의 서비스 워커 등록 코드(sw.js)를 삭제하여 캐시 문제 해결
+    
     let isAdmin = false;
     
-    // [카카오맵 전용] 위/경도 좌표 데이터 (정확도 100%)
+    // [카카오맵용] 정확한 좌표 데이터
     const shelterData = [
         { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
         { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
@@ -419,7 +421,7 @@
         }, 500);
     }
 
-    // --- [핵심 수정] 카카오맵 연동 기능 ---
+    // --- [핵심] 카카오맵 연동 기능 (함수 호출 방식) ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -453,9 +455,8 @@
             // 앱 실행 시도
             location.href = appUrl;
             
-            // 앱 실행 실패 시 (2초 후) 웹으로 이동하는 폴백
+            // 앱 실행 실패 시 (1.5초 후) 웹으로 이동하는 폴백
             setTimeout(() => {
-                // 앱이 실행되면 브라우저가 백그라운드로 가서 이 코드가 실행되지 않거나 늦게 실행됨
                 if (document.hidden) return; 
                 window.location.href = webUrl;
             }, 1500);
