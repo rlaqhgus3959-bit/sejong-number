@@ -9,7 +9,7 @@
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-            --shelter: #ffd60a; /* 대피소 노란색 */
+            --shelter: #ffd60a;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -20,8 +20,20 @@
 
         header { margin-bottom: 10px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
+        .title-group { display: flex; align-items: center; gap: 10px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
         
+        /* 새로고침 버튼 */
+        .refresh-btn {
+            background: #333; border: 1px solid #444; color: white;
+            width: 32px; height: 32px; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; font-size: 14px;
+        }
+        .refresh-btn:active { background: #555; transform: scale(0.95); }
+        .spin { animation: spin 1s linear infinite; }
+        @keyframes spin { 100% { transform: rotate(360deg); } }
+
         /* 아코디언 공통 */
         .accord-section {
             background: #2c2c2e; border: 1px solid var(--line);
@@ -85,7 +97,7 @@
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
 
-        /* 대피소 스타일 (NEW) */
+        /* 대피소 스타일 */
         .shelter-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 12px; border-radius: 10px;
@@ -95,13 +107,13 @@
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
         .shelter-btn {
-            background: #333; color: white; text-align: center; padding: 8px 0;
-            border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none;
+            background: #333; color: white; text-align: center; padding: 10px 0;
+            border-radius: 8px; font-size: 12px; font-weight: bold; text-decoration: none;
             display: block; margin-top: auto; border: 1px solid #444;
             transition: background 0.2s;
         }
         .shelter-btn:active { background: var(--blue); border-color: var(--blue); }
-        .shelter-icon { margin-right: 5px; color: var(--shelter); }
+        .shelter-btn i { margin-right: 5px; color: var(--green); }
 
         /* CCTV 3열 리스트 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -191,7 +203,12 @@
 
 <header>
     <div class="top-nav">
-        <h1>세종경찰 통합관제</h1>
+        <div class="title-group">
+            <h1>세종경찰 통합관제</h1>
+            <button class="refresh-btn" onclick="refreshAll()" title="수동 업데이트">
+                <i id="refresh-icon" class="fas fa-rotate-right"></i>
+            </button>
+        </div>
         <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 관리자</button>
     </div>
 </header>
@@ -230,7 +247,7 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
-             * 버튼 클릭 시 네이버 지도 '길찾기'로 연결됩니다.
+             * 버튼 클릭 시 네이버 지도 <b>현위치 → 대피소</b> 길찾기가 실행됩니다.
         </div>
     </div>
 </div>
@@ -384,35 +401,46 @@
     let cctvFilter = 'all';
 
     window.onload = () => { 
-        render(); 
-        renderCCTV();
-        renderShelters(); // 대피소 렌더링 추가
-        fetchDetailRain(); 
-        autoFetchSpecial(); 
-        autoFetchForest(); 
-        setInterval(fetchDetailRain, 600000); 
-        setInterval(autoFetchSpecial, 600000);
-        setInterval(autoFetchForest, 600000);
+        refreshAll();
     };
 
     function toggleSection(id) {
         document.getElementById(id).classList.toggle('open');
     }
 
-    // --- 대피소 렌더링 함수 ---
+    // --- [기능] 수동 업데이트 ---
+    async function refreshAll() {
+        const icon = document.getElementById('refresh-icon');
+        icon.classList.add('spin'); // 회전 애니메이션 시작
+        
+        // 병렬로 데이터 호출
+        await Promise.all([
+            render(),
+            renderCCTV(),
+            renderShelters(),
+            fetchDetailRain(),
+            autoFetchSpecial(),
+            autoFetchForest()
+        ]);
+
+        setTimeout(() => {
+            icon.classList.remove('spin'); // 애니메이션 종료
+        }, 500);
+    }
+
+    // --- 대피소 렌더링 (길찾기 파라미터 추가) ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
         shelterData.forEach(item => {
-            // 네이버 지도 길찾기 링크 (모바일 웹 전용)
-            // 도착지 명칭을 지정하여 경로 탐색 페이지로 이동 (현위치 -> 대피소)
-            const mapLink = `https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(item.name)}&pathType=0`;
+            // sname=현위치 : 출발지를 '현위치'로 강제 설정하여 앱이나 웹에서 GPS 기반 길찾기 유도
+            const mapLink = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&pathType=0`;
 
             const div = document.createElement('div');
             div.className = 'shelter-card';
             div.innerHTML = `
-                <div class="shelter-name"><i class="fas fa-shield-halved shelter-icon"></i>${item.name}</div>
+                <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:5px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
                 <a href="${mapLink}" target="_blank" class="shelter-btn">
