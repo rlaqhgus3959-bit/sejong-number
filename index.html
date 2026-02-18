@@ -4,13 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 통합관제 (Total)</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
-        /* 기존 스타일 유지 */
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-            --shelter: #ffd60a;
+            --shelter: #ffd60a; --kakao: #fae100; /* 카카오 노란색 */
         }
         body {
             background: var(--bg); color: var(--text);
@@ -95,14 +96,17 @@
         .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
         .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        
+        /* 카카오맵 버튼 스타일 */
         .shelter-btn {
-            background: #333; color: white; text-align: center; padding: 12px 0;
-            border-radius: 8px; font-size: 13px; font-weight: bold; text-decoration: none;
-            display: block; margin-top: auto; border: 1px solid #555;
+            background: var(--kakao); color: #3b1e1e; /* 카카오 블랙 */
+            text-align: center; padding: 12px 0;
+            border-radius: 8px; font-size: 13px; font-weight: 800; text-decoration: none;
+            display: block; margin-top: auto; border: none;
             transition: all 0.2s; cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.2);
         }
-        .shelter-btn:active { background: var(--blue); border-color: var(--blue); transform: translateY(2px); }
-        .shelter-btn i { margin-right: 5px; color: var(--green); }
+        .shelter-btn:active { transform: translateY(2px); opacity: 0.8; }
+        .shelter-btn i { margin-right: 5px; color: #3b1e1e; }
 
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
@@ -234,8 +238,8 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼 클릭 시 <b>네이버 지도 앱</b>이 실행되어 <b>네비게이션</b>이 시작됩니다.<br>
-             (앱 미설치 시 웹 길찾기로 연결됩니다)
+             * 버튼 클릭 시 <b>카카오맵</b>이 실행되어 <b>네비게이션</b>이 시작됩니다.<br>
+             (앱 미설치 시 웹으로 연결됩니다)
         </div>
     </div>
 </div>
@@ -344,7 +348,7 @@
 
     let isAdmin = false;
     
-    // [핵심] 13개소 정확한 위도(lat), 경도(lng) 데이터 + 자동차 네비게이션 연동
+    // [카카오맵용] 정확한 위도(lat), 경도(lng) 데이터 + 도로명 주소
     const shelterData = [
         { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
         { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
@@ -414,7 +418,7 @@
         }, 500);
     }
 
-    // --- [핵심] 앱 강제 실행 및 자동차 네비게이션 연결 로직 ---
+    // --- [핵심] 카카오맵 길찾기 연결 로직 (앱 스킴 + 웹 폴백) ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -423,44 +427,41 @@
             const div = document.createElement('div');
             div.className = 'shelter-card';
             
-            // 1. 앱 호출 URL (nmap://route/car)
-            // dlat, dlng: 도착지 좌표 (필수)
-            // dname: 도착지 이름 (필수)
-            // 이 스킴은 네이버 지도 앱을 열고 바로 '자동차 경로 탐색'을 실행합니다.
-            const appUrl = `nmap://route/car?dlat=${item.lat}&dlng=${item.lng}&dname=${encodeURIComponent(item.name)}&appname=sejong_police`;
+            // 1. 카카오맵 앱 URL 스킴 (자동차 네비게이션 바로 실행)
+            // ep: 도착지 좌표 (lat,lng), by: 이동수단(CAR)
+            const appUrl = `kakaomap://route?ep=${item.lat},${item.lng}&by=CAR`;
             
-            // 2. 앱 없을 경우 웹 폴백 (m.map.naver.com)
-            // sname=현위치 : 출발지 강제 설정
-            // ex, ey : 도착지 좌표 강제 설정 (검색 결과로 빠지지 않게 함)
-            const webUrl = `https://m.map.naver.com/route.nhn?menu=route&sname=현위치&ename=${encodeURIComponent(item.name)}&ex=${item.lng}&ey=${item.lat}&pathType=0&showMap=true`;
+            // 2. 카카오맵 웹 URL (앱 없을 때)
+            // link/to/이름,위도,경도 -> 도착지로 설정된 지도 화면으로 이동
+            const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(item.name)},${item.lat},${item.lng}`;
 
             div.innerHTML = `
                 <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:5px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
-                <button class="shelter-btn" onclick="openNavi('${appUrl}', '${webUrl}')">
-                    <i class="fas fa-location-arrow"></i> 앱으로 길찾기
+                <button class="shelter-btn" onclick="openKakaoNavi('${appUrl}', '${webUrl}')">
+                    <i class="fas fa-location-arrow"></i> 카카오맵 길찾기
                 </button>
             `;
             container.appendChild(div);
         });
     }
 
-    function openNavi(appUrl, webUrl) {
-        // 모바일 환경 체크
+    function openKakaoNavi(appUrl, webUrl) {
+        // 모바일 여부 확인
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         
         if (isMobile) {
             // 앱 실행 시도
             location.href = appUrl;
 
-            // 앱 실행 실패(미설치) 시 1.5초 후 웹 페이지로 이동
+            // 앱이 설치되어 있지 않거나 실행 실패 시, 1.5초 후 웹 페이지로 이동
             setTimeout(function() {
-                if (document.hidden) return; // 앱이 실행되어 브라우저가 백그라운드로 갔다면 중단
+                if (document.hidden) return; // 이미 앱으로 넘어갔으면 실행 안함
                 window.location.href = webUrl;
             }, 1500);
         } else {
-            // PC면 바로 웹으로 새창
+            // PC 환경에서는 바로 웹 지도로 새 창 열기
             window.open(webUrl, '_blank');
         }
     }
