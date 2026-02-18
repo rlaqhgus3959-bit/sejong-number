@@ -89,43 +89,50 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* --- [수정됨] 대피소 스타일 (4열) --- */
+        /* [수정] 대피소 스타일 (크기 고정 & 4열) */
         .shelter-list { 
             display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 한 줄에 4개 */
-            gap: 5px; 
+            grid-template-columns: repeat(4, 1fr); /* 4개 균등 분할 */
+            gap: 6px; 
         }
         .shelter-card {
-            background: #1c1c1e; border: 1px solid #333; padding: 8px 4px; /* 패딩 축소 */
+            background: #1c1c1e; 
+            border: 1px solid #333; 
+            padding: 10px 5px; 
             border-radius: 8px;
-            display: flex; flex-direction: column; gap: 3px;
-            text-align: center; /* 가운데 정렬 */
+            display: flex; 
+            flex-direction: column; 
+            justify-content: space-between; /* 위아래 균등 배치 */
+            align-items: center; /* 가운데 정렬 */
+            gap: 2px;
+            min-height: 95px; /* 높이 고정 (중요) */
+            height: 100%;
+            box-sizing: border-box;
         }
         .shelter-name { 
-            font-size: 11px; font-weight: 700; color: #fff; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            font-size: 11px; font-weight: 700; color: #fff; width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
         }
         .shelter-addr { 
-            font-size: 9px; color: #888; 
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; 
+            font-size: 9px; color: #888; width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
         }
         .shelter-cap { 
-            font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 2px; 
+            font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px;
         }
         
-        /* 버튼 작게 조정 */
+        /* 카카오맵 버튼 */
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
-            text-align: center; padding: 6px 0;
+            text-align: center; padding: 6px 0; width: 100%;
             border-radius: 6px; font-size: 11px; font-weight: 800; text-decoration: none;
             display: block; margin-top: auto; border: none;
-            transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+            transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.2);
             cursor: pointer;
         }
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
-        .shelter-btn i { font-size: 10px; }
+        .shelter-btn i { font-size: 10px; margin-right: 3px; color: #3b1e1e; }
 
-        /* CCTV, 통제구역 등 기존 스타일 유지 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -361,6 +368,8 @@
 </div>
 
 <script>
+    // [중요] 서비스 워커 삭제됨 (캐시 문제 해결)
+    
     let isAdmin = false;
     
     // [카카오맵용] 정확한 좌표 데이터
@@ -473,7 +482,7 @@
         }
     }
 
-    // --- 나머지 기능들 (동일) ---
+    // --- 나머지 기능들 ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         const iconEl = document.getElementById('forest-icon-area');
