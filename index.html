@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 통합관제 (Total)</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -85,7 +87,7 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 (개선됨) */
+        /* 대피소 스타일 */
         .shelter-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 12px; border-radius: 10px;
@@ -179,7 +181,6 @@
             text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
         }
         
-        /* 산불 스타일 */
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-region { font-size: 13px; color: #aaa; margin-bottom: 5px; }
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
@@ -234,7 +235,7 @@
         <div class="shelter-list" id="shelter-list">
             </div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
-             * 버튼 클릭 시 <b>'네이버 지도 길찾기'</b>(현위치→목적지)가 실행됩니다.
+             * 버튼 클릭 시 <b>현위치 → 도로명 주소</b>로 네이버 지도 길찾기가 실행됩니다.
         </div>
     </div>
 </div>
@@ -343,22 +344,21 @@
 
     let isAdmin = false;
     
-    // [중요] 길찾기 데이터 수정
-    // query: 네이버 지도 앱이 정확히 인식할 수 있는 '지역명 + 건물명' 조합
+    // [업그레이드] fullAddr: 정확한 도로명 주소 (네이버 지도 길찾기용)
     const shelterData = [
-        { name: "조치원 자이 아파트", query: "세종 조치원자이아파트", addr: "도원로 16", cap: "4.3만" },
-        { name: "엘리프 세종", query: "세종 엘리프세종", addr: "서북부4로 10", cap: "4만" },
-        { name: "세종 e편한세상", query: "세종 e편한세상", addr: "섭골길 59", cap: "2.8만" },
-        { name: "신흥 푸르지오", query: "세종 조치원신흥푸르지오", addr: "도원로 16", cap: "2.1만" },
-        { name: "죽림 우방유쉘", query: "세종 죽림우방유쉘", addr: "산막길 17", cap: "1.6만" },
-        { name: "욱일 아파트", query: "세종 조치원 욱일아파트", addr: "충현로 159", cap: "7.5천" },
-        { name: "신흥 주공 2단지", query: "세종 신흥주공2단지", addr: "이화로 5", cap: "7.2천" },
-        { name: "신동아 파밀리에", query: "세종 조치원 신동아파밀리에", addr: "도장말길 30", cap: "6.8천" },
-        { name: "일신 유니빌", query: "세종 조치원 일신유니빌", addr: "신안새동네길 26", cap: "2.9천" },
-        { name: "행복코아(메가박스)", query: "세종 조치원 메가박스", addr: "새내로 122", cap: "1.8천" },
-        { name: "풍산 아파트", query: "세종 조치원 풍산아파트", addr: "새내8길 22", cap: "1천" },
-        { name: "고대 학술정보관", query: "고려대학교 세종캠퍼스 학술정보관", addr: "세종로 2511", cap: "859명" },
-        { name: "홍대 교사A동", query: "홍익대학교 세종캠퍼스 A동", addr: "세종로 2639", cap: "377명" }
+        { name: "조치원 자이", addr: "도원로 16", fullAddr: "세종특별자치시 조치원읍 도원로 16", cap: "4.3만" },
+        { name: "엘리프 세종", addr: "서북부4로 10", fullAddr: "세종특별자치시 조치원읍 서북부4로 10", cap: "4만" },
+        { name: "세종 e편한세상", addr: "섭골길 59", fullAddr: "세종특별자치시 조치원읍 섭골길 59", cap: "2.8만" },
+        { name: "신흥 푸르지오", addr: "도원로 16", fullAddr: "세종특별자치시 조치원읍 도원로 16", cap: "2.1만" },
+        { name: "죽림 우방유쉘", addr: "산막길 17", fullAddr: "세종특별자치시 조치원읍 산막길 17", cap: "1.6만" },
+        { name: "욱일 아파트", addr: "충현로 159", fullAddr: "세종특별자치시 조치원읍 충현로 159", cap: "7.5천" },
+        { name: "신흥 주공 2단지", addr: "이화로 5", fullAddr: "세종특별자치시 조치원읍 이화로 5", cap: "7.2천" },
+        { name: "신동아 파밀리에", addr: "도장말길 30", fullAddr: "세종특별자치시 조치원읍 도장말길 30", cap: "6.8천" },
+        { name: "일신 유니빌", addr: "신안새동네길 26-10", fullAddr: "세종특별자치시 조치원읍 신안새동네길 26-10", cap: "2.9천" },
+        { name: "행복코아(메가박스)", addr: "새내로 122", fullAddr: "세종특별자치시 조치원읍 새내로 122", cap: "1.8천" },
+        { name: "풍산 아파트", addr: "새내8길 22-13", fullAddr: "세종특별자치시 조치원읍 새내8길 22-13", cap: "1천" },
+        { name: "고대 학술정보관", addr: "세종로 2511", fullAddr: "세종특별자치시 조치원읍 세종로 2511", cap: "859명" },
+        { name: "홍대 교사A동", addr: "세종로 2639", fullAddr: "세종특별자치시 조치원읍 세종로 2639", cap: "377명" }
     ];
 
     const defaultData = [
@@ -414,34 +414,35 @@
         }, 500);
     }
 
-    // --- [핵심] 길찾기 링크 수정 ---
+    // --- [핵심] 길찾기 링크 생성 (도로명 주소 사용) ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
         shelterData.forEach(item => {
-            // 네이버 지도 모바일 전용 길찾기 링크 (m.map.naver.com 사용)
-            // sname=현위치 : 출발지를 현위치로 자동 설정
-            // ename=목적지명 : URL 인코딩된 목적지
-            const encodedName = encodeURIComponent(item.query);
+            // fullAddr(정확한 도로명주소)를 ename에 넣어 네이버 지도가 정확한 위치를 찍게 함
+            const encodedName = encodeURIComponent(item.fullAddr);
             const encodedStart = encodeURIComponent('현위치');
             
-            // 이 링크는 네이버 지도 웹페이지로 이동하며, 앱이 설치된 경우 앱 호출을 시도합니다.
+            // 네이버 지도 길찾기 URL (sname=현위치, ename=도착지 주소)
             const mapLink = `https://m.map.naver.com/route.nhn?menu=route&sname=${encodedStart}&ename=${encodedName}&pathType=0`;
 
             const div = document.createElement('div');
             div.className = 'shelter-card';
-            div.onclick = function() {
-                window.open(mapLink, '_blank');
+            
+            // 카드 전체를 누르거나 버튼을 누르면 새 창으로 이동
+            div.onclick = function(e) {
+                // e.preventDefault(); 
+                // window.open(mapLink, '_blank'); 
             };
 
             div.innerHTML = `
                 <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:5px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
                 <div class="shelter-cap">수용: ${item.cap}</div>
-                <div class="shelter-btn">
+                <a href="${mapLink}" target="_blank" class="shelter-btn">
                     <i class="fas fa-location-arrow"></i> 길찾기
-                </div>
+                </a>
             `;
             container.appendChild(div);
         });
