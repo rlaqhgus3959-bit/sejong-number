@@ -4,15 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 통합관제 (Total)</title>
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
+            --shelter: #ffd60a; /* 대피소 노란색 */
         }
         body {
             background: var(--bg); color: var(--text);
@@ -82,11 +79,29 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 산불 스타일 (NEW) */
+        /* 산불 스타일 */
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-region { font-size: 13px; color: #aaa; margin-bottom: 5px; }
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
+
+        /* 대피소 스타일 (NEW) */
+        .shelter-list { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+        .shelter-card {
+            background: #1c1c1e; border: 1px solid #333; padding: 12px; border-radius: 10px;
+            display: flex; flex-direction: column; gap: 5px;
+        }
+        .shelter-name { font-size: 13px; font-weight: 700; color: #fff; }
+        .shelter-addr { font-size: 11px; color: #888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        .shelter-btn {
+            background: #333; color: white; text-align: center; padding: 8px 0;
+            border-radius: 6px; font-size: 12px; font-weight: bold; text-decoration: none;
+            display: block; margin-top: auto; border: 1px solid #444;
+            transition: background 0.2s;
+        }
+        .shelter-btn:active { background: var(--blue); border-color: var(--blue); }
+        .shelter-icon { margin-right: 5px; color: var(--shelter); }
 
         /* CCTV 3열 리스트 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
@@ -206,7 +221,21 @@
     </div>
 </div>
 
-<div class="accord-section open" id="sec-cctv">
+<div class="accord-section" id="sec-shelter">
+    <div class="accord-header" onclick="toggleSection('sec-shelter')">
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 조치원 대피소 (13개소)</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="shelter-list" id="shelter-list">
+            </div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
+             * 버튼 클릭 시 네이버 지도 '길찾기'로 연결됩니다.
+        </div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
         <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -310,6 +339,23 @@
 
     let isAdmin = false;
     
+    // 조치원 대피소 데이터 (13개소)
+    const shelterData = [
+        { name: "조치원 자이 아파트", addr: "도원로 16", cap: "4.3만" },
+        { name: "엘리프 세종", addr: "서북부4로 10", cap: "4만" },
+        { name: "세종 e편한세상", addr: "섭골길 59", cap: "2.8만" },
+        { name: "신흥 푸르지오", addr: "도원로 16", cap: "2.1만" },
+        { name: "죽림 우방유쉘", addr: "산막길 17", cap: "1.6만" },
+        { name: "욱일 아파트", addr: "충현로 159", cap: "7.5천" },
+        { name: "신흥 주공 2단지", addr: "이화로 5", cap: "7.2천" },
+        { name: "신동아 파밀리에", addr: "도장말길 30", cap: "6.8천" },
+        { name: "일신 유니빌", addr: "신안새동네길 26", cap: "2.9천" },
+        { name: "행복코아(메가박스)", addr: "새내로 122", cap: "1.8천" },
+        { name: "풍산 아파트", addr: "새내8길 22", cap: "1천" },
+        { name: "고대 학술정보관", addr: "세종로 2511", cap: "859명" },
+        { name: "홍대 교사A동", addr: "세종로 2639", cap: "377명" }
+    ];
+
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 },
         { id:2, area:'전의', name:'전의면 북암천', status:2 },
@@ -340,9 +386,10 @@
     window.onload = () => { 
         render(); 
         renderCCTV();
+        renderShelters(); // 대피소 렌더링 추가
         fetchDetailRain(); 
         autoFetchSpecial(); 
-        autoFetchForest(); // 산불 자동
+        autoFetchForest(); 
         setInterval(fetchDetailRain, 600000); 
         setInterval(autoFetchSpecial, 600000);
         setInterval(autoFetchForest, 600000);
@@ -350,6 +397,30 @@
 
     function toggleSection(id) {
         document.getElementById(id).classList.toggle('open');
+    }
+
+    // --- 대피소 렌더링 함수 ---
+    function renderShelters() {
+        const container = document.getElementById('shelter-list');
+        container.innerHTML = '';
+        
+        shelterData.forEach(item => {
+            // 네이버 지도 길찾기 링크 (모바일 웹 전용)
+            // 도착지 명칭을 지정하여 경로 탐색 페이지로 이동 (현위치 -> 대피소)
+            const mapLink = `https://m.map.naver.com/route.nhn?menu=route&ename=${encodeURIComponent(item.name)}&pathType=0`;
+
+            const div = document.createElement('div');
+            div.className = 'shelter-card';
+            div.innerHTML = `
+                <div class="shelter-name"><i class="fas fa-shield-halved shelter-icon"></i>${item.name}</div>
+                <div class="shelter-addr">${item.addr}</div>
+                <div class="shelter-cap">수용: ${item.cap}</div>
+                <a href="${mapLink}" target="_blank" class="shelter-btn">
+                    <i class="fas fa-location-arrow"></i> 길찾기
+                </a>
+            `;
+            container.appendChild(div);
+        });
     }
 
     // --- 산불 관련 (자동) ---
