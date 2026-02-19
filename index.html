@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Live)</title>
+    <title>세종경찰 통합관제 (Total)</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -93,7 +93,7 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 (4열 & 높이 고정) */
+        /* 대피소 스타일 (4열) */
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
@@ -121,7 +121,7 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-        /* 기타 스타일 */
+        /* CCTV, 통제 등 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -252,10 +252,20 @@
 
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 조치원 대피소 (13개소)</div>
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 임시주거(대피) 시설 (69개소)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:10px;">
+            <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
+            <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
+            <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
+            <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
+            <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
+            <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
+        </div>
         <div class="shelter-list" id="shelter-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
              * 버튼 클릭 시 <b>카카오맵 네비게이션</b>이 실행됩니다.
@@ -364,16 +374,12 @@
 </div>
 
 <script>
-    // 1. 서비스 워커 강제 삭제 (캐시 문제 해결)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) {
-                registration.unregister();
-            }
+            for(let registration of registrations) { registration.unregister(); }
         });
     }
 
-    // 2. 파이어베이스 설정 (관리자님 키값 적용 완료)
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -385,69 +391,115 @@
         measurementId: "G-XKW8CM4W06"
     };
     
-    // 파이어베이스 실행
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
     
     let isAdmin = false;
 
-    // --- 대피소 데이터 (좌표 완비) ---
+    // --- 대피소 69개소 데이터 (이미지 기반) ---
     const shelterData = [
-        { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
-        { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
-        { name: "세종 e편한세상", addr: "섭골길 59", lat: 36.6155634, lng: 127.2845473, cap: "2.8만" },
-        { name: "신흥 푸르지오", addr: "도원로 16", lat: 36.5923161, lng: 127.2896392, cap: "2.1만" },
-        { name: "죽림 우방유쉘", addr: "산막길 17", lat: 36.5935897, lng: 127.2950107, cap: "1.6만" },
-        { name: "욱일 아파트", addr: "충현로 159", lat: 36.6028531, lng: 127.2932152, cap: "7.5천" },
-        { name: "신흥 주공 2단지", addr: "이화로 5", lat: 36.594329, lng: 127.2899895, cap: "7.2천" },
-        { name: "신동아 파밀리에", addr: "도장말길 30", lat: 36.5896798, lng: 127.297771, cap: "6.8천" },
-        { name: "일신 유니빌", addr: "신안새동네길 26", lat: 36.6148933, lng: 127.2916206, cap: "2.9천" },
-        { name: "행복코아", addr: "새내로 122", lat: 36.6028353, lng: 127.2981478, cap: "1.8천" },
-        { name: "풍산 아파트", addr: "새내8길 22", lat: 36.598922, lng: 127.3000296, cap: "1천" },
-        { name: "고대 학술정보관", addr: "세종로 2511", lat: 36.6100271, lng: 127.2871182, cap: "859명" },
-        { name: "홍대 교사A동", addr: "세종로 2639", lat: 36.6209818, lng: 127.2873566, cap: "377명" }
+        { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
+        { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
+        { area:'조치원', name:'교동초등학교', addr:'조치원읍 새내18길 21', cap:'417명', lat:36.6022, lng:127.3012 },
+        { area:'조치원', name:'대동초등학교', addr:'조치원읍 대동학교길 11', cap:'465명', lat:36.5968, lng:127.2965 },
+        { area:'조치원', name:'명동초등학교', addr:'조치원읍 새내8길 115', cap:'177명', lat:36.5925, lng:127.3031 },
+        { area:'조치원', name:'세종여자고등학교', addr:'조치원읍 봉산로 16', cap:'152명', lat:36.6012, lng:127.2835 },
+        { area:'조치원', name:'신봉초등학교', addr:'조치원읍 서북부로 10', cap:'262명', lat:36.6085, lng:127.2885 },
+        { area:'조치원', name:'번암1리 경로당', addr:'조치원읍 군청로 11', cap:'19명', lat:36.5932, lng:127.3025 },
+        { area:'조치원', name:'서창2리 두진(아)경로당', addr:'조치원읍 모과나무길 31', cap:'23명', lat:36.5955, lng:127.2955 },
+        { area:'조치원', name:'세종e편한세상아파트경로당', addr:'조치원읍 섭골길 59', cap:'66명', lat:36.6155, lng:127.2845 },
+        { area:'조치원', name:'신안2리 경로당', addr:'조치원읍 안터길 83', cap:'19명', lat:36.6185, lng:127.2925 },
+        { area:'조치원', name:'신흥e편한세상경로당', addr:'조치원읍 이화1로 15', cap:'19명', lat:36.5942, lng:127.2885 },
+        { area:'조치원', name:'신흥주공아파트경로당', addr:'조치원읍 이화로 5', cap:'54명', lat:36.5943, lng:127.2899 },
+        { area:'조치원', name:'신흥푸르지오경로당', addr:'조치원읍 도원1로 16', cap:'26명', lat:36.5923, lng:127.2896 },
+        { area:'조치원', name:'자이아파트경로당', addr:'조치원읍 도원로 16', cap:'62명', lat:36.5899, lng:127.2899 },
+        { area:'조치원', name:'조형아파트경로당', addr:'조치원읍 운주산로 60', cap:'13명', lat:36.5995, lng:127.2855 },
+        { area:'조치원', name:'남리마을회관', addr:'조치원읍 장안로 37', cap:'26명', lat:36.5985, lng:127.3015 },
+        { area:'조치원', name:'세종고등학교', addr:'조치원읍 조치원중고길 10', cap:'411명', lat:36.6065, lng:127.2955 },
+        { area:'조치원', name:'세종중학교', addr:'조치원읍 새내로 160', cap:'231명', lat:36.6055, lng:127.2965 },
+        { area:'연동', name:'연동면 복합커뮤니티센터', addr:'연동면 장욱로 7', cap:'195명', lat:36.5585, lng:127.3255 },
+        { area:'연동', name:'연동중학교', addr:'연동면 내판로 10-13', cap:'320명', lat:36.5595, lng:127.3245 },
+        { area:'연동', name:'연동초등학교', addr:'연동면 청연로 606-36', cap:'119명', lat:36.5605, lng:127.3235 },
+        { area:'연동', name:'내판4리 마을회관', addr:'연동면 새말다복동길 31-9', cap:'27명', lat:36.5555, lng:127.3285 },
+        { area:'연동', name:'명학2리 마을회관', addr:'연동면 태산로 88-12', cap:'15명', lat:36.5485, lng:127.3355 },
+        { area:'연동', name:'문주리마을회관', addr:'연동면 간말길 6', cap:'30명', lat:36.5655, lng:127.3155 },
+        { area:'연동', name:'예양2리 마을회관', addr:'연동면 강변길 119-1', cap:'30명', lat:36.5455, lng:127.3155 },
+        { area:'연동', name:'응암2리마을회관', addr:'연동면 응암노곡길 2', cap:'28명', lat:36.5755, lng:127.3255 },
+        { area:'부강', name:'부강면사무소', addr:'부강면 부강5길 38', cap:'91명', lat:36.5255, lng:127.3685 },
+        { area:'부강', name:'부강중학교', addr:'부강면 부강로 25-7', cap:'1152명', lat:36.5285, lng:127.3655 },
+        { area:'부강', name:'부강초등학교', addr:'부강면 부강로 15', cap:'326명', lat:36.5275, lng:127.3665 },
+        { area:'부강', name:'세종미래고등학교', addr:'부강면 문곡달미길 6', cap:'308명', lat:36.5355, lng:127.3755 },
+        { area:'부강', name:'등곡1리경로당', addr:'부강면 등곡1길 160-22', cap:'23명', lat:36.5155, lng:127.3855 },
+        { area:'부강', name:'부강6리마을회관', addr:'부강4길 28', cap:'42명', lat:36.5295, lng:127.3695 },
+        { area:'부강', name:'부강4,5리마을회관', addr:'부촌길12-1', cap:'42명', lat:36.5245, lng:127.3645 },
+        { area:'부강', name:'부강3리마을회관', addr:'부강5길11', cap:'115명', lat:36.5265, lng:127.3675 },
+        { area:'연서', name:'연서면사무소', addr:'연서면 대첩로 238', cap:'61명', lat:36.5655, lng:127.2785 },
+        { area:'연서', name:'세종도원초등학교', addr:'연서면 도원로 63', cap:'166명', lat:36.5855, lng:127.2855 },
+        { area:'연서', name:'쌍류초등학교', addr:'연서면 별말길 73', cap:'325명', lat:36.5455, lng:127.2855 },
+        { area:'연서', name:'연봉초등학교', addr:'세종특별자치시 세종시 연서면 당산로 357-1', cap:'278명', lat:36.5555, lng:127.2955 },
+        { area:'연서', name:'연서중학교', addr:'연서면 연서로 115', cap:'346명', lat:36.5685, lng:127.2755 },
+        { area:'연서', name:'연서초등학교', addr:'연서면 연서로 148', cap:'227명', lat:36.5695, lng:127.2745 },
+        { area:'연서', name:'고복1리마을회관', addr:'연서면 도시안고복로 1061', cap:'18명', lat:36.6055, lng:127.2455 },
+        { area:'연서', name:'국촌2리마을회관', addr:'연서면 함박로 130', cap:'18명', lat:36.5755, lng:127.2655 },
+        { area:'연서', name:'부동리마을회관', addr:'연서면 용연로 853', cap:'32명', lat:36.5855, lng:127.2555 },
+        { area:'연서', name:'쌍전리마을회관', addr:'연서면 큰창고개길 3-3', cap:'11명', lat:36.5585, lng:127.2655 },
+        { area:'연서', name:'와촌1리마을회관', addr:'연서면 용연로 759', cap:'10명', lat:36.5955, lng:127.2655 },
+        { area:'연서', name:'월하1리마을회관', addr:'연서면 대첩로 204', cap:'44명', lat:36.5725, lng:127.2855 },
+        { area:'연서', name:'월하2리마을회관', addr:'연서면 작은창고개길 16-3', cap:'10명', lat:36.5705, lng:127.2835 },
+        { area:'전의', name:'전의면 복합커뮤니티센터', addr:'운주산로 1276(전의면)', cap:'223명', lat:36.6785, lng:127.2055 },
+        { area:'전의', name:'전의중학교', addr:'전의면 운주산로 1260-6', cap:'376명', lat:36.6765, lng:127.2045 },
+        { area:'전의', name:'전의초등학교', addr:'전의면 운주산로 1204-9', cap:'223명', lat:36.6735, lng:127.2035 },
+        { area:'전의', name:'관정1리 군량골경로당', addr:'전의면 군량골길 48', cap:'25명', lat:36.6655, lng:127.1955 },
+        { area:'전의', name:'달성학구 경로당', addr:'전의면 압실길 2', cap:'16명', lat:36.6555, lng:127.2155 },
+        { area:'전의', name:'달전1리 경로당', addr:'전의면 윗다락골길 46', cap:'21명', lat:36.6855, lng:127.1855 },
+        { area:'전의', name:'신흥리 경로당', addr:'전의면 사시리길 34', cap:'25명', lat:36.6955, lng:127.2055 },
+        { area:'전의', name:'유천1리경로당', addr:'전의면 오류골길 112', cap:'23명', lat:36.6825, lng:127.2155 },
+        { area:'전의', name:'읍내1리 할머니경로당', addr:'전의면 북양천길 5', cap:'21명', lat:36.6795, lng:127.2025 },
+        { area:'전의', name:'전의면사무소', addr:'전의면 운주산로 1270', cap:'71명', lat:36.6775, lng:127.2050 },
+        { area:'전동', name:'전동면 복합커뮤니티센터', addr:'운주산로 386(전동면)', cap:'294명', lat:36.6355, lng:127.2655 },
+        { area:'전동', name:'전동초등학교', addr:'전동면 하노장3길 9', cap:'153명', lat:36.6385, lng:127.2685 },
+        { area:'전동', name:'전동분회 경로당', addr:'전동면 하노장1길 35', cap:'28명', lat:36.6365, lng:127.2675 },
+        { area:'전동', name:'미곡1리 마을회관', addr:'전동면 운주산로 946-2', cap:'30명', lat:36.6555, lng:127.2355 },
+        { area:'전동', name:'봉대리 마을회관', addr:'전동면 봉대2길 17', cap:'23명', lat:36.6255, lng:127.2755 },
+        { area:'전동', name:'송성3리마을회관', addr:'전동면 성곡새말길 14-19', cap:'78명', lat:36.6155, lng:127.2555 },
+        { area:'소정', name:'소정면사무소', addr:'소정면 소정구길 204', cap:'50명', lat:36.7155, lng:127.1555 },
+        { area:'소정', name:'소정초등학교', addr:'소정면 학교말길 10', cap:'185명', lat:36.7185, lng:127.1535 },
+        { area:'소정', name:'소정면 맹골경로당', addr:'소정면 맹골1길 13-4', cap:'23명', lat:36.7055, lng:127.1655 },
+        { area:'소정', name:'소정면 소정1리 경로당', addr:'소정면 학교말길 1', cap:'29명', lat:36.7175, lng:127.1545 },
+        { area:'소정', name:'소정면 운당2리 경로당', addr:'소정면 운당너머말길 29', cap:'25명', lat:36.7255, lng:127.1455 }
     ];
 
     const defaultData = [
-        { id:1, area:'조치원', name:'조치원읍 세월교', status:2 },
-        { id:2, area:'전의', name:'전의면 북암천', status:2 },
-        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1 },
-        { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2 },
-        { id:5, area:'부강', name:'부용가교', status:2 },
-        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
-        { id:7, area:'전의', name:'전동면 청람리', status:0 },
-        { id:8, area:'조치원', name:'조치원읍 내창천', status:0 },
-        { id:9, area:'조치원', name:'봉암하상도로', status:0 },
-        { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0 },
-        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0 },
-        { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0 },
-        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 },
-        { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
-        { id:15, area:'전의', name:'전의중학교 앞', status:0 },
-        { id:16, area:'조치원', name:'욱일지하차도', status:0 }
+        { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
+        { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2 },
+        { id:5, area:'부강', name:'부용가교', status:2 }, { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
+        { id:7, area:'전의', name:'전동면 청람리', status:0 }, { id:8, area:'조치원', name:'조치원읍 내창천', status:0 },
+        { id:9, area:'조치원', name:'봉암하상도로', status:0 }, { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0 },
+        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0 }, { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0 },
+        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
+        { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
     const cctvData = [
         { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' },
     ];
 
-    let trafficData = JSON.parse(JSON.stringify(defaultData)); // 초기값
+    let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
     let cctvFilter = 'all';
 
     window.onload = () => { 
         refreshAll();
         
-        // [핵심] 파이어베이스 실시간 데이터 수신 (모든 사용자 동기화)
+        // Firebase 실시간 수신
         const dbRef = db.ref('trafficData');
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
             if(data) {
                 trafficData = data;
-                render(); // 데이터 변경 감지 시 화면 자동 갱신
-                document.getElementById('sync-status').classList.add('live'); // 싱크 표시
+                render(); 
+                document.getElementById('sync-status').classList.add('live');
             } else {
-                // 데이터가 없으면(최초 실행) 기본값 업로드
                 dbRef.set(defaultData);
             }
         });
@@ -475,12 +527,17 @@
         }, 500);
     }
 
-    // --- 렌더링 ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
-        shelterData.forEach(item => {
+        // 필터링 적용 (현재 탭에 맞는 지역만 표시)
+        const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
+        const filterArea = activeBtn ? activeBtn.innerText : '전체';
+        
+        const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
+
+        filteredData.forEach(item => {
             const div = document.createElement('div');
             div.className = 'shelter-card';
             
@@ -495,19 +552,21 @@
             container.appendChild(div);
         });
     }
+    
+    // 대피소 필터 함수
+    function filterShelter(area, btn) {
+        document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderShelters(); // 필터 적용된 렌더링 호출
+    }
 
-    // [핵심] 카카오맵 네비게이션 자동 실행
     function openKakaoNavi(lat, lng, name) {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
-        // 1. 앱 실행 (네비게이션 모드)
         const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        // 2. 웹 폴백 (앱 없을 때)
         const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
 
         if (isMobile) {
             location.href = appUrl;
-            // 1.5초 후에도 앱이 안 켜지면(화면이 그대로면) 웹으로 이동
             setTimeout(() => {
                 if (document.hidden) return; 
                 window.location.href = webUrl;
@@ -517,18 +576,12 @@
         }
     }
 
-    // --- [핵심] 통제구역 상태 변경 (DB 저장) ---
     function toggleStatus(idx) {
         if (!isAdmin) return alert("관리자 권한이 필요합니다.");
-        
-        // 상태 변경
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-        
-        // 파이어베이스에 저장 -> 모든 사용자에게 즉시 전파됨
         db.ref('trafficData').set(trafficData);
     }
 
-    // --- 기타 함수들 ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         const iconEl = document.getElementById('forest-icon-area');
