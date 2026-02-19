@@ -3,10 +3,12 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Firebase)</title>
+    <title>세종경찰 통합관제 (KWeather)</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#000000">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
@@ -18,42 +20,114 @@
             margin: 0; padding: env(safe-area-inset-top) 20px 40px 20px;
             -webkit-tap-highlight-color: transparent; user-select: none;
         }
-        header { margin-bottom: 10px; }
+
+        /* 헤더 */
+        header { margin-bottom: 15px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
-        .accord-section { background: #2c2c2e; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 15px; transition: all 0.3s ease; }
-        .accord-header { background: #3a3a3c; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; }
-        .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
-        .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
-        .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
-        .accord-section.open .accord-content { display: block; }
-        .accord-section.open .ah-toggle { transform: rotate(180deg); }
-        .sejong-summary { font-size: 13px; font-weight: 600; color: #ccc; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-left: auto; }
-        .sejong-summary.safe { color: var(--green); }
-        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
-        .rain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
-        .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
-        .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
-        .rain-val { font-size: 13px; font-weight: 700; color: white; }
-        .rain-val.wet { color: var(--blue); }
-        .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); text-align: center; display: block; margin-bottom: 10px; }
-        .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        .traffic-card { background: #1c1c1e; padding: 8px; border-radius: 10px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); min-height: 80px; }
-        .status-btn { font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; text-align: center; width: 100%; box-sizing: border-box; cursor: pointer; transition: 0.2s; }
-        .st-ban { background: var(--red); color: white; border: 1px solid var(--red); }
+        
+        .admin-btn {
+            background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
+            padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
+            cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 5px;
+        }
+        .admin-btn.active {
+            background: rgba(255, 69, 58, 0.2); color: var(--red); border-color: var(--red);
+            animation: pulse-border 2s infinite;
+        }
+
+        /* 관리자 패널 */
+        #admin-panel { display: none; background: #222; padding: 15px; border-radius: 14px; margin-bottom: 20px; border: 1px solid var(--red); }
+        .input-row { display: flex; gap: 8px; margin-bottom: 10px; }
+        .admin-input { background: #333; border: none; color: white; padding: 12px; border-radius: 8px; flex: 1; font-size: 14px; }
+        .action-btn { background: var(--blue); color: white; border: none; padding: 0 15px; border-radius: 8px; font-weight: bold; width: 80px; }
+
+        /* [핵심] 케이웨더 특보 요약판 */
+        #kweather-box {
+            background: #2c2c2e; border: 1px solid var(--line);
+            border-radius: 16px; overflow: hidden; margin-bottom: 20px;
+            cursor: pointer;
+        }
+        .kw-header {
+            background: #3a3a3c; padding: 12px 15px;
+            display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .kw-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: #fff; }
+        .kw-time { font-size: 12px; color: var(--orange); font-weight: 600; }
+        
+        .kw-body { 
+            padding: 15px; min-height: 60px; 
+            font-size: 14px; line-height: 1.6; color: #ddd; white-space: pre-wrap;
+        }
+        .kw-body.has-alert { color: white; font-weight: 500; }
+        
+        .no-data { text-align: center; color: #888; padding: 10px; font-size: 13px; }
+
+        /* 날씨 위젯 */
+        .weather-widget {
+            background: var(--card); padding: 15px; border-radius: 16px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid var(--line); margin-bottom: 15px;
+        }
+        .w-info { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 600; }
+        .w-loc { font-size: 12px; color: var(--sub); display: flex; align-items: center; gap: 4px; }
+
+        /* 대시보드 */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin: 20px 0 15px 0; }
+        .dash-item { background: #2c2c2e; padding: 12px; border-radius: 12px; text-align: center; }
+        .dash-val { font-size: 20px; font-weight: 700; display: block; }
+        .dash-lbl { font-size: 11px; color: #ccc; }
+        .c-red { color: var(--red); } .c-green { color: var(--green); }
+
+        /* 검색 & 필터 */
+        .search-box { position: relative; margin-bottom: 10px; }
+        .search-input {
+            width: 100%; background: var(--card); border: 1px solid var(--line);
+            padding: 12px 40px 12px 15px; border-radius: 10px; color: white;
+            font-size: 15px; box-sizing: border-box; outline: none;
+        }
+        .filter-group { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 10px; margin-bottom: 10px; }
+        .filter-btn {
+            background: var(--card); border: 1px solid var(--line); color: var(--sub);
+            padding: 6px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; transition: 0.2s;
+        }
+        .filter-btn.active { background: var(--text); color: black; font-weight: 700; border-color: var(--text); }
+        
+        /* 리스트 아이템 */
+        .list-container { display: flex; flex-direction: column; gap: 10px; }
+        .traffic-card {
+            background: var(--card); padding: 15px; border-radius: 14px;
+            display: flex; justify-content: space-between; align-items: center;
+            border: 1px solid var(--line);
+        }
+        .card-info { display: flex; flex-direction: column; gap: 4px; flex: 1; }
+        .area-tag { font-size: 10px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 6px; border-radius: 4px; align-self: flex-start; }
+        .loc-name { font-size: 15px; font-weight: 600; }
+        .loc-sub { font-size: 11px; color: var(--sub); display: flex; align-items: center; gap: 6px; }
+        .barrier { border: 1px solid #444; padding: 1px 4px; border-radius: 3px; font-size: 10px; }
+        .barrier.on { border-color: var(--blue); color: var(--blue); }
+
+        .status-btn {
+            font-size: 12px; font-weight: 700; padding: 8px 12px; border-radius: 8px;
+            min-width: 55px; text-align: center; cursor: pointer; transition: 0.2s; opacity: 0.8;
+        }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-        .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .cctv-card { background: #1c1c1e; padding: 10px; border-radius: 12px; border: 1px solid var(--line); text-align: center; cursor: pointer; }
-        .admin-btn { background: #2c2c2e; color: #8e8e93; border: 1px solid #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .admin-btn.active { color: var(--red); border-color: var(--red); }
-        #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; z-index: 9999; }
-        .sync-on { color: var(--green) !important; }
-        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes blink { 50% { opacity: 0.5; } }
-        /* 모달 스타일 */
-        #cctv-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; }
-        .cctv-modal-header { padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center; }
-        iframe { width: 100%; height: 100%; border: none; flex: 1; }
+        .st-ban { background: rgba(255, 69, 58, 0.15); color: var(--red); border: 1px solid var(--red); animation: pulse 2s infinite; }
+        .st-part { background: rgba(255, 159, 10, 0.15); color: var(--orange); border: 1px solid var(--orange); }
+
+        .admin-tools { display: flex; gap: 8px; margin-left: 10px; }
+        .tool-btn { background: #333; color: #ccc; border: none; width: 30px; height: 30px; border-radius: 50%; font-size: 12px; }
+
+        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
+        .link-btn {
+            background: #2c2c2e; padding: 12px; border-radius: 12px;
+            text-decoration: none; color: white; font-size: 13px;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
+        @keyframes pulse-border { 0% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0.4); } 70% { box-shadow: 0 0 0 6px rgba(255, 69, 58, 0); } 100% { box-shadow: 0 0 0 0 rgba(255, 69, 58, 0); } }
     </style>
 </head>
 <body>
@@ -61,164 +135,393 @@
 <header>
     <div class="top-nav">
         <h1>세종경찰 통합관제</h1>
-        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 관리자</button>
+        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">
+            <i class="fas fa-lock"></i> 관리자
+        </button>
+    </div>
+
+    <div id="admin-panel">
+        <div style="font-size:12px; margin-bottom:10px; color:var(--red);">📢 수동 특보 입력</div>
+        <div class="input-row">
+            <textarea id="alert-input" class="admin-input" rows="2" placeholder="전파 내용 입력"></textarea>
+            <button class="action-btn" onclick="saveAlert()">전파</button>
+            <button class="action-btn" style="background:#444;" onclick="clearAlert()">삭제</button>
+        </div>
+        
+        <div style="font-size:12px; margin:15px 0 10px; color:var(--red);">➕ 통제지점 추가</div>
+        <div class="input-row">
+            <select id="new-area" class="admin-input" style="flex:0.4">
+                <option value="조치원">조치원</option>
+                <option value="전의">전의</option>
+                <option value="부강">부강</option>
+            </select>
+            <input type="text" id="new-name" class="admin-input" placeholder="장소명">
+            <button class="action-btn" onclick="addItem()">추가</button>
+        </div>
+    </div>
+
+    <div id="special-alert-box" style="display:none; background:rgba(255,69,58,0.1); border:1px solid var(--red); border-radius:14px; padding:15px; margin-bottom:20px;">
+        <div class="alert-header" style="margin-bottom:8px; display:flex; justify-content:space-between;">
+            <span class="alert-badge" style="background:var(--red); color:white; padding:3px 8px; border-radius:4px; font-size:11px; font-weight:700;">긴급공지</span>
+            <span id="alert-time" style="font-size:12px; color:var(--red);"></span>
+        </div>
+        <div id="alert-text" style="font-size:15px; font-weight:700; color:white; white-space:pre-wrap;"></div>
+    </div>
+
+    <div id="kweather-box" onclick="window.open('https://wwwnew.kweather.co.kr/kma/kma_special.html')">
+        <div class="kw-header">
+            <span class="kw-title"><i class="fas fa-tower-broadcast"></i> 기상특보 발효현황</span>
+            <span class="kw-time" id="kw-time">-</span>
+        </div>
+        <div class="kw-body" id="kw-content">
+            <div class="no-data"><i class="fas fa-spinner fa-spin"></i> 데이터 수신중...</div>
+        </div>
+    </div>
+
+    <div class="weather-widget">
+        <div class="w-loc">
+            <i class="fas fa-location-arrow"></i> <span id="loc-name">세종시청</span>
+        </div>
+        <div class="w-info" id="w-data">
+            <i class="fas fa-spinner fa-spin" style="font-size:14px"></i>
+        </div>
+        <button onclick="fetchWeather()" style="background:none; border:none; color:var(--blue);"><i class="fas fa-rotate"></i></button>
     </div>
 </header>
 
-<div class="accord-section" id="sec-weather">
-    <div class="accord-header" onclick="toggleSection('sec-weather')">
-        <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
-        <div id="sejong-status" class="sejong-summary">연결중...</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+<div class="dashboard">
+    <div class="dash-item">
+        <span class="dash-val c-red" id="cnt-ban">0</span>
+        <span class="dash-lbl">현재통제</span>
     </div>
-    <div class="accord-content" id="monitor-content"></div>
-</div>
-
-<div class="accord-section" id="sec-rain">
-    <div class="accord-header" onclick="toggleSection('sec-rain')">
-        <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 강우량</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    <div class="dash-item">
+        <span class="dash-val" id="cnt-total">16</span>
+        <span class="dash-lbl">전체관리</span>
     </div>
-    <div class="accord-content">
-        <div class="rain-avg-val" id="avg-rain-val">- mm</div>
-        <div class="rain-grid" id="rain-grid"></div>
+    <div class="dash-item">
+        <span class="dash-val c-green" id="cnt-free">0</span>
+        <span class="dash-lbl">정상통행</span>
     </div>
 </div>
 
-<div class="accord-section open" id="sec-cctv">
-    <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-    </div>
-    <div class="accord-content">
-        <div class="cctv-container" id="cctv-list">
-            <div class="cctv-card" onclick="openCCTV('상리사거리', 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3')">
-                <div style="font-size:10px; color:var(--blue)">조치원</div>
-                <div style="font-size:12px; font-weight:bold; margin-top:5px;">상리사거리</div>
-                <i class="fas fa-video" style="margin-top:10px; color:#555;"></i>
-            </div>
-        </div>
-    </div>
+<div class="search-box">
+    <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
+    <i class="fas fa-search" style="position:absolute; right:15px; top:12px; color:#666"></i>
 </div>
 
-<div class="accord-section open" id="sec-control">
-    <div class="accord-header" onclick="toggleSection('sec-control')">
-        <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-    </div>
-    <div class="accord-content">
-        <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:15px;">
-            <div style="background:#222; padding:10px; border-radius:10px; text-align:center;">
-                <span id="cnt-ban" style="font-size:20px; font-weight:bold; color:var(--red);">0</span><br><small>통제중</small>
-            </div>
-            <div style="background:#222; padding:10px; border-radius:10px; text-align:center;">
-                <span id="cnt-total" style="font-size:20px; font-weight:bold;">0</span><br><small>전체관리</small>
-            </div>
-        </div>
-        <div class="list-container" id="list"></div>
-    </div>
+<div class="filter-group">
+    <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
+    <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제중</button>
+    <button class="filter-btn" onclick="setFilter('free', this)">🟢 해제됨</button>
+    <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
+    <button class="filter-btn" onclick="setFilter('전의', this)">전의면</button>
+    <button class="filter-btn" onclick="setFilter('부강', this)">부강면</button>
 </div>
 
-<div id="sync-status">● Firebase Offline</div>
+<div class="list-container" id="list"></div>
 
-<div id="cctv-modal">
-    <div class="cctv-modal-header">
-        <div style="color:white; font-weight:bold;" id="cctv-title">CCTV</div>
-        <div style="color:white; cursor:pointer;" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
-    </div>
-    <iframe id="cctv-frame" src=""></iframe>
+<div class="official-links">
+    <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="link-btn"><i class="fas fa-bullhorn" style="color:var(--blue)"></i> 도로통제 공지</a>
+    <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
+    <a href="https://www.sejong.go.kr/bbs/R1031/list.do" target="_blank" class="link-btn"><i class="fas fa-file-lines" style="color:var(--green)"></i> 일일보고</a>
+    <a href="tel:112" class="link-btn"><i class="fas fa-phone"></i> 112 연결</a>
+</div>
+
+<div style="height:30px; text-align:center; font-size:11px; color:#444;">
+    <button onclick="resetData()" style="background:none; border:none; color:#666; text-decoration:underline;">[관리자] 데이터 초기화</button>
 </div>
 
 <script>
-    // 1. 파이어베이스 설정 (본인의 정보로 교체 필요)
-    const firebaseConfig = {
-        apiKey: "AIzaSy...", 
-        databaseURL: "https://sejong-police-default-rtdb.firebaseio.com" // 본인 주소 확인
-    };
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.database();
-    const trafficRef = db.ref('traffic_data_v2');
+    if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
 
     let isAdmin = false;
-    let trafficData = [];
 
-    // 2. 파이어베이스 실시간 수신
-    trafficRef.on('value', (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-            trafficData = data;
-            render();
-            document.getElementById('sync-status').innerText = "● Firebase Online";
-            document.getElementById('sync-status').classList.add('sync-on');
+    const defaultData = [
+        { id:1, area:'조치원', name:'조치원읍 세월교', status:2, bar:true },
+        { id:2, area:'전의', name:'전의면 북암천', status:2, bar:true },
+        { id:3, area:'조치원', name:'서창리, 신안리', sub:'조천변 진입로 6곳', status:1, bar:true, note:'5해제/1통제' },
+        { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2, bar:true },
+        { id:5, area:'부강', name:'부용가교', status:2, bar:true },
+        { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2, bar:true, note:'P/L' },
+        { id:7, area:'전의', name:'전동면 청람리', status:0, bar:false },
+        { id:8, area:'조치원', name:'조치원읍 내창천', status:0, bar:true },
+        { id:9, area:'조치원', name:'봉암하상도로', status:0, bar:true },
+        { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0, bar:true },
+        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0, bar:false },
+        { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0, bar:false },
+        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0, bar:false },
+        { id:14, area:'전의', name:'소정면사무소 앞', status:0, bar:false },
+        { id:15, area:'전의', name:'전의중학교 앞', status:0, bar:false },
+        { id:16, area:'조치원', name:'욱일지하차도', status:0, bar:true }
+    ];
+
+    let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
+    let currFilter = 'all';
+
+    window.onload = () => { render(); fetchWeather(); fetchKweather(); loadAlert(); };
+
+    // [핵심] 케이웨더 텍스트 긁어오기 (CORS 우회)
+    async function fetchKweather() {
+        const timeEl = document.getElementById('kw-time');
+        const contentEl = document.getElementById('kw-content');
+
+        try {
+            // allorigins.win 프록시 사용 (케이웨더 페이지)
+            const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent('https://wwwnew.kweather.co.kr/kma/kma_special.html');
+            const res = await fetch(proxyUrl);
+            const json = await res.json();
+            const html = json.contents;
+
+            // HTML 파싱
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(html, 'text/html');
+            const bodyText = doc.body.innerText;
+
+            // 1. 발효현황 시간 추출
+            // "발효현황2026.02.13 10:00" 같은 패턴 찾기
+            const timeMatch = bodyText.match(/발효현황\s*(\d{4}\.\d{2}\.\d{2}\s\d{2}:\d{2})/);
+            if (timeMatch) {
+                timeEl.innerText = timeMatch[1];
+            } else {
+                timeEl.innerText = "시간 미확인";
+            }
+
+            // 2. 특보 발효 현황 내용 추출
+            const startMarker = "특보 발효 현황 내용";
+            const endMarker = "예비특보"; // 또는 "상세정보" 등 다음 섹션 키워드
+            
+            const startIndex = bodyText.indexOf(startMarker);
+            
+            if (startIndex !== -1) {
+                // 뒷부분 내용 자르기 (endMarker가 없으면 적당히 자름)
+                let extracted = bodyText.substring(startIndex + startMarker.length);
+                const endIndex = extracted.indexOf("상세정보");
+                if (endIndex !== -1) extracted = extracted.substring(0, endIndex);
+                
+                extracted = extracted.trim();
+
+                // 가독성 개선: "o 특보명" 앞에 줄바꿈
+                extracted = extracted.replace(/o /g, "\n\n🚨 ");
+
+                if(extracted.includes("없음")) {
+                    contentEl.innerHTML = '<div class="no-data"><i class="fas fa-check-circle" style="color:var(--green)"></i> 현재 발효중인 특보가 없습니다.</div>';
+                } else {
+                    contentEl.innerText = extracted;
+                    contentEl.classList.add('has-alert');
+                }
+            } else {
+                contentEl.innerHTML = '<div class="no-data">특보 내용을 찾을 수 없습니다.</div>';
+            }
+
+        } catch (e) {
+            contentEl.innerHTML = '<div class="no-data">연결 실패 (일시적 오류)</div>';
         }
-    });
-
-    // 3. 상태 토글 (서버에 쓰기)
-    function toggleStatus(idx) {
-        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
-        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-        trafficRef.set(trafficData); // 파이어베이스에 업로드 (모든 기기 동시 변경)
     }
 
     function toggleAdmin() {
-        const pw = prompt("관리자 비번:");
-        if (pw === "2580") {
-            isAdmin = true;
-            document.getElementById('admin-btn').classList.add('active');
-            alert("🔓 관리자 모드");
+        if (!isAdmin) {
+            const pw = prompt("관리자 비밀번호를 입력하세요:");
+            if (pw === "2580") {
+                isAdmin = true;
+                alert("🔓 관리자 모드 활성화");
+                updateAdminUI();
+                render();
+            } else if (pw !== null) {
+                alert("⛔ 비밀번호가 일치하지 않습니다.");
+            }
+        } else {
+            isAdmin = false;
+            alert("🔒 관리자 모드 해제");
+            updateAdminUI();
+            render();
+        }
+    }
+
+    function updateAdminUI() {
+        const btn = document.getElementById('admin-btn');
+        const panel = document.getElementById('admin-panel');
+        if (isAdmin) {
+            btn.innerHTML = '<i class="fas fa-unlock"></i> 관리모드';
+            btn.classList.add('active');
+            panel.style.display = 'block';
+        } else {
+            btn.innerHTML = '<i class="fas fa-lock"></i> 관리자';
+            btn.classList.remove('active');
+            panel.style.display = 'none';
+        }
+    }
+
+    function saveAlert() {
+        const text = document.getElementById('alert-input').value;
+        if(!text) return alert("내용을 입력하세요");
+        const now = new Date();
+        const timeStr = `${now.getHours()}:${now.getMinutes().toString().padStart(2,'0')} 발표`;
+        localStorage.setItem('policeAlert', JSON.stringify({ text: text, time: timeStr }));
+        loadAlert();
+        alert("전파되었습니다.");
+    }
+
+    function clearAlert() {
+        if(confirm("전파 내용을 삭제하시겠습니까?")) {
+            localStorage.removeItem('policeAlert');
+            document.getElementById('alert-input').value = "";
+            loadAlert();
+        }
+    }
+
+    function loadAlert() {
+        const data = JSON.parse(localStorage.getItem('policeAlert'));
+        const box = document.getElementById('special-alert-box');
+        if(data) {
+            box.style.display = 'block';
+            document.getElementById('alert-text').innerText = data.text;
+            document.getElementById('alert-time').innerText = data.time;
+            document.getElementById('alert-input').value = data.text;
+        } else {
+            box.style.display = 'none';
+        }
+    }
+
+    function addItem() {
+        const area = document.getElementById('new-area').value;
+        const name = document.getElementById('new-name').value;
+        if (!name) return alert("장소명을 입력해주세요.");
+
+        trafficData.unshift({
+            id: Date.now(),
+            area: area,
+            name: name,
+            status: 2,
+            bar: false
+        });
+        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+        document.getElementById('new-name').value = "";
+        render();
+    }
+
+    function editItem(idx) {
+        if(!isAdmin) return;
+        const item = trafficData[idx];
+        const newName = prompt("수정할 장소명을 입력하세요:", item.name);
+        if(newName) {
+            trafficData[idx].name = newName;
+            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+            render();
+        }
+    }
+
+    function delItem(idx) {
+        if(!isAdmin) return;
+        if(confirm("이 항목을 삭제하시겠습니까?")) {
+            trafficData.splice(idx, 1);
+            localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+            render();
         }
     }
 
     function render() {
         const container = document.getElementById('list');
-        let banCnt = 0;
+        const searchVal = document.getElementById('search').value.toLowerCase();
+        let banCnt = 0, freeCnt = 0;
+        
         container.innerHTML = '';
+
         trafficData.forEach((item, idx) => {
-            if(item.status === 2) banCnt++;
+            if(item.status === 2 || item.status === 1) banCnt++; else freeCnt++;
+
+            if(currFilter === 'ban' && item.status === 0) return;
+            if(currFilter === 'free' && item.status !== 0) return;
+            if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
+            if(searchVal && !item.name.includes(searchVal)) return;
+
+            let cls = 'st-free', txt = '해제';
+            if(item.status === 2) { cls = 'st-ban'; txt = '통제중'; }
+            if(item.status === 1) { cls = 'st-part'; txt = '부분통제'; }
+            if(item.note && item.status !== 0) txt = item.note;
+
+            let adminTools = '';
+            if(isAdmin) {
+                adminTools = `
+                    <div class="admin-tools">
+                        <button class="tool-btn" onclick="editItem(${idx})"><i class="fas fa-pen"></i></button>
+                        <button class="tool-btn" style="color:#ff453a" onclick="delItem(${idx})"><i class="fas fa-times"></i></button>
+                    </div>
+                `;
+            }
+
             const div = document.createElement('div');
             div.className = 'traffic-card';
             div.innerHTML = `
-                <div class="card-info"><span style="font-size:9px; color:var(--blue)">${item.area}</span><div class="loc-name">${item.name}</div></div>
-                <div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div>
+                <div class="card-info">
+                    <span class="area-tag">${item.area}</span>
+                    <div class="loc-name">${item.name}</div>
+                    <div class="loc-sub">
+                        <span class="barrier ${item.bar?'on':''}">${item.bar?'차단기O':'차단기X'}</span>
+                        ${item.sub || ''}
+                    </div>
+                </div>
+                <div class="status-btn ${cls}" onclick="toggleStatus(${idx})">${txt}</div>
+                ${adminTools}
             `;
             container.appendChild(div);
         });
+
         document.getElementById('cnt-total').innerText = trafficData.length;
         document.getElementById('cnt-ban').innerText = banCnt;
+        document.getElementById('cnt-free').innerText = freeCnt;
     }
 
-    function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
-    function openCCTV(name, url) { document.getElementById('cctv-title').innerText = name; document.getElementById('cctv-frame').src = url; document.getElementById('cctv-modal').style.display = 'flex'; }
-    function closeCCTV() { document.getElementById('cctv-modal').style.display = 'none'; document.getElementById('cctv-frame').src = ""; }
+    function toggleStatus(idx) {
+        if (!isAdmin) {
+            alert("🚫 접근 권한이 없습니다.\n관리자 로그인 후 상태 변경이 가능합니다.");
+            return;
+        }
+        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
+        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+        render();
+    }
 
-    // 날씨/특보 수신 (기존 로직 동일)
-    async function fetchDetailRain() {
-        const locs = [{ name: '조치원', lat: 36.601, lon: 127.301 }, { name: '연서면', lat: 36.560, lon: 127.270 }, { name: '전의면', lat: 36.670, lon: 127.200 }, { name: '전동면', lat: 36.630, lon: 127.260 }, { name: '소정면', lat: 36.720, lon: 127.150 }, { name: '부강면', lat: 36.520, lon: 127.370 }, { name: '연동면', lat: 36.560, lon: 127.320 }];
+    function setFilter(type, btn) {
+        currFilter = type;
+        document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        render();
+    }
+
+    function resetData() {
+        if (!isAdmin) {
+             alert("🚫 초기화는 관리자만 가능합니다.");
+             return;
+        }
+        if(confirm('데이터를 초기 상태로 되돌리시겠습니까?')) {
+            localStorage.removeItem('policeData_v14');
+            trafficData = JSON.parse(JSON.stringify(defaultData));
+            render();
+            alert("초기화 완료");
+        }
+    }
+
+    async function fetchWeather() {
         try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${locs.map(l=>l.lat).join(',')}&longitude=${locs.map(l=>l.lon).join(',')}&daily=precipitation_sum&timezone=Asia%2FTokyo`;
-            const res = await fetch(url); const data = await res.json();
-            let total = 0; let html = '';
-            data.forEach((r, i) => { const rain = r.daily.precipitation_sum[0] || 0; total += rain; html += `<div class="rain-cell"><div class="rain-loc">${locs[i].name}</div><div class="rain-val ${rain>0?'wet':''}">${rain}mm</div></div>`; });
-            document.getElementById('rain-grid').innerHTML = html;
-            document.getElementById('avg-rain-val').innerText = (total/locs.length).toFixed(1) + " mm";
-        } catch(e) {}
-    }
+            const url = "https://api.open-meteo.com/v1/forecast?latitude=36.48&longitude=127.28&current=temperature_2m,rain&timezone=Asia%2FTokyo";
+            const res = await fetch(url);
+            const data = await res.json();
+            const cur = data.current;
+            
+            let icon = 'fa-sun';
+            if(cur.rain > 0) icon = 'fa-cloud-rain';
 
-    async function autoFetchSpecial() {
-        try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
-            const res = await fetch(proxyUrl); const text = await res.text();
-            const parser = new DOMParser(); const doc = parser.parseFromString(text, 'text/html');
-            const body = doc.body.innerText;
-            const lines = body.split('\n'); const uniqueSet = new Set(); let sejong = null;
-            lines.forEach(l => { if(l.trim().startsWith('o') && (l.includes('주의보') || l.includes('경보'))) { uniqueSet.add(l.trim()); if(l.includes('세종')) sejong = l.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)[0]; }});
-            const hStatus = document.getElementById('sejong-status');
-            if(sejong) { hStatus.innerText = "세종: " + sejong; hStatus.className = "sejong-summary warn"; } else { hStatus.innerText = "세종: 특보 없음"; hStatus.className = "sejong-summary safe"; }
-            document.getElementById('monitor-content').innerHTML = `<div style="font-size:12px; color:#fff; line-height:1.6;">${Array.from(uniqueSet).join('<br>')}</div>`;
-        } catch(e) {}
+            document.getElementById('w-data').innerHTML = `
+                <i class="fas ${icon}"></i> ${cur.temperature_2m}°
+                <span style="font-size:12px; font-weight:400; color:#aaa; margin-left:5px;">
+                    (비 ${cur.rain}mm)
+                </span>
+            `;
+        } catch(e) {
+            document.getElementById('w-data').innerText = "날씨 수신불가";
+        }
     }
-
-    window.onload = () => { fetchDetailRain(); autoFetchSpecial(); setInterval(autoFetchSpecial, 600000); };
 </script>
+
 </body>
 </html>
