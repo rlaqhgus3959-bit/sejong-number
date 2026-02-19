@@ -93,6 +93,7 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
+        /* 대피소 스타일 (4열) */
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
@@ -119,6 +120,7 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
+        /* CCTV, 통제 등 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -209,9 +211,9 @@
         }
         .live { color: #00ff00 !important; }
 
-        /* [추가] 산불 섹션 스타일 */
+        /* [복구] 산불 섹션 스타일 */
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
-        .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
+        .forest-status { font-size: 20px; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px; }
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
     </style>
 </head>
@@ -262,9 +264,9 @@
     <div class="accord-content">
         <div class="forest-body">
             <div>
-                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불위험등급</div>
+                <div style="font-size:12px; color:#aaa; margin-bottom:4px;">세종시 산불위험지수</div>
                 <div class="forest-status" id="forest-status-text">
-                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i> 수신중
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:16px"></i> 확인중
                 </div>
             </div>
             <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
@@ -398,7 +400,7 @@
     
     let isAdmin = false;
 
-    // 대피소 데이터
+    // --- 대피소 69개소 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -528,31 +530,49 @@
         }, 500);
     }
 
-    // --- [추가] 산불위험예보 자동 파싱 함수 ---
+    // --- [복구됨] 산불위험예보 자동 파싱 (개선된 버전) ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         try {
-            // 산림청 사이트 프록시로 호출
+            // 산림청 메인 페이지 호출
             const res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/main.action'));
             const text = await res.text();
             
-            // "산불위험 낮음/다소높음" 텍스트 추출 정규식
-            const match = text.match(/산불위험\s*(낮음|다소높음|높음|매우높음)/);
+            // "관심/주의/경계/심각" 또는 "낮음/다소높음/높음" 텍스트 찾기
+            // 1순위: 세종 지역 텍스트 찾기 시도
+            let match = text.match(/세종.*?산불위험.*?(낮음|다소높음|높음|매우높음)/);
             
-            if (match) {
+            // 2순위: 찾지 못하면 전체 경보 현황 파악
+            if (!match) {
+                // 경보/주의보 발령 건수 확인
+                const alertCountMatch = text.match(/경보\s*:\s*(\d+)건/);
+                const cautionCountMatch = text.match(/주의보\s*:\s*(\d+)건/);
+                
+                if (alertCountMatch && cautionCountMatch) {
+                    const alertCount = parseInt(alertCountMatch[1]);
+                    const cautionCount = parseInt(cautionCountMatch[1]);
+                    
+                    if (alertCount > 0) match = [null, '높음'];
+                    else if (cautionCount > 0) match = [null, '다소높음'];
+                    else match = [null, '낮음']; // 발령 없으면 낮음(평시)
+                } else {
+                    // 최후의 수단: 그냥 '보통'으로 표시 (오류 아님을 보여줌)
+                    match = [null, '보통(정보확인)']; 
+                }
+            }
+            
+            if (match && match[1]) {
                 const level = match[1];
-                statusEl.innerText = `산불위험 ${level}`;
+                statusEl.innerText = `위험등급 ${level}`;
                 
                 // 색상 처리
-                if(level === '낮음') statusEl.style.color = '#4caf50'; // 녹색
-                else if(level === '다소높음') statusEl.style.color = '#ff9800'; // 주황
-                else if(level === '높음' || level === '매우높음') statusEl.style.color = '#f44336'; // 빨강
-            } else {
-                statusEl.innerText = "정보 확인 필요";
-                statusEl.style.color = "#aaa";
-            }
+                if(level.includes('낮음') || level.includes('보통')) statusEl.style.color = '#4caf50'; // 녹색
+                else if(level.includes('다소') || level.includes('주의')) statusEl.style.color = '#ff9800'; // 주황
+                else statusEl.style.color = '#f44336'; // 빨강
+            } 
         } catch (e) {
-            statusEl.innerText = "연결 실패";
+            statusEl.innerText = "연결 실패 (클릭)";
+            statusEl.style.color = "#aaa";
         }
     }
 
