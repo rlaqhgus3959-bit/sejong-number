@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Total v47)</title>
+    <title>세종경찰 통합관제 (Fix)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -29,12 +29,392 @@
         /* 아코디언 공통 */
         .accord-section { background: #2c2c2e; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 15px; transition: all 0.3s ease; }
         .accord-header { background: #3a3a3c; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
-        .accord-header:active { background: #444; }
         .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
         .accord-section.open .accord-content { display: block; }
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
+        @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 섹션별 스타일 */
+        .sejong-summary { font-size: 13px; font-weight: 600; color: #ccc; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-left: auto; }
+        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
+        @keyframes blink { 50% { opacity: 0.5; } }
+
+        .rain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
+        .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
+        .rain-val { font-size: 13px; font-weight: 700; color: white; }
+        .rain-val.wet { color: var(--blue); }
+        .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); text-align: center; margin-bottom: 10px; }
+
+        /* 공통 그리드 */
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+        /* 카드 스타일 */
+        .info-card { background: #1c1c1e; padding: 8px; border-radius: 10px; border: 1px solid var(--line); min-height: 80px; display: flex; flex-direction: column; justify-content: space-between; cursor: pointer; }
+        .info-card:active { background: #333; }
+        .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; display: inline-block; margin-bottom: 4px; }
+        .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; }
+        
+        /* 버튼 스타일 */
+        .status-btn { font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; text-align: center; width: 100%; box-sizing: border-box; }
+        .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
+        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
+
+        /* 필터 */
+        .filter-area { margin-bottom: 10px; }
+        .search-input { width: 100%; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 13px; }
+        .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
+        .filter-btn.active { background: #eee; color: black; font-weight: 700; }
+
+        /* 대시보드 */
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
+        .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
+        .dash-val { font-size: 18px; font-weight: 700; display: block; }
+        .c-red { color: var(--red); }
+
+        /* CCTV 카드 */
+        .cctv-card { background: #1c1c1e; padding: 10px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); min-height: 90px; cursor: pointer; }
+        .cctv-icon { font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%; }
+        .cctv-btn { background: #333; color: #ccc; font-size: 11px; padding: 6px; text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto; }
+
+        /* 산불 */
+        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
+        .forest-status { font-size: 24px; font-weight: 800; color: white; }
+
+        /* 모달 */
+        #cctv-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; }
+        .cctv-header { padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center; }
+        iframe { width: 100%; height: 100%; border: none; flex: 1; }
+        .cctv-fallback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 80%; }
+        .fallback-btn { background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px; }
+
+        .admin-btn { background: #2c2c2e; color: #8e8e93; border: 1px solid #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .admin-btn.active { color: var(--red); border-color: var(--red); }
+        #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; z-index: 9999; }
+        .sync-on { color: var(--green) !important; }
+        
+        .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="top-nav">
+        <h1>세종경찰 통합관제</h1>
+        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">🔒 관리자</button>
+    </div>
+</header>
+
+<div class="accord-section" id="sec-weather">
+    <div class="accord-header" onclick="toggleSection('sec-weather')">
+        <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
+        <div id="sejong-status" class="sejong-summary">확인중...</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content" id="monitor-content" style="color:#aaa; font-size:13px; line-height:1.5;"></div>
+</div>
+
+<div class="accord-section" id="sec-rain">
+    <div class="accord-header" onclick="toggleSection('sec-rain')">
+        <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 강우량</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        <div class="rain-grid" id="rain-grid"></div>
+    </div>
+</div>
+
+<div class="accord-section open" id="sec-cctv">
+    <div class="accord-header" onclick="toggleSection('sec-cctv')">
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:10px;">
+            <button class="filter-btn active" onclick="setCCTVFilter('all', this)">전체</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
+        </div>
+        <div class="grid-3" id="cctv-list"></div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">* 클릭 시 팝업으로 재생됩니다.</div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-forest">
+    <div class="accord-header" onclick="toggleSection('sec-forest')">
+        <div class="ah-title"><i class="fas fa-tree"></i> 산불위험 예보</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="forest-body">
+            <div>
+                <div style="font-size:13px; color:#aaa;">국가산불위험예보 (자동)</div>
+                <div class="forest-status" id="forest-status-text">수신중...</div>
+            </div>
+            <div style="font-size:30px;">🌲</div>
+        </div>
+    </div>
+</div>
+
+<div class="accord-section open" id="sec-control">
+    <div class="accord-header" onclick="toggleSection('sec-control')">
+        <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="dashboard">
+            <div class="dash-item"><span class="dash-val c-red" id="cnt-ban">0</span><span style="font-size:11px; color:#aaa;">통제중</span></div>
+            <div class="dash-item"><span class="dash-val" id="cnt-total">16</span><span style="font-size:11px; color:#aaa;">전체관리</span></div>
+        </div>
+        <div class="filter-area">
+            <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
+            <div class="filter-group">
+                <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
+                <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제</button>
+                <button class="filter-btn" onclick="setFilter('free', this)">🟢 정상</button>
+                <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
+                <button class="filter-btn" onclick="setFilter('전의', this)">전의</button>
+                <button class="filter-btn" onclick="setFilter('부강', this)">부강</button>
+            </div>
+        </div>
+        <div class="grid-4" id="list"></div>
+    </div>
+</div>
+
+<div class="accord-section open" id="sec-shelter">
+    <div class="accord-header" onclick="toggleSection('sec-shelter')">
+        <div class="ah-title"><i class="fas fa-house-chimney-user"></i> 임시주거(대피) 시설</div>
+        <div style="font-size:11px; color:var(--blue);">69개소</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:10px;">
+            <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
+            <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
+            <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
+            <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
+            <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
+            <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
+        </div>
+        <div id="shelter-list" class="grid-4"></div>
+    </div>
+</div>
+
+<div class="official-links">
+    <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="link-btn"><i class="fas fa-bullhorn" style="color:var(--blue)"></i> 도로통제 공지</a>
+    <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
+    <a href="https://www.sejong.go.kr/bbs/R1031/list.do" target="_blank" class="link-btn"><i class="fas fa-file-lines" style="color:var(--green)"></i> 일일보고</a>
+    <a href="tel:112" class="link-btn"><i class="fas fa-phone"></i> 112 연결</a>
+</div>
+
+<div style="height:30px; text-align:center; font-size:11px; color:#444;">
+    <button onclick="resetData()" style="background:none; border:none; color:#666; text-decoration:underline;">[관리자] 데이터 초기화</button>
+</div>
+
+<div id="sync-status">● Live Sync</div>
+
+<div id="cctv-modal">
+    <div class="cctv-header">
+        <div style="color:white; font-weight:bold;" id="cctv-title">CCTV</div>
+        <div style="color:white; cursor:pointer;" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
+    </div>
+    <div style="flex:1; position:relative; background:#000;">
+        <iframe id="cctv-frame" src=""></iframe>
+        <div class="cctv-fallback">
+            <div style="color:white; margin-bottom:10px; font-size:12px;">화면이 안 나오나요?</div>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">새창으로 열기</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    const SYNC_URL = "https://kvdb.io/beta/sejong_police_traffic_v2";
+    let isAdmin = false;
+    let trafficData = [];
+    let currFilter = 'all';
+    let cctvFilter = 'all';
+
+    const cctvData = [ { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' } ];
+    const defaultTraffic = [
+        { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
+        { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'조치원읍 송하한정식 앞', status:2 },
+        { id:5, area:'부강', name:'부용가교', status:2 }, { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
+        { id:7, area:'전의', name:'전동면 청람리', status:0 }, { id:8, area:'조치원', name:'조치원읍 내창천', status:0 },
+        { id:9, area:'조치원', name:'봉암하상도로', status:0 }, { id:10, area:'전의', name:'전의면 유천리 양안지하차도', status:0 },
+        { id:11, area:'전의', name:'전동 청송농공단지 앞 도로', status:0 }, { id:12, area:'조치원', name:'서창역 앞~신안2리 4거리', status:0 },
+        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
+        { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
+    ];
+    // 대피소 데이터 (일부 예시, 실제 전체 데이터는 이전 코드 참조)
+    const shelterData = [
+        { area:'조치원', name:'조치원 복컴', addr:'세종특별자치시 조치원읍 대첩로 76', cap:162 },
+        { area:'조치원', name:'조치원읍사무소', addr:'세종특별자치시 조치원읍 새내16길 17', cap:63 },
+        { area:'조치원', name:'교동초교', addr:'세종특별자치시 조치원읍 새내18길 21', cap:417 },
+        { area:'조치원', name:'대동초교', addr:'세종특별자치시 조치원읍 대동학교길 11', cap:465 },
+        { area:'조치원', name:'명동초교', addr:'세종특별자치시 조치원읍 새내8길 115', cap:177 },
+        { area:'조치원', name:'세종여고', addr:'세종특별자치시 조치원읍 봉산로 16', cap:152 },
+        { area:'조치원', name:'신봉초교', addr:'세종특별자치시 조치원읍 서북부로 10', cap:262 },
+        { area:'조치원', name:'번암1리 경로당', addr:'세종특별자치시 조치원읍 군청로 11', cap:19 },
+        { area:'조치원', name:'두진(아)경로당', addr:'세종특별자치시 조치원읍 모과나무길 31', cap:23 },
+        { area:'조치원', name:'e편한세상 경로당', addr:'세종특별자치시 조치원읍 섭골길 59', cap:66 },
+        { area:'조치원', name:'신안2리 경로당', addr:'세종특별자치시 조치원읍 안터길 83', cap:19 },
+        { area:'조치원', name:'신흥e편한 경로당', addr:'세종특별자치시 조치원읍 이화1로 15', cap:19 },
+        { area:'조치원', name:'신흥주공 경로당', addr:'세종특별자치시 조치원읍 이화로 5', cap:54 },
+        { area:'조치원', name:'신흥푸르지오', addr:'세종특별자치시 조치원읍 도원1로 16', cap:26 },
+        { area:'조치원', name:'자이(아)경로당', addr:'세종특별자치시 조치원읍 도원로 16', cap:62 },
+        { area:'조치원', name:'조형(아)경로당', addr:'세종특별자치시 조치원읍 운주산로 60', cap:13 },
+        { area:'조치원', name:'남리마을회관', addr:'세종특별자치시 조치원읍 장안로 37', cap:26 },
+        { area:'조치원', name:'세종고교', addr:'세종특별자치시 조치원읍 조치원중고길 10', cap:411 },
+        { area:'조치원', name:'세종중학교', addr:'세종특별자치시 조치원읍 새내로 160', cap:231 },
+        { area:'연동', name:'연동면 복컴', addr:'세종특별자치시 연동면 장욱로 7', cap:195 },
+        { area:'연동', name:'연동중학교', addr:'세종특별자치시 연동면 내판로 10-13', cap:320 },
+        { area:'연동', name:'연동초교', addr:'세종특별자치시 연동면 청연로 606-36', cap:119 },
+        { area:'연동', name:'내판4리 회관', addr:'세종특별자치시 연동면 새말다복동길 31-9', cap:27 },
+        { area:'연동', name:'명학2리 회관', addr:'세종특별자치시 연동면 태산로 88-12', cap:15 },
+        { area:'연동', name:'문주리 회관', addr:'세종특별자치시 연동면 간말길 6', cap:30 },
+        { area:'연동', name:'예양2리 회관', addr:'세종특별자치시 연동면 강변길 119-1', cap:30 },
+        { area:'연동', name:'응암2리 회관', addr:'세종특별자치시 연동면 응암노곡길 2', cap:28 },
+        { area:'부강', name:'부강면사무소', addr:'세종특별자치시 부강면 부강5길 38', cap:91 },
+        { area:'부강', name:'부강중학교', addr:'세종특별자치시 부강면 부강로 25-7', cap:443 },
+        { area:'부강', name:'부강초교', addr:'세종특별자치시 부강면 부강로 15', cap:326 },
+        { area:'부강', name:'세종미래고', addr:'세종특별자치시 부강면 문곡달미길 6', cap:308 },
+        { area:'부강', name:'등곡1리 경로당', addr:'세종특별자치시 부강면 등곡1길 160-22', cap:23 },
+        { area:'부강', name:'부강6리 회관', addr:'세종특별자치시 부강면 부강4길 28', cap:42 },
+        { area:'부강', name:'부강4,5리 회관', addr:'세종특별자치시 부강면 부촌길 12-1', cap:42 },
+        { area:'부강', name:'부강3리 회관', addr:'세종특별자치시 부강면 부강5길 11', cap:115 },
+        { area:'연서', name:'연서면사무소', addr:'세종특별자치시 연서면 대첩로 238', cap:61 },
+        { area:'연서', name:'도원초교', addr:'세종특별자치시 연서면 도원로 63', cap:166 },
+        { area:'연서', name:'쌍류초교', addr:'세종특별자치시 연서면 별발길 73', cap:325 },
+        { area:'연서', name:'연봉초교', addr:'세종특별자치시 연서면 당산로 357-1', cap:278 },
+        { area:'연서', name:'연서중학교', addr:'세종특별자치시 연서면 연서로 115', cap:346 },
+        { area:'연서', name:'연서초교', addr:'세종특별자치시 연서면 연서로 148', cap:227 },
+        { area:'연서', name:'고복1리 회관', addr:'세종특별자치시 연서면 도신고복로 1061', cap:18 },
+        { area:'연서', name:'국촌2리 회관', addr:'세종특별자치시 연서면 함박로 130', cap:18 },
+        { area:'연서', name:'부동리 회관', addr:'세종특별자치시 연서면 용연로 853', cap:32 },
+        { area:'연서', name:'쌍전리 회관', addr:'세종특별자치시 연서면 큰창고개길 3-3', cap:11 },
+        { area:'연서', name:'와촌1리 회관', addr:'세종특별자치시 연서면 용연로 759', cap:10 },
+        { area:'연서', name:'월하1리 회관', addr:'세종특별자치시 연서면 대첩로 204', cap:44 },
+        { area:'연서', name:'월하2리 회관', addr:'세종특별자치시 연서면 작은창고개길 16-3', cap:10 },
+        { area:'전의', name:'전의면 복컴', addr:'세종특별자치시 전의면 운주산로 1276', cap:223 },
+        { area:'전의', name:'전의중학교', addr:'세종특별자치시 전의면 운주산로 1260-6', cap:376 },
+        { area:'전의', name:'전의초교', addr:'세종특별자치시 전의면 운주산로 1204-9', cap:223 },
+        { area:'전의', name:'관정1리 경로당', addr:'세종특별자치시 전의면 군량골길 48', cap:25 },
+        { area:'전의', name:'달성학구 경로당', addr:'세종특별자치시 전의면 압실길 2', cap:16 },
+        { area:'전의', name:'달전1리 경로당', addr:'세종특별자치시 전의면 윗다락골길 46', cap:21 },
+        { area:'전의', name:'신흥리 경로당', addr:'세종특별자치시 전의면 사시리길 34', cap:25 },
+        { area:'전의', name:'유천1리 경로당', addr:'세종특별자치시 전의면 오류골길 112', cap:23 },
+        { area:'전의', name:'읍내1리 경로당', addr:'세종특별자치시 전의면 북양천길 5', cap:21 },
+        { area:'전의', name:'전의면사무소', addr:'세종특별자치시 전의면 운주산로 1270', cap:71 },
+        { area:'전동', name:'전동면 복컴', addr:'세종특별자치시 전동면 운주산로 386', cap:294 },
+        { area:'전동', name:'전동초교', addr:'세종특별자치시 전동면 하노장3길 9', cap:153 },
+        { area:'전동', name:'전동분회 경로당', addr:'세종특별자치시 전동면 하노장1길 35', cap:28 },
+        { area:'전동', name:'미곡1리 회관', addr:'세종특별자치시 전동면 운주산로 946-2', cap:30 },
+        { area:'전동', name:'봉대리 회관', addr:'세종특별자치시 전동면 봉대2길 17', cap:23 },
+        { area:'전동', name:'송성3리 회관', addr:'세종특별자치시 전동면 성곡새말길 14-19', cap:78 },
+        { area:'소정', name:'소정면사무소', addr:'세종특별자치시 소정면 소정구길 204', cap:50 },
+        { area:'소정', name:'소정초교', addr:'세종특별자치시 소정면 학교말길 10', cap:185 },
+        { area:'소정', name:'맹골경로당', addr:'세종특별자치시 소정면 맹골1길 13-4', cap:23 },
+        { area:'소정', name:'소정1리 경로당', addr:'세종특별자치시 소정면 학교말길 1', cap:29 },
+        { area:'소정', name:'운당2리 경로당', addr:'세종특별자치시 소정면 운당넘어말길 29', cap:25 }
+    ];
+
+    trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultTraffic;
+
+    window.onload = () => { 
+        render(); renderCCTV(); renderShelter('전체');
+        fetchDetailRain(); autoFetchSpecial(); autoFetchForest();
+        setInterval(syncFromCloud, 3000);
+        setInterval(fetchDetailRain, 600000); setInterval(autoFetchSpecial, 600000); setInterval(autoFetchForest, 600000);
+    };
+
+    function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
+    function toggleAdmin() { const pw = prompt("관리자 비번:"); if(pw==="2580"){ isAdmin=true; document.getElementById('admin-btn').classList.add('active'); alert("관리자 모드"); render(); } }
+
+    function render() {
+        const container = document.getElementById('list');
+        const search = document.getElementById('search').value.toLowerCase();
+        let banCnt = 0; container.innerHTML = '';
+        trafficData.forEach((item, idx) => {
+            if(item.status === 2) banCnt++;
+            if(currFilter !== 'all' && currFilter !== 'ban' && currFilter !== 'free' && item.area !== currFilter) return;
+            if(currFilter === 'ban' && item.status === 0) return;
+            if(currFilter === 'free' && item.status !== 0) return;
+            if(search && !item.name.includes(search)) return;
+            const div = document.createElement('div');
+            div.className = 'info-card';
+            div.innerHTML = `<div style="margin-bottom:4px;"><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div>`;
+            container.appendChild(div);
+        });
+        document.getElementById('cnt-total').innerText = trafficData.length;
+        document.getElementById('cnt-ban').innerText = banCnt;
+    }
+
+    function toggleStatus(idx) {
+        if(!isAdmin) return alert("관리자 권한 필요");
+        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
+        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
+        fetch(SYNC_URL, { method: 'POST', body: JSON.stringify(trafficData) });
+        render();
+    }
+
+    function setFilter(type, btn) { currFilter=type; document.querySelectorAll('.filter-area .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); render(); }
+    async function syncFromCloud() {
+        try { const res = await fetch(SYNC_URL); if(res.ok) { const data = await res.json(); if(data && JSON.stringify(data)!==JSON.stringify(trafficData)) { trafficData=data; render(); document.getElementById('sync-status').classList.add('sync-on'); } } } catch(e){}
+    }
+
+    // --- CCTV ---
+    function setCCTVFilter(type, btn) { cctvFilter=type; document.querySelectorAll('#sec-cctv .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderCCTV(); }
+    function renderCCTV() {
+        const container = document.getElementById('cctv-list'); container.innerHTML = '';
+        cctvData.forEach(item => {
+            if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
+            const div = document.createElement('div'); div.className = 'cctv-card';
+            div.onclick = () => { document.getElementById('cctv-modal').style.display = 'flex'; document.getElementById('cctv-title').innerText=item.name; document.getElementById('cctv-frame').src=item.url; document.getElementById('cctv-link-btn').href=item.url; };
+            div.innerHTML = `<div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div><div class="cctv-icon"><i class="fas fa-video"></i></div><div class="cctv-btn">영상보기</div>`;
+            container.appendChild(div);
+        });
+    }
+    function closeCCTV() { document.getElementById('cctv-modal').style.display = 'none'; document.getElementById('cctv-frame').src = ""; }
+
+    // --- 대피소 (길찾기 수정됨) ---
+    function renderShelter(filter) {
+        const container = document.getElementById('shelter-list'); container.innerHTML = '';
+        const filtered = filter === '전체' ? shelterData : shelterData.filter(s => s.area === filter);
+        filtered.forEach(s => {
+            const div = document.createElement('div'); div.className = 'info-card';
+            // [수정] 카카오맵 검색결과 페이지로 연결 (좌표 불필요, 가장 정확)
+            const kakaoUrl = `https://map.kakao.com/link/search/${encodeURIComponent(s.addr + ' ' + s.name)}`;
+            div.onclick = () => window.open(kakaoUrl, '_blank');
+            div.innerHTML = `<div><span class="area-tag">${s.area}</span><div class="loc-name">${s.name}</div></div><div style="font-size:10px; color:#aaa; margin-top:5px;">수용: ${s.cap}명<br><span style="color:var(--green)">길찾기 ></span></div>`;
+            container.appendChild(div);
+        });
+    }
+    function filterShelter(area, btn) { document.querySelectorAll('#sec-shelter .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderShelter(area); }
+
+    // --- API 패칭 ---
+    async function fetchDetailRain() {
+        const locs = [{name:'조치원',lat:36.60,lon:127.30},{name:'연서',lat:36.56,lon:127.27},{name:'전의',lat:36.67,lon:127.20},{name:'전동',lat:36.63,lon:127.26},{name:'소정',lat:36.72,lon:127.15},{name:'부강',lat:36.52,lon:127.37},{name:'연동',lat:36.56,lon:127.32}];
+        try { const url=`https://api.open-meteo.com/v1/forecast?latitude=${locs.map(l=>l.lat).join(',')}&longitude=${locs.map(l=>l.lon).join(',')}&daily=precipitation_sum&timezone=Asia%2FTokyo`; const res=await fetch(url); const data=await res.json(); let total=0, html=''; (Array.isArray(data)?data:[data]).forEach((r,i)=>{ const rain=r.daily.precipitation_sum[0]||0; total+=rain; html+=`<div class="rain-cell"><div style="font-size:10px; color:#aaa;">${locs[i].name}</div><div class="rain-val ${rain>0?'wet':''}">${rain}mm</div></div>`; }); document.getElementById('rain-grid').innerHTML=html; document.getElementById('avg-rain-val').innerText=(total/locs.length).toFixed(1)+" mm"; } catch(e){}
+    }
+    async function autoFetchSpecial() {
+        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://www.weatheri.co.kr/special/special01.php')); const text=await res.text(); const body=(new DOMParser()).parseFromString(text,'text/html').body.innerText; const lines=body.split('\n'); const unique=new Set(); let sejong=null; lines.forEach(l=>{ if(l.trim().startsWith('o')&&(l.includes('주의보')||l.includes('경보'))){ unique.add(l.trim()); if(l.includes('세종')) sejong=l.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)[0]; }}); document.getElementById('sejong-status').innerText=sejong?`세종: ${sejong}`:"세종: 특보 없음"; document.getElementById('sejong-status').className=sejong?"sejong-summary warn":"sejong-summary safe"; document.getElementById('monitor-content').innerHTML=unique.size>0?Array.from(unique).join('<br>'):"특보 없음"; } catch(e){}
+    }
+    async function autoFetchForest() {
+        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://forestfire.nifos.go.kr/')); const text=await res.text(); const match=text.match(/산불위험.*?([낮보높심][음통음각])/); if(match){ document.getElementById('forest-status-text').innerText="산불위험 "+match[1]; } else { document.getElementById('forest-status-text').innerText="정보 수신중"; } } catch(e){}
+    }
+    
+    function resetData() { if(confirm('초기화?')){ localStorage.removeItem('policeData_v14'); trafficData=defaultTraffic; pushToCloud(); render(); } }
+</script>
+</body>
+</html>        .accord-section.open .ah-toggle { transform: rotate(180deg); }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
         /* 섹션별 스타일 */
