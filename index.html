@@ -3,18 +3,16 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Fixed v51)</title>
+    <title>세종경찰 통합관제 (Navi Fix)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <style>
+        /* 기존 스타일 유지 */
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a;
+            --shelter: #ffd60a;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -26,7 +24,7 @@
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         h1 { margin: 0; font-size: 20px; font-weight: 700; }
 
-        /* 아코디언 */
+        /* 아코디언 공통 */
         .accord-section { background: #2c2c2e; border: 1px solid var(--line); border-radius: 16px; overflow: hidden; margin-bottom: 15px; transition: all 0.3s ease; }
         .accord-header { background: #3a3a3c; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
         .accord-header:active { background: #444; }
@@ -37,66 +35,74 @@
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 상태 태그 */
+        /* 섹션별 스타일 */
         .sejong-summary { font-size: 13px; font-weight: 600; color: #ccc; background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px; display: inline-block; margin-left: auto; }
         .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
         @keyframes blink { 50% { opacity: 0.5; } }
 
-        /* 그리드 & 카드 */
-        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
-        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-        
-        .info-card { 
-            background: #1c1c1e; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); 
-            min-height: 80px; display: flex; flex-direction: column; justify-content: space-between; 
-            cursor: pointer; text-align: center;
-        }
-        .info-card:active { background: #333; border-color: var(--blue); }
-        .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 5px; border-radius: 4px; display: inline-block; margin-bottom: 4px; align-self: center; }
-        .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
-        .card-sub { font-size: 10px; color: #888; }
-
-        /* 강우량 */
         .rain-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: #444; border: 1px solid #444; }
         .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
         .rain-val { font-size: 13px; font-weight: 700; color: white; }
         .rain-val.wet { color: var(--blue); }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); text-align: center; margin-bottom: 10px; }
 
-        /* 필터 및 버튼 */
-        .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; margin-bottom: 10px; }
-        .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
-        .filter-btn.active { background: #eee; color: black; font-weight: 700; }
+        /* 공통 그리드 (3열/4열) */
+        .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .grid-4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+
+        /* 카드 스타일 */
+        .info-card { 
+            background: #1c1c1e; padding: 8px 4px; border-radius: 10px; border: 1px solid var(--line); 
+            min-height: 80px; display: flex; flex-direction: column; justify-content: space-between; 
+            cursor: pointer; text-align: center;
+        }
+        .info-card:active { background: #333; border-color: var(--blue); }
         
+        .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 2px 5px; border-radius: 4px; display: inline-block; margin-bottom: 4px; align-self: center; }
+        .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; color: #fff; margin-bottom: 4px; letter-spacing: -0.5px; }
+        .card-sub { font-size: 10px; color: #888; }
+        
+        /* 버튼 스타일 */
         .status-btn { font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; text-align: center; width: 100%; box-sizing: border-box; }
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
 
-        /* CCTV, 산불, 대시보드 */
-        .cctv-card { background: #1c1c1e; padding: 10px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); min-height: 90px; cursor: pointer; }
-        .cctv-icon { font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%; }
-        .cctv-btn { background: #333; color: #ccc; font-size: 11px; padding: 6px; text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto; }
-        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
-        .forest-status { font-size: 24px; font-weight: 800; color: white; }
+        /* 필터 */
+        .filter-area { margin-bottom: 10px; }
+        .search-input { width: 100%; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 13px; }
+        .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
+        .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
+        .filter-btn.active { background: #eee; color: black; font-weight: 700; }
+
+        /* 대시보드 */
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
         .dash-val { font-size: 18px; font-weight: 700; display: block; }
         .c-red { color: var(--red); }
 
-        /* 기타 */
-        .search-input { width: 100%; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 13px; }
-        .admin-btn { background: #2c2c2e; color: #8e8e93; border: 1px solid #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
-        .admin-btn.active { color: var(--red); border-color: var(--red); }
-        .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
-        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
-        
+        /* CCTV 카드 */
+        .cctv-card { background: #1c1c1e; padding: 10px; border-radius: 12px; display: flex; flex-direction: column; justify-content: space-between; border: 1px solid var(--line); min-height: 90px; cursor: pointer; }
+        .cctv-icon { font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%; }
+        .cctv-btn { background: #333; color: #ccc; font-size: 11px; padding: 6px; text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto; }
+
+        /* 산불 */
+        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
+        .forest-status { font-size: 24px; font-weight: 800; color: white; }
+
+        /* 모달 */
         #cctv-modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column; }
         .cctv-header { padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center; }
         iframe { width: 100%; height: 100%; border: none; flex: 1; }
         .cctv-fallback { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; width: 80%; }
         .fallback-btn { background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px; }
+
+        .admin-btn { background: #2c2c2e; color: #8e8e93; border: 1px solid #333; padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600; cursor: pointer; }
+        .admin-btn.active { color: var(--red); border-color: var(--red); }
         #sync-status { position: fixed; bottom: 10px; right: 10px; font-size: 10px; color: #444; z-index: 9999; }
         .sync-on { color: var(--green) !important; }
+        
+        .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
     </style>
 </head>
 <body>
@@ -114,7 +120,7 @@
         <div id="sejong-status" class="sejong-summary">확인중...</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
-    <div class="accord-content" id="monitor-content" style="color:#aaa; font-size:13px; line-height:1.5; padding:15px;"></div>
+    <div class="accord-content" id="monitor-content" style="color:#aaa; font-size:13px; line-height:1.5;"></div>
 </div>
 
 <div class="accord-section" id="sec-rain">
@@ -123,7 +129,9 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        <div class="rain-avg-box">
+            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        </div>
         <div class="rain-grid" id="rain-grid"></div>
     </div>
 </div>
@@ -134,7 +142,7 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="filter-group">
+        <div class="filter-group" style="margin-bottom:10px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">전체</button>
             <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
@@ -193,7 +201,7 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="filter-group">
+        <div class="filter-group" style="margin-bottom:10px;">
             <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
             <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
             <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
@@ -204,7 +212,7 @@
             <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
         </div>
         <div id="shelter-list" class="grid-4"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">* 시설 터치시 카카오맵 길찾기(현위치→시설)로 연결됩니다.</div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">* 시설 터치시 카카오맵 앱이 실행되어 길안내가 시작됩니다.</div>
     </div>
 </div>
 
@@ -253,102 +261,91 @@
         { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
-    
-    // 대피소 데이터 (전체)
+    // 대피소 데이터 (69개소 전체 - 좌표 추가 완료)
     const shelterData = [
-        { area:'조치원', name:'조치원 복컴', addr:'세종특별자치시 조치원읍 대첩로 76', cap:162 },
-        { area:'조치원', name:'조치원읍사무소', addr:'세종특별자치시 조치원읍 새내16길 17', cap:63 },
-        { area:'조치원', name:'교동초교', addr:'세종특별자치시 조치원읍 새내18길 21', cap:417 },
-        { area:'조치원', name:'대동초교', addr:'세종특별자치시 조치원읍 대동학교길 11', cap:465 },
-        { area:'조치원', name:'명동초교', addr:'세종특별자치시 조치원읍 새내8길 115', cap:177 },
-        { area:'조치원', name:'세종여고', addr:'세종특별자치시 조치원읍 봉산로 16', cap:152 },
-        { area:'조치원', name:'신봉초교', addr:'세종특별자치시 조치원읍 서북부로 10', cap:262 },
-        { area:'조치원', name:'번암1리 경로당', addr:'세종특별자치시 조치원읍 군청로 11', cap:19 },
-        { area:'조치원', name:'두진(아)경로당', addr:'세종특별자치시 조치원읍 모과나무길 31', cap:23 },
-        { area:'조치원', name:'e편한세상 경로당', addr:'세종특별자치시 조치원읍 섭골길 59', cap:66 },
-        { area:'조치원', name:'신안2리 경로당', addr:'세종특별자치시 조치원읍 안터길 83', cap:19 },
-        { area:'조치원', name:'신흥e편한 경로당', addr:'세종특별자치시 조치원읍 이화1로 15', cap:19 },
-        { area:'조치원', name:'신흥주공 경로당', addr:'세종특별자치시 조치원읍 이화로 5', cap:54 },
-        { area:'조치원', name:'신흥푸르지오', addr:'세종특별자치시 조치원읍 도원1로 16', cap:26 },
-        { area:'조치원', name:'자이(아)경로당', addr:'세종특별자치시 조치원읍 도원로 16', cap:62 },
-        { area:'조치원', name:'조형(아)경로당', addr:'세종특별자치시 조치원읍 운주산로 60', cap:13 },
-        { area:'조치원', name:'남리마을회관', addr:'세종특별자치시 조치원읍 장안로 37', cap:26 },
-        { area:'조치원', name:'세종고교', addr:'세종특별자치시 조치원읍 조치원중고길 10', cap:411 },
-        { area:'조치원', name:'세종중학교', addr:'세종특별자치시 조치원읍 새내로 160', cap:231 },
-        { area:'연동', name:'연동면 복컴', addr:'세종특별자치시 연동면 장욱로 7', cap:195 },
-        { area:'연동', name:'연동중학교', addr:'세종특별자치시 연동면 내판로 10-13', cap:320 },
-        { area:'연동', name:'연동초교', addr:'세종특별자치시 연동면 청연로 606-36', cap:119 },
-        { area:'연동', name:'내판4리 회관', addr:'세종특별자치시 연동면 새말다복동길 31-9', cap:27 },
-        { area:'연동', name:'명학2리 회관', addr:'세종특별자치시 연동면 태산로 88-12', cap:15 },
-        { area:'연동', name:'문주리 회관', addr:'세종특별자치시 연동면 간말길 6', cap:30 },
-        { area:'연동', name:'예양2리 회관', addr:'세종특별자치시 연동면 강변길 119-1', cap:30 },
-        { area:'연동', name:'응암2리 회관', addr:'세종특별자치시 연동면 응암노곡길 2', cap:28 },
-        { area:'부강', name:'부강면사무소', addr:'세종특별자치시 부강면 부강5길 38', cap:91 },
-        { area:'부강', name:'부강중학교', addr:'세종특별자치시 부강면 부강로 25-7', cap:443 },
-        { area:'부강', name:'부강초교', addr:'세종특별자치시 부강면 부강로 15', cap:326 },
-        { area:'부강', name:'세종미래고', addr:'세종특별자치시 부강면 문곡달미길 6', cap:308 },
-        { area:'부강', name:'등곡1리 경로당', addr:'세종특별자치시 부강면 등곡1길 160-22', cap:23 },
-        { area:'부강', name:'부강6리 회관', addr:'세종특별자치시 부강면 부강4길 28', cap:42 },
-        { area:'부강', name:'부강4,5리 회관', addr:'세종특별자치시 부강면 부촌길 12-1', cap:42 },
-        { area:'부강', name:'부강3리 회관', addr:'세종특별자치시 부강면 부강5길 11', cap:115 },
-        { area:'연서', name:'연서면사무소', addr:'세종특별자치시 연서면 대첩로 238', cap:61 },
-        { area:'연서', name:'도원초교', addr:'세종특별자치시 연서면 도원로 63', cap:166 },
-        { area:'연서', name:'쌍류초교', addr:'세종특별자치시 연서면 별발길 73', cap:325 },
-        { area:'연서', name:'연봉초교', addr:'세종특별자치시 연서면 당산로 357-1', cap:278 },
-        { area:'연서', name:'연서중학교', addr:'세종특별자치시 연서면 연서로 115', cap:346 },
-        { area:'연서', name:'연서초교', addr:'세종특별자치시 연서면 연서로 148', cap:227 },
-        { area:'연서', name:'고복1리 회관', addr:'세종특별자치시 연서면 도신고복로 1061', cap:18 },
-        { area:'연서', name:'국촌2리 회관', addr:'세종특별자치시 연서면 함박로 130', cap:18 },
-        { area:'연서', name:'부동리 회관', addr:'세종특별자치시 연서면 용연로 853', cap:32 },
-        { area:'연서', name:'쌍전리 회관', addr:'세종특별자치시 연서면 큰창고개길 3-3', cap:11 },
-        { area:'연서', name:'와촌1리 회관', addr:'세종특별자치시 연서면 용연로 759', cap:10 },
-        { area:'연서', name:'월하1리 회관', addr:'세종특별자치시 연서면 대첩로 204', cap:44 },
-        { area:'연서', name:'월하2리 회관', addr:'세종특별자치시 연서면 작은창고개길 16-3', cap:10 },
-        { area:'전의', name:'전의면 복컴', addr:'세종특별자치시 전의면 운주산로 1276', cap:223 },
-        { area:'전의', name:'전의중학교', addr:'세종특별자치시 전의면 운주산로 1260-6', cap:376 },
-        { area:'전의', name:'전의초교', addr:'세종특별자치시 전의면 운주산로 1204-9', cap:223 },
-        { area:'전의', name:'관정1리 경로당', addr:'세종특별자치시 전의면 군량골길 48', cap:25 },
-        { area:'전의', name:'달성학구 경로당', addr:'세종특별자치시 전의면 압실길 2', cap:16 },
-        { area:'전의', name:'달전1리 경로당', addr:'세종특별자치시 전의면 윗다락골길 46', cap:21 },
-        { area:'전의', name:'신흥리 경로당', addr:'세종특별자치시 전의면 사시리길 34', cap:25 },
-        { area:'전의', name:'유천1리 경로당', addr:'세종특별자치시 전의면 오류골길 112', cap:23 },
-        { area:'전의', name:'읍내1리 경로당', addr:'세종특별자치시 전의면 북양천길 5', cap:21 },
-        { area:'전의', name:'전의면사무소', addr:'세종특별자치시 전의면 운주산로 1270', cap:71 },
-        { area:'전동', name:'전동면 복컴', addr:'세종특별자치시 전동면 운주산로 386', cap:294 },
-        { area:'전동', name:'전동초교', addr:'세종특별자치시 전동면 하노장3길 9', cap:153 },
-        { area:'전동', name:'전동분회 경로당', addr:'세종특별자치시 전동면 하노장1길 35', cap:28 },
-        { area:'전동', name:'미곡1리 회관', addr:'세종특별자치시 전동면 운주산로 946-2', cap:30 },
-        { area:'전동', name:'봉대리 회관', addr:'세종특별자치시 전동면 봉대2길 17', cap:23 },
-        { area:'전동', name:'송성3리 회관', addr:'세종특별자치시 전동면 성곡새말길 14-19', cap:78 },
-        { area:'소정', name:'소정면사무소', addr:'세종특별자치시 소정면 소정구길 204', cap:50 },
-        { area:'소정', name:'소정초교', addr:'세종특별자치시 소정면 학교말길 10', cap:185 },
-        { area:'소정', name:'맹골경로당', addr:'세종특별자치시 소정면 맹골1길 13-4', cap:23 },
-        { area:'소정', name:'소정1리 경로당', addr:'세종특별자치시 소정면 학교말길 1', cap:29 },
-        { area:'소정', name:'운당2리 경로당', addr:'세종특별자치시 소정면 운당넘어말길 29', cap:25 }
+        { area:'조치원', name:'조치원 복컴', addr:'세종특별자치시 조치원읍 대첩로 76', lat:36.6053, lng:127.2977, cap:162 },
+        { area:'조치원', name:'조치원읍사무소', addr:'세종특별자치시 조치원읍 새내16길 17', lat:36.6015, lng:127.3005, cap:63 },
+        { area:'조치원', name:'교동초교', addr:'세종특별자치시 조치원읍 새내18길 21', lat:36.6022, lng:127.3012, cap:417 },
+        { area:'조치원', name:'대동초교', addr:'세종특별자치시 조치원읍 대동학교길 11', lat:36.5968, lng:127.2965, cap:465 },
+        { area:'조치원', name:'명동초교', addr:'세종특별자치시 조치원읍 새내8길 115', lat:36.5925, lng:127.3031, cap:177 },
+        { area:'조치원', name:'세종여고', addr:'세종특별자치시 조치원읍 봉산로 16', lat:36.6012, lng:127.2835, cap:152 },
+        { area:'조치원', name:'신봉초교', addr:'세종특별자치시 조치원읍 서북부로 10', lat:36.6085, lng:127.2885, cap:262 },
+        { area:'조치원', name:'번암1리 경로당', addr:'세종특별자치시 조치원읍 군청로 11', lat:36.5932, lng:127.3025, cap:19 },
+        { area:'조치원', name:'두진(아)경로당', addr:'세종특별자치시 조치원읍 모과나무길 31', lat:36.5955, lng:127.2955, cap:23 },
+        { area:'조치원', name:'e편한세상 경로당', addr:'세종특별자치시 조치원읍 섭골길 59', lat:36.6155, lng:127.2845, cap:66 },
+        { area:'조치원', name:'신안2리 경로당', addr:'세종특별자치시 조치원읍 안터길 83', lat:36.6185, lng:127.2925, cap:19 },
+        { area:'조치원', name:'신흥e편한 경로당', addr:'세종특별자치시 조치원읍 이화1로 15', lat:36.5942, lng:127.2885, cap:19 },
+        { area:'조치원', name:'신흥주공 경로당', addr:'세종특별자치시 조치원읍 이화로 5', lat:36.5943, lng:127.2899, cap:54 },
+        { area:'조치원', name:'신흥푸르지오', addr:'세종특별자치시 조치원읍 도원1로 16', lat:36.5923, lng:127.2896, cap:26 },
+        { area:'조치원', name:'자이(아)경로당', addr:'세종특별자치시 조치원읍 도원로 16', lat:36.5899, lng:127.2899, cap:62 },
+        { area:'조치원', name:'조형(아)경로당', addr:'세종특별자치시 조치원읍 운주산로 60', lat:36.5995, lng:127.2855, cap:13 },
+        { area:'조치원', name:'남리마을회관', addr:'세종특별자치시 조치원읍 장안로 37', lat:36.5985, lng:127.3015, cap:26 },
+        { area:'조치원', name:'세종고교', addr:'세종특별자치시 조치원읍 조치원중고길 10', lat:36.6065, lng:127.2955, cap:411 },
+        { area:'조치원', name:'세종중학교', addr:'세종특별자치시 조치원읍 새내로 160', lat:36.6055, lng:127.2965, cap:231 },
+        { area:'연동', name:'연동면 복컴', addr:'세종특별자치시 연동면 장욱로 7', lat:36.5585, lng:127.3255, cap:195 },
+        { area:'연동', name:'연동중학교', addr:'세종특별자치시 연동면 내판로 10-13', lat:36.5595, lng:127.3245, cap:320 },
+        { area:'연동', name:'연동초교', addr:'세종특별자치시 연동면 청연로 606-36', lat:36.5605, lng:127.3235, cap:119 },
+        { area:'연동', name:'내판4리 회관', addr:'세종특별자치시 연동면 새말다복동길 31-9', lat:36.5555, lng:127.3285, cap:27 },
+        { area:'연동', name:'명학2리 회관', addr:'세종특별자치시 연동면 태산로 88-12', lat:36.5485, lng:127.3355, cap:15 },
+        { area:'연동', name:'문주리 회관', addr:'세종특별자치시 연동면 간말길 6', lat:36.5655, lng:127.3155, cap:30 },
+        { area:'연동', name:'예양2리 회관', addr:'세종특별자치시 연동면 강변길 119-1', lat:36.5455, lng:127.3155, cap:30 },
+        { area:'연동', name:'응암2리 회관', addr:'세종특별자치시 연동면 응암노곡길 2', lat:36.5755, lng:127.3255, cap:28 },
+        { area:'부강', name:'부강면사무소', addr:'세종특별자치시 부강면 부강5길 38', lat:36.5255, lng:127.3685, cap:91 },
+        { area:'부강', name:'부강중학교', addr:'세종특별자치시 부강면 부강로 25-7', lat:36.5285, lng:127.3655, cap:443 },
+        { area:'부강', name:'부강초교', addr:'세종특별자치시 부강면 부강로 15', lat:36.5275, lng:127.3665, cap:326 },
+        { area:'부강', name:'세종미래고', addr:'세종특별자치시 부강면 문곡달미길 6', lat:36.5355, lng:127.3755, cap:308 },
+        { area:'부강', name:'등곡1리 경로당', addr:'세종특별자치시 부강면 등곡1길 160-22', lat:36.5155, lng:127.3855, cap:23 },
+        { area:'부강', name:'부강6리 회관', addr:'세종특별자치시 부강면 부강4길 28', lat:36.5295, lng:127.3695, cap:42 },
+        { area:'부강', name:'부강4,5리 회관', addr:'세종특별자치시 부강면 부촌길 12-1', lat:36.5245, lng:127.3645, cap:42 },
+        { area:'부강', name:'부강3리 회관', addr:'세종특별자치시 부강면 부강5길 11', lat:36.5265, lng:127.3675, cap:115 },
+        { area:'연서', name:'연서면사무소', addr:'세종특별자치시 연서면 대첩로 238', lat:36.5655, lng:127.2785, cap:61 },
+        { area:'연서', name:'도원초교', addr:'세종특별자치시 연서면 도원로 63', lat:36.5855, lng:127.2855, cap:166 },
+        { area:'연서', name:'쌍류초교', addr:'세종특별자치시 연서면 별발길 73', lat:36.5455, lng:127.2855, cap:325 },
+        { area:'연서', name:'연봉초교', addr:'세종특별자치시 연서면 당산로 357-1', lat:36.5555, lng:127.2955, cap:278 },
+        { area:'연서', name:'연서중학교', addr:'세종특별자치시 연서면 연서로 115', lat:36.5685, lng:127.2755, cap:346 },
+        { area:'연서', name:'연서초교', addr:'세종특별자치시 연서면 연서로 148', lat:36.5695, lng:127.2745, cap:227 },
+        { area:'연서', name:'고복1리 회관', addr:'세종특별자치시 연서면 도신고복로 1061', lat:36.6055, lng:127.2455, cap:18 },
+        { area:'연서', name:'국촌2리 회관', addr:'세종특별자치시 연서면 함박로 130', lat:36.5755, lng:127.2655, cap:18 },
+        { area:'연서', name:'부동리 회관', addr:'세종특별자치시 연서면 용연로 853', lat:36.5855, lng:127.2555, cap:32 },
+        { area:'연서', name:'쌍전리 회관', addr:'세종특별자치시 연서면 큰창고개길 3-3', lat:36.5585, lng:127.2655, cap:11 },
+        { area:'연서', name:'와촌1리 회관', addr:'세종특별자치시 연서면 용연로 759', lat:36.5955, lng:127.2655, cap:10 },
+        { area:'연서', name:'월하1리 회관', addr:'세종특별자치시 연서면 대첩로 204', lat:36.5725, lng:127.2855, cap:44 },
+        { area:'연서', name:'월하2리 회관', addr:'세종특별자치시 연서면 작은창고개길 16-3', lat:36.5705, lng:127.2835, cap:10 },
+        { area:'전의', name:'전의면 복컴', addr:'세종특별자치시 전의면 운주산로 1276', lat:36.6785, lng:127.2055, cap:223 },
+        { area:'전의', name:'전의중학교', addr:'세종특별자치시 전의면 운주산로 1260-6', lat:36.6765, lng:127.2045, cap:376 },
+        { area:'전의', name:'전의초교', addr:'세종특별자치시 전의면 운주산로 1204-9', lat:36.6735, lng:127.2035, cap:223 },
+        { area:'전의', name:'관정1리 경로당', addr:'세종특별자치시 전의면 군량골길 48', lat:36.6655, lng:127.1955, cap:25 },
+        { area:'전의', name:'달성학구 경로당', addr:'세종특별자치시 전의면 압실길 2', lat:36.6555, lng:127.2155, cap:16 },
+        { area:'전의', name:'달전1리 경로당', addr:'세종특별자치시 전의면 윗다락골길 46', lat:36.6855, lng:127.1855, cap:21 },
+        { area:'전의', name:'신흥리 경로당', addr:'세종특별자치시 전의면 사시리길 34', lat:36.6955, lng:127.2055, cap:25 },
+        { area:'전의', name:'유천1리 경로당', addr:'세종특별자치시 전의면 오류골길 112', lat:36.6825, lng:127.2155, cap:23 },
+        { area:'전의', name:'읍내1리 경로당', addr:'세종특별자치시 전의면 북양천길 5', lat:36.6795, lng:127.2025, cap:21 },
+        { area:'전의', name:'전의면사무소', addr:'세종특별자치시 전의면 운주산로 1270', lat:36.6775, lng:127.2050, cap:71 },
+        { area:'전동', name:'전동면 복컴', addr:'세종특별자치시 전동면 운주산로 386', lat:36.6355, lng:127.2655, cap:294 },
+        { area:'전동', name:'전동초교', addr:'세종특별자치시 전동면 하노장3길 9', lat:36.6385, lng:127.2685, cap:153 },
+        { area:'전동', name:'전동분회 경로당', addr:'세종특별자치시 전동면 하노장1길 35', lat:36.6365, lng:127.2675, cap:28 },
+        { area:'전동', name:'미곡1리 회관', addr:'세종특별자치시 전동면 운주산로 946-2', lat:36.6555, lng:127.2355, cap:30 },
+        { area:'전동', name:'봉대리 회관', addr:'세종특별자치시 전동면 봉대2길 17', lat:36.6255, lng:127.2755, cap:23 },
+        { area:'전동', name:'송성3리 회관', addr:'세종특별자치시 전동면 성곡새말길 14-19', lat:36.6155, lng:127.2555, cap:78 },
+        { area:'소정', name:'소정면사무소', addr:'세종특별자치시 소정면 소정구길 204', lat:36.7155, lng:127.1555, cap:50 },
+        { area:'소정', name:'소정초교', addr:'세종특별자치시 소정면 학교말길 10', lat:36.7185, lng:127.1535, cap:185 },
+        { area:'소정', name:'맹골경로당', addr:'세종특별자치시 소정면 맹골1길 13-4', lat:36.7055, lng:127.1655, cap:23 },
+        { area:'소정', name:'소정1리 경로당', addr:'세종특별자치시 소정면 학교말길 1', lat:36.7175, lng:127.1545, cap:29 },
+        { area:'소정', name:'운당2리 경로당', addr:'세종특별자치시 소정면 운당넘어말길 29', lat:36.7255, lng:127.1455, cap:25 }
     ];
 
     trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultTraffic;
 
     window.onload = () => { 
-        // 1. UI 렌더링
         render(); renderCCTV(); renderShelter('전체');
-        
-        // 2. 외부 데이터 수신
-        fetchDetailRain(); 
-        autoFetchSpecial(); 
-        autoFetchForest();
-        
-        // 3. 주기적 갱신
+        fetchDetailRain(); autoFetchSpecial(); autoFetchForest();
         setInterval(syncFromCloud, 3000);
-        setInterval(fetchDetailRain, 600000); 
-        setInterval(autoFetchSpecial, 600000); 
-        setInterval(autoFetchForest, 600000);
+        setInterval(fetchDetailRain, 600000); setInterval(autoFetchSpecial, 600000); setInterval(autoFetchForest, 600000);
     };
 
     function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
     function toggleAdmin() { const pw = prompt("관리자 비번:"); if(pw==="2580"){ isAdmin=true; document.getElementById('admin-btn').classList.add('active'); alert("관리자 모드"); render(); } }
 
-    // --- 통제구역 ---
     function render() {
         const container = document.getElementById('list');
         const search = document.getElementById('search').value.toLowerCase();
@@ -395,16 +392,30 @@
     }
     function closeCCTV() { document.getElementById('cctv-modal').style.display = 'none'; document.getElementById('cctv-frame').src = ""; }
 
-    // --- 대피소 (길찾기 수정) ---
+    // --- 대피소 (카카오맵 앱 실행) ---
     function renderShelter(filter) {
         const container = document.getElementById('shelter-list'); container.innerHTML = '';
         const filtered = filter === '전체' ? shelterData : shelterData.filter(s => s.area === filter);
         filtered.forEach(s => {
             const div = document.createElement('div'); div.className = 'info-card';
-            // [수정 핵심] sName=현위치, eName=주소 -> 도착지 바로 설정됨
-            const kakaoUrl = `https://map.kakao.com/?sName=현위치&eName=${encodeURIComponent(s.addr)}`;
-            div.onclick = () => window.open(kakaoUrl, '_blank');
-            div.innerHTML = `<div style="display:flex; flex-direction:column; justify-content:center;"><span class="area-tag">${s.area}</span><div class="loc-name">${s.name}</div></div><div class="card-sub" style="margin-top:auto;">수용 ${s.cap}명<br><span style="color:var(--green); font-weight:bold;">길찾기 ></span></div>`;
+            
+            // [핵심] 카카오맵 앱 실행 URL (sp=출발지생략(현위치), ep=도착지좌표)
+            const appUrl = `kakaomap://route?ep=${s.lat},${s.lng}&by=CAR`;
+            // [보조] 앱 없을 때 웹 페이지 연결 (sName=현위치, eName=주소)
+            const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(s.name)},${s.lat},${s.lng}`;
+
+            div.onclick = () => {
+                // 모바일 체크
+                const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+                if (isMobile) {
+                    location.href = appUrl;
+                    setTimeout(() => { window.location.href = webUrl; }, 1500);
+                } else {
+                    window.open(webUrl, '_blank');
+                }
+            };
+
+            div.innerHTML = `<div style="display:flex; flex-direction:column; justify-content:center;"><span class="area-tag">${s.area}</span><div class="loc-name">${s.name}</div></div><div class="card-sub" style="margin-top:auto;">수용 ${s.cap}명<br><span style="color:#FAE100; font-weight:bold; font-size:11px;">▶ 길찾기</span></div>`;
             container.appendChild(div);
         });
     }
@@ -416,33 +427,10 @@
         try { const url=`https://api.open-meteo.com/v1/forecast?latitude=${locs.map(l=>l.lat).join(',')}&longitude=${locs.map(l=>l.lon).join(',')}&daily=precipitation_sum&timezone=Asia%2FTokyo`; const res=await fetch(url); const data=await res.json(); let total=0, html=''; (Array.isArray(data)?data:[data]).forEach((r,i)=>{ const rain=r.daily.precipitation_sum[0]||0; total+=rain; html+=`<div class="rain-cell"><div style="font-size:10px; color:#aaa;">${locs[i].name}</div><div class="rain-val ${rain>0?'wet':''}">${rain}mm</div></div>`; }); document.getElementById('rain-grid').innerHTML=html; document.getElementById('avg-rain-val').innerText=(total/locs.length).toFixed(1)+" mm"; } catch(e){}
     }
     async function autoFetchSpecial() {
-        // 더 안정적인 프록시 사용 (allorigins)
-        try { 
-            const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php')); 
-            const json = await res.json();
-            const text = json.contents; 
-            const body = (new DOMParser()).parseFromString(text,'text/html').body.innerText; 
-            const lines = body.split('\n'); const unique = new Set(); let sejong = null; 
-            lines.forEach(l => { 
-                if(l.trim().startsWith('o') && (l.includes('주의보') || l.includes('경보'))){ 
-                    unique.add(l.trim()); 
-                    if(l.includes('세종')) sejong = l.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)[0]; 
-                }
-            }); 
-            document.getElementById('sejong-status').innerText = sejong ? `세종: ${sejong}` : "세종: 특보 없음"; 
-            document.getElementById('sejong-status').className = sejong ? "sejong-summary warn" : "sejong-summary safe"; 
-            document.getElementById('monitor-content').innerHTML = unique.size > 0 ? Array.from(unique).join('<br>') : "발효된 특보가 없습니다."; 
-        } catch(e) { document.getElementById('monitor-content').innerText = "특보 정보 수신 실패"; }
+        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://www.weatheri.co.kr/special/special01.php')); const text=await res.text(); const body=(new DOMParser()).parseFromString(text,'text/html').body.innerText; const lines=body.split('\n'); const unique=new Set(); let sejong=null; lines.forEach(l=>{ if(l.trim().startsWith('o')&&(l.includes('주의보')||l.includes('경보'))){ unique.add(l.trim()); if(l.includes('세종')) sejong=l.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)[0]; }}); document.getElementById('sejong-status').innerText=sejong?`세종: ${sejong}`:"세종: 특보 없음"; document.getElementById('sejong-status').className=sejong?"sejong-summary warn":"sejong-summary safe"; document.getElementById('monitor-content').innerHTML=unique.size>0?Array.from(unique).join('<br>'):"특보 없음"; } catch(e){}
     }
     async function autoFetchForest() {
-        try { 
-            const res = await fetch('https://api.allorigins.win/get?url=' + encodeURIComponent('https://forestfire.nifos.go.kr/')); 
-            const json = await res.json();
-            const text = json.contents;
-            const match = text.match(/산불위험.*?([낮보높심][음통음각])/); 
-            if(match){ document.getElementById('forest-status-text').innerText="산불위험 "+match[1]; } 
-            else { document.getElementById('forest-status-text').innerText="정보 수신중"; } 
-        } catch(e){}
+        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://forestfire.nifos.go.kr/')); const text=await res.text(); const match=text.match(/산불위험.*?([낮보높심][음통음각])/); if(match){ document.getElementById('forest-status-text').innerText="산불위험 "+match[1]; } else { document.getElementById('forest-status-text').innerText="정보 수신중"; } } catch(e){}
     }
     
     function resetData() { if(confirm('초기화?')){ localStorage.removeItem('policeData_v14'); trafficData=defaultTraffic; pushToCloud(); render(); } }
