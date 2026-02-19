@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Total)</title>
+    <title>세종북부서 재난상황실</title>
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -29,7 +29,7 @@
         header { margin-bottom: 10px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .title-group { display: flex; align-items: center; gap: 10px; }
-        h1 { margin: 0; font-size: 20px; font-weight: 700; }
+        h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
         
         .refresh-btn {
             background: #333; border: 1px solid #444; color: white;
@@ -93,7 +93,6 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 (4열) */
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
@@ -110,7 +109,6 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
         }
         .shelter-cap { font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
-        
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
             text-align: center; padding: 5px 0; width: 100%;
@@ -121,7 +119,6 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-        /* CCTV, 통제 등 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -143,7 +140,7 @@
         .traffic-card {
             background: #1c1c1e; padding: 8px; border-radius: 10px;
             display: flex; flex-direction: column; justify-content: space-between;
-            border: 1px solid var(--line); min-height: 80px;
+            border: 1px solid var(--line); min-height: 80px; position: relative;
         }
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
@@ -154,7 +151,7 @@
         }
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-
+        
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
         .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
         .dash-val { font-size: 18px; font-weight: 700; display: block; }
@@ -167,8 +164,16 @@
         }
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-        .filter-area { margin-bottom: 10px; }
-        .search-input { width: 100%; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; margin-bottom: 8px; box-sizing: border-box; font-size: 13px; }
+        .filter-area { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .search-row { display: flex; gap: 8px; }
+        .search-input { flex: 1; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; }
+        
+        .add-loc-btn {
+            background: var(--blue); color: white; border: none; padding: 0 15px;
+            border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer;
+            white-space: nowrap; display: none;
+        }
+
         .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
         .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
         .filter-btn.active { background: #eee; color: black; font-weight: 700; }
@@ -188,7 +193,6 @@
         .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; }
         .cctv-frame-container { flex: 1; position: relative; background: #000; }
         iframe { width: 100%; height: 100%; border: none; }
-        
         .cctv-fallback {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
             text-align: center; width: 80%;
@@ -198,17 +202,17 @@
             text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
         }
         
-        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
-        .forest-region { font-size: 13px; color: #aaa; margin-bottom: 5px; }
-        .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
-        .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
-        
         #sync-status {
             position: fixed; bottom: 10px; right: 10px; 
             font-size: 10px; color: #666; background: rgba(0,0,0,0.5);
             padding: 2px 6px; border-radius: 4px; pointer-events: none;
         }
         .live { color: #00ff00 !important; }
+
+        /* [추가] 산불 섹션 스타일 */
+        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
+        .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
+        .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -216,7 +220,7 @@
 <header>
     <div class="top-nav">
         <div class="title-group">
-            <h1>세종경찰 통합관제</h1>
+            <h1>세종북부서 재난상황실</h1>
             <button class="refresh-btn" onclick="refreshAll()" title="수동 업데이트">
                 <i id="refresh-icon" class="fas fa-rotate-right"></i>
             </button>
@@ -247,6 +251,24 @@
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
         <div class="rain-grid" id="rain-grid"></div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-forest">
+    <div class="accord-header" onclick="toggleSection('sec-forest')">
+        <div class="ah-title"><i class="fas fa-tree"></i> 산불위험 예보</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="forest-body">
+            <div>
+                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불위험등급</div>
+                <div class="forest-status" id="forest-status-text">
+                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i> 수신중
+                </div>
+            </div>
+            <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
+        </div>
     </div>
 </div>
 
@@ -292,27 +314,6 @@
     </div>
 </div>
 
-<div class="accord-section" id="sec-forest">
-    <div class="accord-header" onclick="toggleSection('sec-forest')">
-        <div class="ah-title"><i class="fas fa-tree"></i> 산불위험 예보</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-    </div>
-    <div class="accord-content">
-        <div class="forest-body">
-            <div>
-                <div class="forest-region" id="forest-region-text">국가산불위험예보 (자동)</div>
-                <div class="forest-status" id="forest-status-text">
-                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i>
-                </div>
-            </div>
-            <div style="text-align:right;">
-                <div id="forest-icon-area" style="font-size:32px; opacity:0.8; margin-bottom:5px;">🌲</div>
-                <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div class="accord-section open" id="sec-control">
     <div class="accord-header" onclick="toggleSection('sec-control')">
         <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
@@ -331,7 +332,10 @@
         </div>
 
         <div class="filter-area">
-            <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
+            <div class="search-row">
+                <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
+                <button class="add-loc-btn" id="add-loc-btn" onclick="addTrafficLocation()">+ 추가</button>
+            </div>
             <div class="filter-group">
                 <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
                 <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제</button>
@@ -347,9 +351,7 @@
 </div>
 
 <div class="official-links">
-    <a href="https://www.sejong.go.kr/bbs/R4630/list.do" target="_blank" class="link-btn"><i class="fas fa-bullhorn" style="color:var(--blue)"></i> 도로통제 공지</a>
     <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
-    <a href="https://www.sejong.go.kr/bbs/R1031/list.do" target="_blank" class="link-btn"><i class="fas fa-file-lines" style="color:var(--green)"></i> 일일보고</a>
     <a href="tel:112" class="link-btn"><i class="fas fa-phone"></i> 112 연결</a>
 </div>
 
@@ -396,7 +398,7 @@
     
     let isAdmin = false;
 
-    // --- 대피소 69개소 데이터 (이미지 기반) ---
+    // 대피소 데이터
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -491,7 +493,6 @@
     window.onload = () => { 
         refreshAll();
         
-        // Firebase 실시간 수신
         const dbRef = db.ref('trafficData');
         dbRef.on('value', (snapshot) => {
             const data = snapshot.val();
@@ -527,14 +528,58 @@
         }, 500);
     }
 
+    // --- [추가] 산불위험예보 자동 파싱 함수 ---
+    async function autoFetchForest() {
+        const statusEl = document.getElementById('forest-status-text');
+        try {
+            // 산림청 사이트 프록시로 호출
+            const res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/main.action'));
+            const text = await res.text();
+            
+            // "산불위험 낮음/다소높음" 텍스트 추출 정규식
+            const match = text.match(/산불위험\s*(낮음|다소높음|높음|매우높음)/);
+            
+            if (match) {
+                const level = match[1];
+                statusEl.innerText = `산불위험 ${level}`;
+                
+                // 색상 처리
+                if(level === '낮음') statusEl.style.color = '#4caf50'; // 녹색
+                else if(level === '다소높음') statusEl.style.color = '#ff9800'; // 주황
+                else if(level === '높음' || level === '매우높음') statusEl.style.color = '#f44336'; // 빨강
+            } else {
+                statusEl.innerText = "정보 확인 필요";
+                statusEl.style.color = "#aaa";
+            }
+        } catch (e) {
+            statusEl.innerText = "연결 실패";
+        }
+    }
+
+    function addTrafficLocation() {
+        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
+        const area = prompt("지역 입력 (예: 조치원, 전의, 부강)");
+        if (!area) return;
+        const name = prompt("장소명 입력");
+        if (!name) return;
+
+        const newItem = {
+            id: Date.now(),
+            area: area,
+            name: name,
+            status: 0 
+        };
+
+        trafficData.push(newItem);
+        db.ref('trafficData').set(trafficData);
+    }
+
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
         
-        // 필터링 적용 (현재 탭에 맞는 지역만 표시)
         const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
         const filterArea = activeBtn ? activeBtn.innerText : '전체';
-        
         const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
 
         filteredData.forEach(item => {
@@ -553,11 +598,10 @@
         });
     }
     
-    // 대피소 필터 함수
     function filterShelter(area, btn) {
         document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        renderShelters(); // 필터 적용된 렌더링 호출
+        renderShelters(); 
     }
 
     function openKakaoNavi(lat, lng, name) {
@@ -580,25 +624,6 @@
         if (!isAdmin) return alert("관리자 권한이 필요합니다.");
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
         db.ref('trafficData').set(trafficData);
-    }
-
-    async function autoFetchForest() {
-        const statusEl = document.getElementById('forest-status-text');
-        const iconEl = document.getElementById('forest-icon-area');
-        try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/');
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
-            const match = text.match(/산불위험.*?([낮보높심][음통음각])/); 
-            if (match && match[1]) {
-                const level = match[1];
-                statusEl.innerText = "산불위험 " + level;
-                if (level === "낮음") { statusEl.style.color = "#27ae60"; iconEl.innerText = "🟢"; }
-                else if (level === "보통") { statusEl.style.color = "#f1c40f"; iconEl.innerText = "🟡"; }
-                else if (level === "높음") { statusEl.style.color = "#e67e22"; iconEl.innerText = "🟠"; }
-                else { statusEl.style.color = "#c0392b"; iconEl.innerText = "🔴"; }
-            } else { statusEl.innerText = "정보 수신중"; statusEl.style.color = "#aaa"; }
-        } catch (e) { statusEl.innerText = "연결 대기중"; }
     }
 
     function setCCTVFilter(type, btn) {
@@ -726,12 +751,14 @@
                 isAdmin = true;
                 alert("🔓 관리자 모드");
                 document.getElementById('admin-btn').classList.add('active');
+                document.getElementById('add-loc-btn').style.display = 'block'; 
                 render();
             }
         } else {
             isAdmin = false;
             alert("🔒 해제됨");
             document.getElementById('admin-btn').classList.remove('active');
+            document.getElementById('add-loc-btn').style.display = 'none'; 
             render();
         }
     }
