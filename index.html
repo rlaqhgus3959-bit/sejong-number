@@ -8,6 +8,10 @@
     
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 통합관제 (Total)</title>
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
@@ -89,59 +93,34 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* [수정] 사파리 호환성 완벽 대응 대피소 스타일 */
-        .shelter-list { 
-            display: grid; 
-            grid-template-columns: repeat(4, 1fr); /* 4분할 */
-            gap: 4px; /* 간격 축소 */
-        }
+        /* 대피소 스타일 (4열 고정) */
+        .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
-            background: #1c1c1e; 
-            border: 1px solid #333; 
-            padding: 8px 3px; 
-            border-radius: 8px;
-            display: flex; 
-            flex-direction: column; 
-            justify-content: space-between; 
-            align-items: center; 
-            
-            /* 높이 강제 고정 (매우 중요) */
-            height: 105px; 
-            
-            /* 사파리/모바일용 그리드 깨짐 방지 */
-            min-width: 0; 
-            overflow: hidden;
-            box-sizing: border-box;
+            background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
+            border-radius: 8px; display: flex; flex-direction: column; 
+            justify-content: space-between; align-items: center; 
+            height: 105px; min-width: 0; overflow: hidden; box-sizing: border-box;
         }
         .shelter-name { 
             font-size: 10px; font-weight: 700; color: #fff; width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
-            letter-spacing: -0.5px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; letter-spacing: -0.5px;
         }
         .shelter-addr { 
             font-size: 9px; color: #888; width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
-            margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
         }
-        .shelter-cap { 
-            font-size: 9px; color: var(--shelter); font-weight: 600; 
-            margin-bottom: 4px;
-        }
+        .shelter-cap { font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
         
-        /* 카카오맵 버튼 */
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
             text-align: center; padding: 5px 0; width: 100%;
             border-radius: 4px; font-size: 10px; font-weight: 800; text-decoration: none;
             display: block; margin-top: auto; border: none;
-            transition: all 0.2s; 
-            cursor: pointer;
-            white-space: nowrap; /* 버튼 텍스트 줄바꿈 방지 */
+            transition: all 0.2s; cursor: pointer; white-space: nowrap;
         }
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-        /* 기존 스타일 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -269,8 +248,7 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="shelter-list" id="shelter-list">
-            </div>
+        <div class="shelter-list" id="shelter-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
              * 버튼 클릭 시 <b>카카오맵 네비게이션</b>이 실행됩니다.
         </div>
@@ -289,8 +267,7 @@
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
         </div>
-        <div class="cctv-container" id="cctv-list">
-            </div>
+        <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
             * 버튼 클릭시 팝업으로 영상이 재생됩니다.
         </div>
@@ -377,9 +354,34 @@
 </div>
 
 <script>
-    let isAdmin = false;
+    // [중요] 기존 캐시 삭제 (수정사항 즉시 반영)
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) {
+                registration.unregister();
+            }
+        });
+    }
+
+    // --- [설정] 파이어베이스 설정 (본인의 키값) ---
+    const firebaseConfig = {
+        apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
+        authDomain: "shut-down-80255.firebaseapp.com",
+        databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com",
+        projectId: "shut-down-80255",
+        storageBucket: "shut-down-80255.firebasestorage.app",
+        messagingSenderId: "620282815079",
+        appId: "1:620282815079:web:bd561b5a00483e94fdaac2",
+        measurementId: "G-XKW8CM4W06"
+    };
     
-    // [카카오맵용] 정확한 좌표 데이터
+    // 파이어베이스 초기화
+    firebase.initializeApp(firebaseConfig);
+    const db = firebase.database();
+    
+    let isAdmin = false;
+
+    // --- 데이터 ---
     const shelterData = [
         { name: "조치원 자이", addr: "도원로 16", lat: 36.5899127, lng: 127.2899907, cap: "4.3만" },
         { name: "엘리프 세종", addr: "서북부4로 10", lat: 36.6030008, lng: 127.2814128, cap: "4만" },
@@ -419,12 +421,25 @@
         { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' },
     ];
 
-    let trafficData = JSON.parse(localStorage.getItem('policeData_v14')) || defaultData;
+    let trafficData = JSON.parse(JSON.stringify(defaultData)); // 초기값
     let currFilter = 'all';
     let cctvFilter = 'all';
 
     window.onload = () => { 
         refreshAll();
+        
+        // [파이어베이스 실시간 연동]
+        const dbRef = db.ref('trafficData');
+        dbRef.on('value', (snapshot) => {
+            const data = snapshot.val();
+            if(data) {
+                trafficData = data;
+                render(); // 데이터 변경 시 화면 자동 갱신
+            } else {
+                // 데이터가 없으면 초기값 저장
+                dbRef.set(defaultData);
+            }
+        });
     };
 
     function toggleSection(id) {
@@ -449,7 +464,7 @@
         }, 500);
     }
 
-    // --- [카카오맵 연동] ---
+    // --- 렌더링 ---
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
@@ -472,10 +487,7 @@
 
     function openKakaoNavi(lat, lng, name) {
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        
-        // 1. 앱 실행
         const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        // 2. 웹 폴백
         const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
 
         if (isMobile) {
@@ -489,38 +501,33 @@
         }
     }
 
-    // --- 나머지 기능들 ---
+    // --- 통제구역 상태 변경 (핵심: DB 연동) ---
+    function toggleStatus(idx) {
+        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
+        
+        // 상태 변경 및 파이어베이스 저장
+        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
+        db.ref('trafficData').set(trafficData);
+    }
+
+    // --- 기타 함수들 ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         const iconEl = document.getElementById('forest-icon-area');
-        
         try {
             const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/');
             const res = await fetch(proxyUrl);
             const text = await res.text();
-
             const match = text.match(/산불위험.*?([낮보높심][음통음각])/); 
-            
             if (match && match[1]) {
                 const level = match[1];
                 statusEl.innerText = "산불위험 " + level;
-
-                if (level === "낮음") {
-                    statusEl.style.color = "#27ae60"; iconEl.innerText = "🟢";
-                } else if (level === "보통") {
-                    statusEl.style.color = "#f1c40f"; iconEl.innerText = "🟡";
-                } else if (level === "높음") {
-                    statusEl.style.color = "#e67e22"; iconEl.innerText = "🟠";
-                } else {
-                    statusEl.style.color = "#c0392b"; iconEl.innerText = "🔴";
-                }
-            } else {
-                statusEl.innerText = "정보 수신중";
-                statusEl.style.color = "#aaa";
-            }
-        } catch (e) {
-            statusEl.innerText = "연결 대기중";
-        }
+                if (level === "낮음") { statusEl.style.color = "#27ae60"; iconEl.innerText = "🟢"; }
+                else if (level === "보통") { statusEl.style.color = "#f1c40f"; iconEl.innerText = "🟡"; }
+                else if (level === "높음") { statusEl.style.color = "#e67e22"; iconEl.innerText = "🟠"; }
+                else { statusEl.style.color = "#c0392b"; iconEl.innerText = "🔴"; }
+            } else { statusEl.innerText = "정보 수신중"; statusEl.style.color = "#aaa"; }
+        } catch (e) { statusEl.innerText = "연결 대기중"; }
     }
 
     function setCCTVFilter(type, btn) {
@@ -534,28 +541,19 @@
     function renderCCTV() {
         const container = document.getElementById('cctv-list');
         container.innerHTML = '';
-        
         cctvData.forEach(item => {
             if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
-
             const div = document.createElement('div');
             div.className = 'cctv-card';
             div.onclick = () => openCCTV(item.name, item.url);
-            
             div.innerHTML = `
-                <div>
-                    <span class="area-tag">${item.area}</span>
-                    <div class="loc-name">${item.name}</div>
-                </div>
+                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
                 <div class="cctv-btn">영상보기</div>
             `;
             container.appendChild(div);
         });
-        
-        if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
-        }
+        if(container.innerHTML === '') container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
     }
 
     function openCCTV(name, url) {
@@ -580,57 +578,43 @@
             { name: '부강면', lat: 36.520, lon: 127.370 },
             { name: '연동면', lat: 36.560, lon: 127.320 }
         ];
-
         const lats = locs.map(l => l.lat).join(',');
         const lons = locs.map(l => l.lon).join(',');
-        
         try {
             const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=precipitation_sum&timezone=Asia%2FTokyo`;
             const res = await fetch(url);
             const data = await res.json();
             const results = Array.isArray(data) ? data : [data];
-            
             let totalRain = 0;
             let html = '';
-
             results.forEach((r, idx) => {
                 const todayRain = r.daily.precipitation_sum[0] || 0;
                 totalRain += todayRain;
                 const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
                 html += `<div class="rain-cell"><div class="rain-loc">${locs[idx].name}</div><div class="${valClass}">${todayRain}<small>mm</small></div></div>`;
             });
-
             html += `<div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>`;
             document.getElementById('rain-grid').innerHTML = html;
-
             const avgRain = (totalRain / locs.length).toFixed(1);
             document.getElementById('avg-rain-val').innerText = `${avgRain} mm`;
-
-        } catch(e) {
-            document.getElementById('avg-rain-val').innerText = "오류";
-        }
+        } catch(e) { document.getElementById('avg-rain-val').innerText = "오류"; }
     }
 
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
-
         try {
             const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
             const res = await fetch(proxyUrl);
             const text = await res.text();
-            
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             const bodyText = doc.body.innerText || "";
-
             const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2}(:\d{2})?)/);
             let timeStr = timeMatch ? timeMatch[1] : "수신중...";
-
             const lines = bodyText.split('\n');
             const uniqueSet = new Set();
             let sejongAlert = null;
-
             lines.forEach(line => {
                 const trimmed = line.trim();
                 if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
@@ -641,7 +625,6 @@
                     }
                 }
             });
-
             if (sejongAlert) {
                 headerStatusEl.innerText = `세종: ${sejongAlert}`;
                 headerStatusEl.className = "sejong-summary warn";
@@ -649,16 +632,12 @@
                 headerStatusEl.innerText = "세종: 특보 없음";
                 headerStatusEl.className = "sejong-summary safe";
             }
-
             let contentStr = "";
             if (uniqueSet.size > 0) {
                 contentStr = Array.from(uniqueSet).map(w => w.replace(/^o\s*/, "🚨 ")).join("<br>");
             } else if (bodyText.includes("없습니다")) {
                 contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 특보 없음";
-            } else {
-                contentStr = "특보 데이터 없음";
-            }
-
+            } else { contentStr = "특보 데이터 없음"; }
             contentEl.innerHTML = `
                 <div class="info-group"><span class="info-label">발효시각</span><div class="info-val time">${timeStr}</div></div>
                 <div class="info-group"><span class="info-label">전국 특보 내용</span><div class="info-val content">${contentStr}</div></div>
@@ -690,17 +669,13 @@
         const container = document.getElementById('list');
         const searchVal = document.getElementById('search').value.toLowerCase();
         let banCnt = 0;
-        
         container.innerHTML = '';
-
         trafficData.forEach((item, idx) => {
             if(item.status === 2) banCnt++;
-
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
             if((currFilter === '조치원' || currFilter === '전의' || currFilter === '부강') && item.area !== currFilter) return;
             if(searchVal && !item.name.includes(searchVal)) return;
-
             const div = document.createElement('div');
             div.className = 'traffic-card';
             div.innerHTML = `
@@ -712,16 +687,8 @@
             `;
             container.appendChild(div);
         });
-
         document.getElementById('cnt-total').innerText = trafficData.length;
         document.getElementById('cnt-ban').innerText = banCnt;
-    }
-
-    function toggleStatus(idx) {
-        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
-        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-        localStorage.setItem('policeData_v14', JSON.stringify(trafficData));
-        render();
     }
 
     function setFilter(type, btn) {
@@ -734,9 +701,8 @@
     function resetData() {
         if (!isAdmin) return alert("관리자만 가능합니다.");
         if(confirm('초기화하시겠습니까?')) {
-            localStorage.removeItem('policeData_v14');
-            trafficData = JSON.parse(JSON.stringify(defaultData));
-            render();
+            // DB 초기화
+            db.ref('trafficData').set(defaultData);
         }
     }
 </script>
