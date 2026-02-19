@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종경찰 통합관제 (Navi Fix)</title>
+    <title>세종경찰 통합관제 (Final v50)</title>
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#000000">
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -212,7 +212,7 @@
             <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
         </div>
         <div id="shelter-list" class="grid-4"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">* 시설 터치시 [현위치 → 시설] 길찾기가 실행됩니다.</div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">* 시설 터치시 카카오맵 길찾기(현위치→시설)로 연결됩니다.</div>
     </div>
 </div>
 
@@ -261,7 +261,7 @@
         { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
-    // 대피소 데이터 (69개소 전체)
+    // 대피소 69개소 (데이터 전체)
     const shelterData = [
         { area:'조치원', name:'조치원 복컴', addr:'세종특별자치시 조치원읍 대첩로 76', cap:162 },
         { area:'조치원', name:'조치원읍사무소', addr:'세종특별자치시 조치원읍 새내16길 17', cap:63 },
@@ -392,34 +392,9 @@
     }
     function closeCCTV() { document.getElementById('cctv-modal').style.display = 'none'; document.getElementById('cctv-frame').src = ""; }
 
-    // --- 대피소 (수정: sName=현위치&eName=주소) ---
+    // --- 대피소 (길찾기 수정: 도착지만 설정) ---
     function renderShelter(filter) {
         const container = document.getElementById('shelter-list'); container.innerHTML = '';
         const filtered = filter === '전체' ? shelterData : shelterData.filter(s => s.area === filter);
         filtered.forEach(s => {
-            const div = document.createElement('div'); div.className = 'info-card';
-            // [수정] sName=현위치, eName=대피소주소 (출발:현위치, 도착:대피소 자동 설정)
-            const kakaoUrl = `https://map.kakao.com/?sName=현위치&eName=${encodeURIComponent(s.addr)}`;
-            div.onclick = () => window.open(kakaoUrl, '_blank');
-            div.innerHTML = `<div style="display:flex; flex-direction:column; justify-content:center;"><span class="area-tag">${s.area}</span><div class="loc-name">${s.name}</div></div><div class="card-sub" style="margin-top:auto;">수용 ${s.cap}명<br><span style="color:var(--green); font-weight:bold;">길찾기 ></span></div>`;
-            container.appendChild(div);
-        });
-    }
-    function filterShelter(area, btn) { document.querySelectorAll('#sec-shelter .filter-btn').forEach(b=>b.classList.remove('active')); btn.classList.add('active'); renderShelter(area); }
-
-    // --- API 패칭 ---
-    async function fetchDetailRain() {
-        const locs = [{name:'조치원',lat:36.60,lon:127.30},{name:'연서',lat:36.56,lon:127.27},{name:'전의',lat:36.67,lon:127.20},{name:'전동',lat:36.63,lon:127.26},{name:'소정',lat:36.72,lon:127.15},{name:'부강',lat:36.52,lon:127.37},{name:'연동',lat:36.56,lon:127.32}];
-        try { const url=`https://api.open-meteo.com/v1/forecast?latitude=${locs.map(l=>l.lat).join(',')}&longitude=${locs.map(l=>l.lon).join(',')}&daily=precipitation_sum&timezone=Asia%2FTokyo`; const res=await fetch(url); const data=await res.json(); let total=0, html=''; (Array.isArray(data)?data:[data]).forEach((r,i)=>{ const rain=r.daily.precipitation_sum[0]||0; total+=rain; html+=`<div class="rain-cell"><div style="font-size:10px; color:#aaa;">${locs[i].name}</div><div class="rain-val ${rain>0?'wet':''}">${rain}mm</div></div>`; }); document.getElementById('rain-grid').innerHTML=html; document.getElementById('avg-rain-val').innerText=(total/locs.length).toFixed(1)+" mm"; } catch(e){}
-    }
-    async function autoFetchSpecial() {
-        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://www.weatheri.co.kr/special/special01.php')); const text=await res.text(); const body=(new DOMParser()).parseFromString(text,'text/html').body.innerText; const lines=body.split('\n'); const unique=new Set(); let sejong=null; lines.forEach(l=>{ if(l.trim().startsWith('o')&&(l.includes('주의보')||l.includes('경보'))){ unique.add(l.trim()); if(l.includes('세종')) sejong=l.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)[0]; }}); document.getElementById('sejong-status').innerText=sejong?`세종: ${sejong}`:"세종: 특보 없음"; document.getElementById('sejong-status').className=sejong?"sejong-summary warn":"sejong-summary safe"; document.getElementById('monitor-content').innerHTML=unique.size>0?Array.from(unique).join('<br>'):"특보 없음"; } catch(e){}
-    }
-    async function autoFetchForest() {
-        try { const res=await fetch('https://api.codetabs.com/v1/proxy?quest='+encodeURIComponent('https://forestfire.nifos.go.kr/')); const text=await res.text(); const match=text.match(/산불위험.*?([낮보높심][음통음각])/); if(match){ document.getElementById('forest-status-text').innerText="산불위험 "+match[1]; } else { document.getElementById('forest-status-text').innerText="정보 수신중"; } } catch(e){}
-    }
-    
-    function resetData() { if(confirm('초기화?')){ localStorage.removeItem('policeData_v14'); trafficData=defaultTraffic; pushToCloud(); render(); } }
-</script>
-</body>
-</html>
+            const div
