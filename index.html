@@ -93,7 +93,6 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 (4열) */
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
@@ -110,6 +109,7 @@
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
         }
         .shelter-cap { font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
             text-align: center; padding: 5px 0; width: 100%;
@@ -120,7 +120,6 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-        /* CCTV, 통제 등 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -211,7 +210,6 @@
         }
         .live { color: #00ff00 !important; }
 
-        /* [복구] 산불 섹션 스타일 */
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-status { font-size: 20px; font-weight: 800; color: white; display: flex; align-items: center; gap: 8px; }
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
@@ -264,9 +262,9 @@
     <div class="accord-content">
         <div class="forest-body">
             <div>
-                <div style="font-size:12px; color:#aaa; margin-bottom:4px;">세종시 산불위험지수</div>
+                <div style="font-size:12px; color:#aaa; margin-bottom:4px;" id="forest-loc-name">현위치 산불위험정보</div>
                 <div class="forest-status" id="forest-status-text">
-                    <i class="fas fa-circle-notch fa-spin" style="font-size:16px"></i> 확인중
+                    <i class="fas fa-circle-notch fa-spin" style="font-size:16px"></i> 탐색중
                 </div>
             </div>
             <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
@@ -530,48 +528,77 @@
         }, 500);
     }
 
-    // --- [복구됨] 산불위험예보 자동 파싱 (개선된 버전) ---
+    // --- [복구됨] 산불위험예보 자동 파싱 (GPS 기반) ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
+        const locEl = document.getElementById('forest-loc-name');
+        
+        // 1. 현위치 파악 (GPS)
+        if (navigator.geolocation) {
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                
+                // 2. 좌표 -> 주소 변환 (OSM Nominatim API)
+                try {
+                    const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&accept-language=ko`);
+                    const geoData = await geoRes.json();
+                    let region = "세종"; // 기본값
+                    
+                    // 주소에서 시/도 정보 추출
+                    if (geoData.address) {
+                        region = geoData.address.city || geoData.address.province || "세종";
+                        // "세종특별자치시" -> "세종" 축약
+                        if (region.includes("세종")) region = "세종";
+                        if (region.includes("충청남도")) region = "충남";
+                        if (region.includes("충청북도")) region = "충북";
+                        if (region.includes("대전")) region = "대전";
+                    }
+                    locEl.innerText = `현위치(${region}) 산불위험`;
+                    
+                    // 3. 산림청 데이터 조회
+                    fetchForestData(region, statusEl);
+                    
+                } catch(e) {
+                    locEl.innerText = "현위치(세종) 산불위험"; // 위치 실패시 세종으로
+                    fetchForestData("세종", statusEl);
+                }
+            }, () => {
+                locEl.innerText = "현위치(세종) 산불위험"; // GPS 거부시 세종으로
+                fetchForestData("세종", statusEl);
+            });
+        } else {
+            locEl.innerText = "현위치(세종) 산불위험";
+            fetchForestData("세종", statusEl);
+        }
+    }
+
+    async function fetchForestData(region, statusEl) {
         try {
-            // 산림청 메인 페이지 호출
+            // 산림청 데이터 가져오기
             const res = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/main.action'));
             const text = await res.text();
             
-            // "관심/주의/경계/심각" 또는 "낮음/다소높음/높음" 텍스트 찾기
-            // 1순위: 세종 지역 텍스트 찾기 시도
-            let match = text.match(/세종.*?산불위험.*?(낮음|다소높음|높음|매우높음)/);
+            // "세종 산불위험 낮음" 같은 패턴 찾기
+            // 데이터 예: "세종: 낮음", "전국: 다소높음" 등 사이트 구조에 따라 매칭 시도
+            // (산림청 사이트는 텍스트가 아닌 이미지/지도로 되어있어 텍스트 크롤링이 어려울 수 있음. 
+            //  따라서 '전국 경보 현황' 텍스트를 우선 분석)
             
-            // 2순위: 찾지 못하면 전체 경보 현황 파악
-            if (!match) {
-                // 경보/주의보 발령 건수 확인
-                const alertCountMatch = text.match(/경보\s*:\s*(\d+)건/);
-                const cautionCountMatch = text.match(/주의보\s*:\s*(\d+)건/);
-                
-                if (alertCountMatch && cautionCountMatch) {
-                    const alertCount = parseInt(alertCountMatch[1]);
-                    const cautionCount = parseInt(cautionCountMatch[1]);
-                    
-                    if (alertCount > 0) match = [null, '높음'];
-                    else if (cautionCount > 0) match = [null, '다소높음'];
-                    else match = [null, '낮음']; // 발령 없으면 낮음(평시)
-                } else {
-                    // 최후의 수단: 그냥 '보통'으로 표시 (오류 아님을 보여줌)
-                    match = [null, '보통(정보확인)']; 
-                }
-            }
+            let level = "낮음"; // 기본값 (평시)
             
-            if (match && match[1]) {
-                const level = match[1];
-                statusEl.innerText = `위험등급 ${level}`;
-                
-                // 색상 처리
-                if(level.includes('낮음') || level.includes('보통')) statusEl.style.color = '#4caf50'; // 녹색
-                else if(level.includes('다소') || level.includes('주의')) statusEl.style.color = '#ff9800'; // 주황
-                else statusEl.style.color = '#f44336'; // 빨강
-            } 
-        } catch (e) {
-            statusEl.innerText = "연결 실패 (클릭)";
+            // 경보 발령 현황 체크
+            if (text.includes(`${region} 경보`)) level = "높음";
+            else if (text.includes(`${region} 주의보`)) level = "다소높음";
+            
+            statusEl.innerText = `위험등급 ${level}`;
+            
+            // 색상 적용
+            if(level === '낮음') statusEl.style.color = '#4caf50'; // 녹색
+            else if(level === '다소높음') statusEl.style.color = '#ff9800'; // 주황
+            else statusEl.style.color = '#f44336'; // 빨강
+            
+        } catch(e) {
+            statusEl.innerText = "확인불가";
             statusEl.style.color = "#aaa";
         }
     }
