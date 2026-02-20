@@ -268,12 +268,12 @@
     <div class="accord-content">
         <div class="forest-body">
             <div>
-                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불경보 단계</div>
+                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불위험지수 (최대)</div>
                 <div class="forest-status" id="forest-status-text">
                     <i class="fas fa-spinner fa-spin" style="font-size:18px"></i> 수신중
                 </div>
             </div>
-            <a href="https://www.forest.go.kr/kfsweb/kfs/idx/Index.do" target="_blank" class="forest-link-btn">산림청 보기</a>
+            <a href="https://www.solar-onestop.com/portal/sub0503" target="_blank" class="forest-link-btn">원스톱 보기</a>
         </div>
     </div>
 </div>
@@ -404,7 +404,6 @@
     
     let isAdmin = false;
 
-    // --- 대피소 69개소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -534,33 +533,56 @@
         }, 500);
     }
 
-    // --- [핵심] 산림청 사이트 파싱 (세종시 상태 추출) ---
+    // --- [핵심 수정] 솔라원스톱 사이트에서 세종시 '최대값' 추출 로직 ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         try {
-            // 산림청 URL 호출 (캐시 방지를 위해 시간 난수 추가)
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.forest.go.kr/kfsweb/kfs/idx/Index.do') + '&t=' + Date.now();
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.solar-onestop.com/portal/sub0503') + '&t=' + Date.now();
             const res = await fetch(proxyUrl);
             const text = await res.text();
             
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             
-            // 모든 공백과 줄바꿈을 제거하여 문자를 하나로 붙임 (예: 주의세종특별자치시)
-            const bodyText = doc.body.innerText.replace(/\s+/g, '');
+            let sejongMax = null;
             
-            // "관심/주의/경계/심각" 바로 뒤에 "세종"이 붙어있는 부분을 찾음
-            const match = bodyText.match(/(관심|주의|경계|심각)세종/);
+            const rows = doc.querySelectorAll('tr');
+            for(let row of rows) {
+                if(row.innerText.includes('세종특별자치시') || row.innerText.includes('세종')) {
+                    const cells = row.querySelectorAll('td');
+                    let vals = [];
+                    let foundName = false;
+                    for(let i = 0; i < cells.length; i++) {
+                        if(cells[i].innerText.includes('세종')) {
+                            foundName = true;
+                            continue;
+                        }
+                        if(foundName) {
+                            let textVal = cells[i].innerText.replace(/[^0-9.]/g, ''); 
+                            if(textVal !== '') {
+                                vals.push(parseFloat(textVal));
+                            }
+                        }
+                    }
+                    if(vals.length > 0) {
+                        sejongMax = Math.max(...vals); // 최대값 추출
+                        break;
+                    }
+                }
+            }
             
-            if (match && match[1]) {
-                const level = match[1];
-                statusEl.innerText = `산불경보: ${level}`;
+            if (sejongMax !== null) {
+                let level = '';
+                let color = '';
+                let val = Math.round(sejongMax);
                 
-                // 산림청 단계별 색상 적용
-                if(level === '관심') statusEl.style.color = '#30d158';      // 녹색 (안전)
-                else if(level === '주의') statusEl.style.color = '#ffd60a'; // 노란색
-                else if(level === '경계') statusEl.style.color = '#ff9f0a'; // 주황색
-                else statusEl.style.color = '#ff453a';                      // 빨간색 (심각)
+                if (val <= 50) { level = '낮음'; color = '#4caf50'; }
+                else if (val <= 65) { level = '보통'; color = '#ff9800'; }
+                else if (val <= 85) { level = '높음'; color = '#f44336'; }
+                else { level = '매우 높음'; color = '#b71c1c'; }
+                
+                statusEl.innerHTML = `산불위험 ${level} <span style="font-size:12px; color:#ccc;">(최대 ${sejongMax})</span>`;
+                statusEl.style.color = color;
             } else {
                 statusEl.innerText = "사이트 확인 필요";
                 statusEl.style.color = "#aaa";
