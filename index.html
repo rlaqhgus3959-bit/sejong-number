@@ -378,12 +378,14 @@
 </div>
 
 <script>
+    // 서비스 워커 강제 삭제 (캐시 문제 해결)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
     }
 
+    // 파이어베이스 설정 (도로통제 실시간 공유용 키)
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -400,7 +402,7 @@
     
     let isAdmin = false;
 
-    // --- 대피소 데이터 ---
+    // --- 대피소 69개소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -530,25 +532,23 @@
         }, 500);
     }
 
-    // --- [공공데이터포털] 7개 읍면별 산불위험지수 수신 로직 ---
+    // --- [오픈 API 방식] 7개 읍면별 산불위험지수 수신 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
         
-        // 여기에 공공데이터포털 발급 키 적용 완료
+        // 공공데이터포털 산불위험지수 발급 키
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0"; 
         
-        // 파라미터명 수정(localAreas, excludeForecast), 세종시 지역코드(36110) 반영
-        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=50&localAreas=36110&excludeForecast=0&_type=json`;
+        // 세종시 전체(localArea=36)를 대상으로 데이터를 직접 호출합니다.
+        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=100&localArea=36&excludeForecast=0&_type=json`;
 
         try {
-            // CORS 우회 없이 다이렉트 호출 (데이터포털 지원)
             const res = await fetch(url);
             const text = await res.text();
             
-            // 공공데이터포털은 키 등록 전이거나 에러 발생 시 XML 형식을 뱉어냄
+            // 키 등록 대기중이거나 오류 발생 시 공공데이터포털은 XML을 반환합니다.
             if (text.startsWith('<')) {
-                console.log("API 에러(XML) 응답:", text);
                 statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
                 return;
             }
@@ -559,7 +559,7 @@
             const results = {};
             targetNames.forEach(name => results[name] = null);
 
-            if(data && data.response && data.response.body && data.response.body.items) {
+            if(data && data.response && data.response.header && data.response.header.resultCode === "00") {
                 let items = data.response.body.items.item;
                 if(!Array.isArray(items)) items = [items]; 
 
@@ -579,7 +579,7 @@
                     let color = '#aaa';
                     let displayVal = '-';
                     
-                    if (val !== null) {
+                    if (val !== null && !isNaN(val)) {
                         displayVal = Math.round(val);
                         totalMax += val;
                         validCount++;
@@ -623,7 +623,8 @@
                 statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
 
             } else {
-                statusEl.innerHTML = "<span style='color:#aaa; font-size:12px;'>API 응답 데이터 없음</span>";
+                let errMsg = data?.response?.header?.resultMsg || "데이터 없음";
+                statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: ${errMsg}</span>`;
             }
         } catch (e) {
             console.error("Fetch Error:", e);
