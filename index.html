@@ -268,12 +268,12 @@
     <div class="accord-content">
         <div class="forest-body">
             <div>
-                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불위험등급</div>
+                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불경보 단계</div>
                 <div class="forest-status" id="forest-status-text">
                     <i class="fas fa-spinner fa-spin" style="font-size:18px"></i> 수신중
                 </div>
             </div>
-            <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">지도 보기</a>
+            <a href="https://www.forest.go.kr/kfsweb/kfs/idx/Index.do" target="_blank" class="forest-link-btn">산림청 보기</a>
         </div>
     </div>
 </div>
@@ -534,41 +534,40 @@
         }, 500);
     }
 
-    // --- [수정] 산불위험예보 자동 파싱 (범례 무시 & 세종 타겟팅) ---
+    // --- [핵심] 산림청 사이트 파싱 (세종시 상태 추출) ---
     async function autoFetchForest() {
         const statusEl = document.getElementById('forest-status-text');
         try {
-            // 캐시 방지를 위해 난수 추가
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://forestfire.nifos.go.kr/main.action') + '&t=' + Date.now();
+            // 산림청 URL 호출 (캐시 방지를 위해 시간 난수 추가)
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.forest.go.kr/kfsweb/kfs/idx/Index.do') + '&t=' + Date.now();
             const res = await fetch(proxyUrl);
             const text = await res.text();
             
-            // 1. "세종" 키워드 뒤에 오는 위험 등급 찾기
-            // (줄바꿈이 있어도 찾을 수 있게 /s 옵션 사용)
-            let match = text.match(/세종.*?([낮보높심][음통음각])/s);
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
             
-            // 2. 만약 세종을 못 찾으면, "전국" 또는 "현재 산불위험" 키워드로 찾기
-            if (!match) {
-                match = text.match(/현재\s*산불위험.*?([낮보높심][음통음각])/s);
-            }
-
-            // 3. 그래도 없으면 가장 보수적으로(안전하게) 다소높음 표시 (오류 대비)
+            // 모든 공백과 줄바꿈을 제거하여 문자를 하나로 붙임 (예: 주의세종특별자치시)
+            const bodyText = doc.body.innerText.replace(/\s+/g, '');
+            
+            // "관심/주의/경계/심각" 바로 뒤에 "세종"이 붙어있는 부분을 찾음
+            const match = bodyText.match(/(관심|주의|경계|심각)세종/);
             
             if (match && match[1]) {
                 const level = match[1];
-                statusEl.innerText = `산불위험 ${level}`;
+                statusEl.innerText = `산불경보: ${level}`;
                 
-                if(level === '낮음') statusEl.style.color = '#4caf50';
-                else if(level === '보통') statusEl.style.color = '#ff9800'; // 보통/다소높음
-                else if(level === '다소높음') statusEl.style.color = '#ff9800';
-                else statusEl.style.color = '#f44336'; // 높음/심각
+                // 산림청 단계별 색상 적용
+                if(level === '관심') statusEl.style.color = '#30d158';      // 녹색 (안전)
+                else if(level === '주의') statusEl.style.color = '#ffd60a'; // 노란색
+                else if(level === '경계') statusEl.style.color = '#ff9f0a'; // 주황색
+                else statusEl.style.color = '#ff453a';                      // 빨간색 (심각)
             } else {
-                // 파싱 실패 시, 사이트 직접 확인 유도
                 statusEl.innerText = "사이트 확인 필요";
                 statusEl.style.color = "#aaa";
             }
         } catch (e) {
             statusEl.innerText = "연결 실패";
+            statusEl.style.color = "#aaa";
         }
     }
 
