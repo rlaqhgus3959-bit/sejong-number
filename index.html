@@ -93,7 +93,6 @@
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
-        /* 대피소 스타일 (4열) */
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
         .shelter-card {
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
@@ -121,7 +120,6 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-        /* CCTV 스타일 */
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
         .cctv-card {
             background: #1c1c1e; padding: 10px; border-radius: 12px;
@@ -139,7 +137,6 @@
             text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
         }
 
-        /* 통제구역 스타일 */
         .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
         .traffic-card {
             background: #1c1c1e; padding: 8px; border-radius: 10px;
@@ -168,7 +165,6 @@
         }
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-        /* 검색 및 필터, 추가 버튼 영역 */
         .filter-area { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
         .search-row { display: flex; gap: 8px; }
         .search-input { flex: 1; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; }
@@ -176,7 +172,7 @@
         .add-loc-btn {
             background: var(--blue); color: white; border: none; padding: 0 15px;
             border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer;
-            white-space: nowrap; display: none; /* 관리자일 때만 표시 */
+            white-space: nowrap; display: none;
         }
 
         .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
@@ -215,7 +211,6 @@
         }
         .live { color: #00ff00 !important; }
 
-        /* 산불 섹션 스타일 */
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
@@ -262,19 +257,20 @@
 
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
-        <div class="ah-title"><i class="fas fa-tree"></i> 산불위험 예보</div>
+        <div class="ah-title"><i class="fas fa-tree"></i> 읍면별 산불위험지수</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="forest-body">
+        <div class="forest-body" style="margin-bottom: 5px;">
             <div>
-                <div style="font-size:13px; color:#aaa; margin-bottom:5px;">세종시 산불위험지수 (최대)</div>
-                <div class="forest-status" id="forest-status-text">
-                    <i class="fas fa-spinner fa-spin" style="font-size:18px"></i> 수신중
+                <div style="font-size:12px; color:#aaa; margin-bottom:2px;">공공데이터포털 (실시간 최대값)</div>
+                <div class="forest-status" id="forest-status-text" style="font-size:14px; color:#fff;">
+                    <i class="fas fa-spinner fa-spin"></i> API 연결 중...
                 </div>
             </div>
-            <a href="https://www.solar-onestop.com/portal/sub0503" target="_blank" class="forest-link-btn">원스톱 보기</a>
+            <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">산림청 보기</a>
         </div>
+        <div class="rain-grid" id="forest-grid"></div>
     </div>
 </div>
 
@@ -404,6 +400,7 @@
     
     let isAdmin = false;
 
+    // --- 대피소 69개소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -533,63 +530,96 @@
         }, 500);
     }
 
-    // --- [핵심 수정] 솔라원스톱 사이트에서 세종시 '최대값' 추출 로직 ---
+    // --- [오픈 API 방식] 7개 읍면별 산불위험지수 수신 ---
     async function autoFetchForest() {
+        const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
+        
+        // 여기에 공공데이터포털에서 발급받은 '일반 인증키 (Encoding)' 입력
+        const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0"; 
+        
+        // 세종시 시군구 코드(36110)의 읍면동 데이터를 가져오는 URL
+        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=30&localArea=36110&exclude=0&_type=json`;
+
         try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.solar-onestop.com/portal/sub0503') + '&t=' + Date.now();
+            // 브라우저 보안(CORS) 에러 방지용 프록시 호출
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
             const res = await fetch(proxyUrl);
-            const text = await res.text();
-            
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(text, 'text/html');
-            
-            let sejongMax = null;
-            
-            const rows = doc.querySelectorAll('tr');
-            for(let row of rows) {
-                if(row.innerText.includes('세종특별자치시') || row.innerText.includes('세종')) {
-                    const cells = row.querySelectorAll('td');
-                    let vals = [];
-                    let foundName = false;
-                    for(let i = 0; i < cells.length; i++) {
-                        if(cells[i].innerText.includes('세종')) {
-                            foundName = true;
-                            continue;
-                        }
-                        if(foundName) {
-                            let textVal = cells[i].innerText.replace(/[^0-9.]/g, ''); 
-                            if(textVal !== '') {
-                                vals.push(parseFloat(textVal));
-                            }
-                        }
+            const data = await res.json();
+
+            const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
+            const results = {};
+            targetNames.forEach(name => results[name] = null);
+
+            if(data && data.response && data.response.body && data.response.body.items) {
+                let items = data.response.body.items.item;
+                if(!Array.isArray(items)) items = [items]; 
+
+                items.forEach(item => {
+                    if (targetNames.includes(item.emdNm)) {
+                        results[item.emdNm] = parseFloat(item.maxi);
                     }
-                    if(vals.length > 0) {
-                        sejongMax = Math.max(...vals); // 최대값 추출
-                        break;
+                });
+                
+                let html = '';
+                let totalMax = 0;
+                let validCount = 0;
+
+                targetNames.forEach(name => {
+                    const val = results[name];
+                    let levelStr = '-';
+                    let color = '#aaa';
+                    let displayVal = '-';
+                    
+                    if (val !== null) {
+                        displayVal = Math.round(val);
+                        totalMax += val;
+                        validCount++;
+                        
+                        if (displayVal <= 50) { levelStr = '낮음'; color = '#4caf50'; }
+                        else if (displayVal <= 65) { levelStr = '보통'; color = '#ff9800'; }
+                        else if (displayVal <= 85) { levelStr = '높음'; color = '#f44336'; }
+                        else { levelStr = '매우높음'; color = '#b71c1c'; }
                     }
+                    
+                    const shortName = name.replace('읍', '').replace('면', '');
+                    
+                    html += `
+                    <div class="rain-cell">
+                        <div class="rain-loc">${shortName}</div>
+                        <div class="rain-val" style="color:${color}; font-size:12px;">${levelStr}</div>
+                        <div style="font-size:10px; color:#888; margin-top:2px;">${displayVal}</div>
+                    </div>`;
+                });
+                
+                // 8번째 칸 (7개 평균)
+                let avgStr = '-';
+                let avgColor = '#aaa';
+                let avgVal = '-';
+                if (validCount > 0) {
+                    avgVal = Math.round(totalMax / validCount);
+                    if (avgVal <= 50) { avgStr = '낮음'; avgColor = '#4caf50'; }
+                    else if (avgVal <= 65) { avgStr = '보통'; avgColor = '#ff9800'; }
+                    else if (avgVal <= 85) { avgStr = '높음'; avgColor = '#f44336'; }
+                    else { avgStr = '매우높음'; avgColor = '#b71c1c'; }
                 }
-            }
-            
-            if (sejongMax !== null) {
-                let level = '';
-                let color = '';
-                let val = Math.round(sejongMax);
+
+                html += `
+                <div class="rain-cell" style="background:#222;">
+                    <div class="rain-loc" style="color:#fff;">7개 평균</div>
+                    <div class="rain-val" style="color:${avgColor}; font-size:12px;">${avgStr}</div>
+                    <div style="font-size:10px; color:#ccc; margin-top:2px;">${avgVal}</div>
+                </div>`;
                 
-                if (val <= 50) { level = '낮음'; color = '#4caf50'; }
-                else if (val <= 65) { level = '보통'; color = '#ff9800'; }
-                else if (val <= 85) { level = '높음'; color = '#f44336'; }
-                else { level = '매우 높음'; color = '#b71c1c'; }
-                
-                statusEl.innerHTML = `산불위험 ${level} <span style="font-size:12px; color:#ccc;">(최대 ${sejongMax})</span>`;
-                statusEl.style.color = color;
+                gridEl.innerHTML = html;
+                statusEl.innerHTML = "<span style='color:var(--blue);'>정상 수신됨</span>";
+
             } else {
-                statusEl.innerText = "사이트 확인 필요";
-                statusEl.style.color = "#aaa";
+                statusEl.innerText = "API 응답 데이터 없음";
             }
         } catch (e) {
-            statusEl.innerText = "연결 실패";
-            statusEl.style.color = "#aaa";
+            console.error(e);
+            statusEl.innerText = "API 연결 실패 (새로고침)";
         }
     }
 
