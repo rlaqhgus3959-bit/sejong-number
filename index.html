@@ -400,7 +400,7 @@
     
     let isAdmin = false;
 
-    // --- 대피소 69개소 데이터 ---
+    // --- 대피소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -530,22 +530,30 @@
         }, 500);
     }
 
-    // --- [오픈 API 방식] 7개 읍면별 산불위험지수 수신 ---
+    // --- [공공데이터포털] 7개 읍면별 산불위험지수 수신 로직 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
         
-        // 여기에 공공데이터포털에서 발급받은 '일반 인증키 (Encoding)' 입력
+        // 여기에 공공데이터포털 발급 키 적용 완료
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0"; 
         
-        // 세종시 시군구 코드(36110)의 읍면동 데이터를 가져오는 URL
-        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=30&localArea=36110&exclude=0&_type=json`;
+        // 파라미터명 수정(localAreas, excludeForecast), 세종시 지역코드(36110) 반영
+        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=50&localAreas=36110&excludeForecast=0&_type=json`;
 
         try {
-            // 브라우저 보안(CORS) 에러 방지용 프록시 호출
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
-            const res = await fetch(proxyUrl);
-            const data = await res.json();
+            // CORS 우회 없이 다이렉트 호출 (데이터포털 지원)
+            const res = await fetch(url);
+            const text = await res.text();
+            
+            // 공공데이터포털은 키 등록 전이거나 에러 발생 시 XML 형식을 뱉어냄
+            if (text.startsWith('<')) {
+                console.log("API 에러(XML) 응답:", text);
+                statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
+                return;
+            }
+
+            const data = JSON.parse(text);
 
             const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
             const results = {};
@@ -612,14 +620,14 @@
                 </div>`;
                 
                 gridEl.innerHTML = html;
-                statusEl.innerHTML = "<span style='color:var(--blue);'>정상 수신됨</span>";
+                statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
 
             } else {
-                statusEl.innerText = "API 응답 데이터 없음";
+                statusEl.innerHTML = "<span style='color:#aaa; font-size:12px;'>API 응답 데이터 없음</span>";
             }
         } catch (e) {
-            console.error(e);
-            statusEl.innerText = "API 연결 실패 (새로고침)";
+            console.error("Fetch Error:", e);
+            statusEl.innerHTML = "<span style='color:#ff453a; font-size:12px;'>API 연결 실패 (새로고침)</span>";
         }
     }
 
