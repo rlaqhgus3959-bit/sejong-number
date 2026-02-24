@@ -413,7 +413,6 @@
     
     let isAdmin = false;
 
-    // --- 대피소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -525,34 +524,42 @@
         document.getElementById(id).classList.toggle('open');
     }
 
-    async function refreshAll() {
+    // 통신 방식 개선 - AllOrigins 사용 (매우 안정적인 우회 서버)
+    async function fetchWithProxy(url) {
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const response = await fetch(proxyUrl);
+        if (!response.ok) throw new Error('Proxy Network Error');
+        const data = await response.json();
+        return data.contents; // HTML 원본 글자 반환
+    }
+
+    function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
         
-        await Promise.all([
-            render(),
-            renderCCTV(),
-            renderShelters(),
-            fetchSejongRain(),   // [신규] 세종시청 강우량
-            fetchSejongSnow(),   // [신규] 세종시청 적설량
-            autoFetchSpecial(),
-            autoFetchForest()    // [수정] 산불 시군구 단위
-        ]);
+        // 1. 대피소, CCTV, 도로통제 등 (통신이 필요 없는 것들은 0.1초만에 즉시 그리기)
+        render();
+        renderCCTV();
+        renderShelters();
 
-        setTimeout(() => {
+        // 2. 시간이 걸리는 날씨, 산불 외부 데이터 가져오기 (각각 병렬 처리)
+        Promise.allSettled([
+            fetchSejongRain(),
+            fetchSejongSnow(),
+            autoFetchSpecial(),
+            autoFetchForest()
+        ]).then(() => {
             icon.classList.remove('spin'); 
-        }, 500);
+        });
     }
 
     // --- 세종시청 지역별 일 강우량 수신 ---
     async function fetchSejongRain() {
         const gridEl = document.getElementById('sejong-rain-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
-        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url) + '&t=' + Date.now();
         
         try {
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
+            const text = await fetchWithProxy(url);
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             
@@ -609,11 +616,9 @@
     async function fetchSejongSnow() {
         const gridEl = document.getElementById('sejong-snow-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do';
-        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url) + '&t=' + Date.now();
         
         try {
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
+            const text = await fetchWithProxy(url);
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             
@@ -671,15 +676,19 @@
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
         
-        // 공공데이터포털 발급 키
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0"; 
-        
-        // SigunguSearch API: localArea=36 (세종특별자치시 전체)
         const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListSigunguSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=10&localArea=36&excludeForecast=0&_type=json`;
 
         try {
-            const res = await fetch(url);
-            const text = await res.text();
+            // 다이렉트 통신 시도 (공공데이터포털 지원)
+            let text;
+            try {
+                const res = await fetch(url);
+                text = await res.text();
+            } catch (err) {
+                // 다이렉트 통신 실패 시 프록시 서버 경유
+                text = await fetchWithProxy(url);
+            }
             
             if (text.startsWith('<')) {
                 statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
@@ -690,10 +699,10 @@
             const data = JSON.parse(text);
 
             if(data && data.response && data.response.header && data.response.header.resultCode === "00") {
-                let items = data.response.body.items.item;
+                let items = data?.response?.body?.items?.item;
+                if(!items) throw new Error("No Data");
                 if(!Array.isArray(items)) items = [items]; 
 
-                // 세종시는 결과가 보통 1개 뿐이므로 안전하게 '세종'이 포함된 데이터를 찾거나 첫번째 데이터를 사용
                 let sejongItem = items.find(item => item.sigunNm && item.sigunNm.includes('세종')) || items[0];
                 
                 if(sejongItem) {
@@ -710,7 +719,6 @@
                         else { levelStr = '매우높음'; color = '#b71c1c'; }
                     }
                     
-                    // 시군구 데이터는 단일 블록으로 크게 표시
                     let html = `
                     <div class="rain-cell" style="grid-column: 1 / -1; background:#222; padding:15px;">
                         <div class="rain-loc" style="color:#fff; font-size:14px;">세종시 (전체)</div>
@@ -737,9 +745,8 @@
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
         try {
-            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
+            const url = 'https://www.weatheri.co.kr/special/special01.php';
+            const text = await fetchWithProxy(url);
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             const bodyText = doc.body.innerText || "";
