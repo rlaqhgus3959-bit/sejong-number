@@ -17,7 +17,7 @@
         :root {
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-            --shelter: #ffd60a; --kakao: #FAE100;
+            --shelter: #ffd60a; --kakao: #FAE100; --snow: #74b9ff;
         }
         body {
             background: var(--bg); color: var(--text);
@@ -90,6 +90,7 @@
         .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
         .rain-val { font-size: 13px; font-weight: 700; color: white; }
         .rain-val.wet { color: var(--blue); }
+        .rain-val.snow-wet { color: var(--snow); }
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
 
@@ -241,23 +242,35 @@
     </div>
 </div>
 
-<div class="accord-section" id="sec-rain">
-    <div class="accord-header" onclick="toggleSection('sec-rain')">
-        <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 강우량</div>
+<div class="accord-section" id="sec-sejong-rain">
+    <div class="accord-header" onclick="toggleSection('sec-sejong-rain')">
+        <div class="ah-title"><i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 읍면별 일 강우량</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="rain-avg-box">
-            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균</div>
-            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        <div class="rain-grid" id="sejong-rain-grid">
+            <div style="grid-column:1/-1; text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
         </div>
-        <div class="rain-grid" id="rain-grid"></div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:right;">데이터 출처: 세종시청 재난안전 포털</div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-sejong-snow">
+    <div class="accord-header" onclick="toggleSection('sec-sejong-snow')">
+        <div class="ah-title"><i class="fas fa-snowflake" style="color:var(--snow)"></i> 읍면별 일 적설량</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="rain-grid" id="sejong-snow-grid">
+            <div style="grid-column:1/-1; text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
+        </div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:right;">데이터 출처: 세종시청 재난안전 포털</div>
     </div>
 </div>
 
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
-        <div class="ah-title"><i class="fas fa-tree"></i> 읍면별 산불위험지수</div>
+        <div class="ah-title"><i class="fas fa-tree" style="color:var(--forest)"></i> 시군구 산불위험지수</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -270,7 +283,7 @@
             </div>
             <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">산림청 보기</a>
         </div>
-        <div class="rain-grid" id="forest-grid"></div>
+        <div class="rain-grid" id="forest-grid" style="display: block;"></div>
     </div>
 </div>
 
@@ -378,14 +391,12 @@
 </div>
 
 <script>
-    // 서비스 워커 강제 삭제 (캐시 문제 해결)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
     }
 
-    // 파이어베이스 설정 (도로통제 실시간 공유용 키)
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -402,7 +413,7 @@
     
     let isAdmin = false;
 
-    // --- 대피소 69개소 데이터 ---
+    // --- 대피소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -522,9 +533,10 @@
             render(),
             renderCCTV(),
             renderShelters(),
-            fetchDetailRain(),
+            fetchSejongRain(),   // [신규] 세종시청 강우량
+            fetchSejongSnow(),   // [신규] 세종시청 적설량
             autoFetchSpecial(),
-            autoFetchForest()
+            autoFetchForest()    // [수정] 산불 시군구 단위
         ]);
 
         setTimeout(() => {
@@ -532,96 +544,185 @@
         }, 500);
     }
 
-    // --- [오픈 API 방식] 7개 읍면별 산불위험지수 수신 ---
+    // --- 세종시청 지역별 일 강우량 수신 ---
+    async function fetchSejongRain() {
+        const gridEl = document.getElementById('sejong-rain-grid');
+        const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
+        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url) + '&t=' + Date.now();
+        
+        try {
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            
+            const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
+            const results = {};
+            targetNames.forEach(n => results[n] = 0);
+            
+            const rows = doc.querySelectorAll('tr');
+            rows.forEach(row => {
+                const rowText = row.innerText;
+                for (let name of targetNames) {
+                    if (rowText.includes(name)) {
+                        const cells = row.querySelectorAll('td');
+                        for (let cell of cells) {
+                            let valStr = cell.innerText.trim().replace(/[^0-9.]/g, '');
+                            if (valStr !== '') {
+                                results[name] = parseFloat(valStr) || 0;
+                                break; 
+                            }
+                        }
+                        break;
+                    }
+                }
+            });
+
+            let html = '';
+            let total = 0;
+            targetNames.forEach(name => {
+                const val = results[name];
+                total += val;
+                const valClass = val > 0 ? 'rain-val wet' : 'rain-val';
+                const shortName = name.replace('읍', '').replace('면', '');
+                html += `
+                <div class="rain-cell">
+                    <div class="rain-loc">${shortName}</div>
+                    <div class="${valClass}">${val}<small>mm</small></div>
+                </div>`;
+            });
+            
+            const avg = (total / targetNames.length).toFixed(1);
+            html += `
+            <div class="rain-cell" style="background:#222;">
+                <div class="rain-loc" style="color:#fff;">7개 평균</div>
+                <div class="rain-val wet" style="color:var(--blue);">${avg}<small>mm</small></div>
+            </div>`;
+            
+            gridEl.innerHTML = html;
+        } catch (e) {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">세종시청 강우량 데이터 수신 실패</div>`;
+        }
+    }
+
+    // --- 세종시청 지역별 일 적설량 수신 ---
+    async function fetchSejongSnow() {
+        const gridEl = document.getElementById('sejong-snow-grid');
+        const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do';
+        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url) + '&t=' + Date.now();
+        
+        try {
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
+            
+            const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
+            const results = {};
+            targetNames.forEach(n => results[n] = 0);
+            
+            const rows = doc.querySelectorAll('tr');
+            rows.forEach(row => {
+                const rowText = row.innerText;
+                for (let name of targetNames) {
+                    if (rowText.includes(name)) {
+                        const cells = row.querySelectorAll('td');
+                        for (let cell of cells) {
+                            let valStr = cell.innerText.trim().replace(/[^0-9.]/g, '');
+                            if (valStr !== '') {
+                                results[name] = parseFloat(valStr) || 0;
+                                break; 
+                            }
+                        }
+                        break;
+                    }
+                }
+            });
+
+            let html = '';
+            let total = 0;
+            targetNames.forEach(name => {
+                const val = results[name];
+                total += val;
+                const valClass = val > 0 ? 'rain-val snow-wet' : 'rain-val';
+                const shortName = name.replace('읍', '').replace('면', '');
+                html += `
+                <div class="rain-cell">
+                    <div class="rain-loc">${shortName}</div>
+                    <div class="${valClass}">${val}<small>cm</small></div>
+                </div>`;
+            });
+            
+            const avg = (total / targetNames.length).toFixed(1);
+            html += `
+            <div class="rain-cell" style="background:#222;">
+                <div class="rain-loc" style="color:#fff;">7개 평균</div>
+                <div class="rain-val snow-wet" style="color:var(--snow);">${avg}<small>cm</small></div>
+            </div>`;
+            
+            gridEl.innerHTML = html;
+        } catch (e) {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">세종시청 적설량 데이터 수신 실패</div>`;
+        }
+    }
+
+    // --- [공공데이터포털] 산불위험지수 시군구 단위(세종시 전체) 수신 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
         
-        // 공공데이터포털 산불위험지수 발급 키
+        // 공공데이터포털 발급 키
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0"; 
         
-        // 세종시 전체(localArea=36)를 대상으로 데이터를 직접 호출합니다.
-        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=100&localArea=36&excludeForecast=0&_type=json`;
+        // SigunguSearch API: localArea=36 (세종특별자치시 전체)
+        const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListSigunguSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=10&localArea=36&excludeForecast=0&_type=json`;
 
         try {
             const res = await fetch(url);
             const text = await res.text();
             
-            // 키 등록 대기중이거나 오류 발생 시 공공데이터포털은 XML을 반환합니다.
             if (text.startsWith('<')) {
                 statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
+                gridEl.innerHTML = '';
                 return;
             }
 
             const data = JSON.parse(text);
 
-            const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
-            const results = {};
-            targetNames.forEach(name => results[name] = null);
-
             if(data && data.response && data.response.header && data.response.header.resultCode === "00") {
                 let items = data.response.body.items.item;
                 if(!Array.isArray(items)) items = [items]; 
 
-                items.forEach(item => {
-                    if (targetNames.includes(item.emdNm)) {
-                        results[item.emdNm] = parseFloat(item.maxi);
-                    }
-                });
+                // 세종시는 결과가 보통 1개 뿐이므로 안전하게 '세종'이 포함된 데이터를 찾거나 첫번째 데이터를 사용
+                let sejongItem = items.find(item => item.sigunNm && item.sigunNm.includes('세종')) || items[0];
                 
-                let html = '';
-                let totalMax = 0;
-                let validCount = 0;
-
-                targetNames.forEach(name => {
-                    const val = results[name];
+                if(sejongItem) {
+                    const val = parseFloat(sejongItem.maxi);
                     let levelStr = '-';
                     let color = '#aaa';
                     let displayVal = '-';
                     
                     if (val !== null && !isNaN(val)) {
                         displayVal = Math.round(val);
-                        totalMax += val;
-                        validCount++;
-                        
                         if (displayVal <= 50) { levelStr = '낮음'; color = '#4caf50'; }
                         else if (displayVal <= 65) { levelStr = '보통'; color = '#ff9800'; }
                         else if (displayVal <= 85) { levelStr = '높음'; color = '#f44336'; }
                         else { levelStr = '매우높음'; color = '#b71c1c'; }
                     }
                     
-                    const shortName = name.replace('읍', '').replace('면', '');
-                    
-                    html += `
-                    <div class="rain-cell">
-                        <div class="rain-loc">${shortName}</div>
-                        <div class="rain-val" style="color:${color}; font-size:12px;">${levelStr}</div>
-                        <div style="font-size:10px; color:#888; margin-top:2px;">${displayVal}</div>
+                    // 시군구 데이터는 단일 블록으로 크게 표시
+                    let html = `
+                    <div class="rain-cell" style="grid-column: 1 / -1; background:#222; padding:15px;">
+                        <div class="rain-loc" style="color:#fff; font-size:14px;">세종시 (전체)</div>
+                        <div class="rain-val" style="color:${color}; font-size:18px; margin:5px 0;">${levelStr}</div>
+                        <div style="font-size:12px; color:#ccc;">산불위험지수 최대값: ${displayVal}</div>
                     </div>`;
-                });
-                
-                // 8번째 칸 (7개 평균)
-                let avgStr = '-';
-                let avgColor = '#aaa';
-                let avgVal = '-';
-                if (validCount > 0) {
-                    avgVal = Math.round(totalMax / validCount);
-                    if (avgVal <= 50) { avgStr = '낮음'; avgColor = '#4caf50'; }
-                    else if (avgVal <= 65) { avgStr = '보통'; avgColor = '#ff9800'; }
-                    else if (avgVal <= 85) { avgStr = '높음'; avgColor = '#f44336'; }
-                    else { avgStr = '매우높음'; avgColor = '#b71c1c'; }
+                    
+                    gridEl.innerHTML = html;
+                    statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
+                } else {
+                    gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:#aaa;">세종시 데이터가 없습니다.</div>`;
                 }
-
-                html += `
-                <div class="rain-cell" style="background:#222;">
-                    <div class="rain-loc" style="color:#fff;">7개 평균</div>
-                    <div class="rain-val" style="color:${avgColor}; font-size:12px;">${avgStr}</div>
-                    <div style="font-size:10px; color:#ccc; margin-top:2px;">${avgVal}</div>
-                </div>`;
-                
-                gridEl.innerHTML = html;
-                statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
-
             } else {
                 let errMsg = data?.response?.header?.resultMsg || "데이터 없음";
                 statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: ${errMsg}</span>`;
@@ -630,146 +731,6 @@
             console.error("Fetch Error:", e);
             statusEl.innerHTML = "<span style='color:#ff453a; font-size:12px;'>API 연결 실패 (새로고침)</span>";
         }
-    }
-
-    function addTrafficLocation() {
-        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
-        const area = prompt("지역 입력 (예: 조치원, 전의, 부강)");
-        if (!area) return;
-        const name = prompt("장소명 입력");
-        if (!name) return;
-
-        const newItem = {
-            id: Date.now(),
-            area: area,
-            name: name,
-            status: 0 
-        };
-
-        trafficData.push(newItem);
-        db.ref('trafficData').set(trafficData);
-    }
-
-    function renderShelters() {
-        const container = document.getElementById('shelter-list');
-        container.innerHTML = '';
-        
-        const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
-        const filterArea = activeBtn ? activeBtn.innerText : '전체';
-        const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
-
-        filteredData.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'shelter-card';
-            
-            div.innerHTML = `
-                <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:2px;"></i>${item.name}</div>
-                <div class="shelter-addr">${item.addr}</div>
-                <div class="shelter-cap">수용: ${item.cap}</div>
-                <button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')">
-                    <i class="fas fa-location-arrow"></i> 길찾기
-                </button>
-            `;
-            container.appendChild(div);
-        });
-    }
-    
-    function filterShelter(area, btn) {
-        document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderShelters(); 
-    }
-
-    function openKakaoNavi(lat, lng, name) {
-        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
-
-        if (isMobile) {
-            location.href = appUrl;
-            setTimeout(() => {
-                if (document.hidden) return; 
-                window.location.href = webUrl;
-            }, 1500);
-        } else {
-            window.open(webUrl, '_blank');
-        }
-    }
-
-    function toggleStatus(idx) {
-        if (!isAdmin) return alert("관리자 권한이 필요합니다.");
-        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-        db.ref('trafficData').set(trafficData);
-    }
-
-    function setCCTVFilter(type, btn) {
-        cctvFilter = type;
-        const group = btn.parentElement;
-        group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderCCTV();
-    }
-
-    function renderCCTV() {
-        const container = document.getElementById('cctv-list');
-        container.innerHTML = '';
-        cctvData.forEach(item => {
-            if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
-            const div = document.createElement('div');
-            div.className = 'cctv-card';
-            div.onclick = () => openCCTV(item.name, item.url);
-            div.innerHTML = `
-                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
-                <div class="cctv-icon"><i class="fas fa-video"></i></div>
-                <div class="cctv-btn">영상보기</div>
-            `;
-            container.appendChild(div);
-        });
-        if(container.innerHTML === '') container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
-    }
-
-    function openCCTV(name, url) {
-        document.getElementById('cctv-title').innerText = name + " CCTV";
-        document.getElementById('cctv-frame').src = url;
-        document.getElementById('cctv-link-btn').href = url;
-        document.getElementById('cctv-modal').style.display = 'flex';
-    }
-
-    function closeCCTV() {
-        document.getElementById('cctv-modal').style.display = 'none';
-        document.getElementById('cctv-frame').src = "";
-    }
-
-    async function fetchDetailRain() {
-        const locs = [
-            { name: '조치원', lat: 36.601, lon: 127.301 },
-            { name: '연서면', lat: 36.560, lon: 127.270 },
-            { name: '전의면', lat: 36.670, lon: 127.200 },
-            { name: '전동면', lat: 36.630, lon: 127.260 },
-            { name: '소정면', lat: 36.720, lon: 127.150 },
-            { name: '부강면', lat: 36.520, lon: 127.370 },
-            { name: '연동면', lat: 36.560, lon: 127.320 }
-        ];
-        const lats = locs.map(l => l.lat).join(',');
-        const lons = locs.map(l => l.lon).join(',');
-        try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=precipitation_sum&timezone=Asia%2FTokyo`;
-            const res = await fetch(url);
-            const data = await res.json();
-            const results = Array.isArray(data) ? data : [data];
-            let totalRain = 0;
-            let html = '';
-            results.forEach((r, idx) => {
-                const todayRain = r.daily.precipitation_sum[0] || 0;
-                totalRain += todayRain;
-                const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
-                html += `<div class="rain-cell"><div class="rain-loc">${locs[idx].name}</div><div class="${valClass}">${todayRain}<small>mm</small></div></div>`;
-            });
-            html += `<div class="rain-cell"><div class="rain-loc">기준</div><div class="rain-val" style="font-size:10px; color:#888;">일누적</div></div>`;
-            document.getElementById('rain-grid').innerHTML = html;
-            const avgRain = (totalRain / locs.length).toFixed(1);
-            document.getElementById('avg-rain-val').innerText = `${avgRain} mm`;
-        } catch(e) { document.getElementById('avg-rain-val').innerText = "오류"; }
     }
 
     async function autoFetchSpecial() {
