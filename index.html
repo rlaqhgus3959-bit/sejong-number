@@ -506,13 +506,13 @@
     let cctvFilter = 'all';
 
     window.onload = () => { 
-        // 화면 뜨자마자 즉시 로딩되어야 할 것들
+        // 앱이 켜지자마자 즉시 화면을 그림
         render(); 
         renderCCTV();
         renderShelters();
         
-        // 외부 데이터 가져오기 실행
-        refreshAll();
+        // 0.1초 후 외부 데이터(날씨, 산불) 수신 시작
+        setTimeout(refreshAll, 100);
         
         const dbRef = db.ref('trafficData');
         dbRef.on('value', (snapshot) => {
@@ -531,16 +531,8 @@
         document.getElementById(id).classList.toggle('open');
     }
 
-    // 강력한 우회 서버 (AllOrigins)
-    async function fetchWithProxy(url) {
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-        const response = await fetch(proxyUrl);
-        if (!response.ok) throw new Error('Proxy Network Error');
-        const data = await response.json();
-        return data.contents;
-    }
-
-    function refreshAll() {
+    // 아이폰에서도 완벽 작동하는 비동기 병렬 처리
+    async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
         
@@ -548,23 +540,28 @@
         renderCCTV();
         renderShelters();
 
-        Promise.allSettled([
+        // 에러를 내뿜지 않도록 감싼 Promise.all 사용 (구형 iOS 대응)
+        await Promise.all([
             fetchSejongRain(),
             fetchSejongSnow(),
             autoFetchSpecial(),
             autoFetchForest()
-        ]).then(() => {
+        ]);
+
+        setTimeout(() => {
             icon.classList.remove('spin'); 
-        });
+        }, 500);
     }
 
-    // --- [오류 수정됨] 세종시청 강우량/적설량 표 구조 완벽 파싱 ---
+    // --- 세종시청 지역별 일 강우량 수신 (테이블 행/열 완벽 매칭) ---
     async function fetchSejongRain() {
         const gridEl = document.getElementById('sejong-rain-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
+        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
         
         try {
-            const text = await fetchWithProxy(url);
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             
@@ -572,12 +569,11 @@
             const results = {};
             targetNames.forEach(n => results[n] = 0);
             
-            // 1. 표의 컬럼(지역명)이 몇 번째 칸에 있는지 위치를 파악
             const trs = doc.querySelectorAll('tr');
             let headerRow = null;
-            for(let tr of trs) {
-                if(tr.innerText.includes('조치원')) {
-                    headerRow = tr;
+            for(let i=0; i<trs.length; i++) {
+                if(trs[i].innerText.includes('조치원')) {
+                    headerRow = trs[i];
                     break;
                 }
             }
@@ -589,12 +585,11 @@
                     targetNames.forEach(name => {
                         let shortName = name.replace('읍', '').replace('면', '');
                         if(cells[i].innerText.includes(shortName)) {
-                            idxMap[name] = i; // 각 지역이 몇 번째 칸인지 기록
+                            idxMap[name] = i; 
                         }
                     });
                 }
 
-                // 2. 제목 바로 아래에 있는 데이터 줄(가장 최신 데이터)을 찾음
                 let tbody = headerRow.closest('table').querySelector('tbody');
                 let dataRow = tbody ? tbody.querySelector('tr') : headerRow.nextElementSibling;
 
@@ -603,7 +598,6 @@
                     targetNames.forEach(name => {
                         let idx = idxMap[name];
                         if(idx !== undefined && dataCells[idx]) {
-                            // 찾은 위치의 칸에서 숫자만 빼오기
                             let valStr = dataCells[idx].innerText.trim().replace(/[^0-9.]/g, '');
                             if(valStr !== '') {
                                 results[name] = parseFloat(valStr) || 0;
@@ -636,17 +630,19 @@
             
             gridEl.innerHTML = html;
         } catch (e) {
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">세종시청 강우량 데이터 수신 실패</div>`;
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">강우량 통신 지연 (재접속 요망)</div>`;
         }
     }
 
-    // --- [오류 수정됨] 세종시청 적설량 표 구조 완벽 파싱 ---
+    // --- 세종시청 지역별 일 적설량 수신 (테이블 행/열 완벽 매칭) ---
     async function fetchSejongSnow() {
         const gridEl = document.getElementById('sejong-snow-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do';
+        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(url);
         
         try {
-            const text = await fetchWithProxy(url);
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             
@@ -654,12 +650,11 @@
             const results = {};
             targetNames.forEach(n => results[n] = 0);
             
-            // 1. 표의 컬럼(지역명) 위치 파악
             const trs = doc.querySelectorAll('tr');
             let headerRow = null;
-            for(let tr of trs) {
-                if(tr.innerText.includes('조치원')) {
-                    headerRow = tr;
+            for(let i=0; i<trs.length; i++) {
+                if(trs[i].innerText.includes('조치원')) {
+                    headerRow = trs[i];
                     break;
                 }
             }
@@ -676,7 +671,6 @@
                     });
                 }
 
-                // 2. 실제 적설량 데이터 가져오기
                 let tbody = headerRow.closest('table').querySelector('tbody');
                 let dataRow = tbody ? tbody.querySelector('tr') : headerRow.nextElementSibling;
 
@@ -717,10 +711,11 @@
             
             gridEl.innerHTML = html;
         } catch (e) {
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">세종시청 적설량 데이터 수신 실패</div>`;
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:#ff453a; padding:10px;">적설량 통신 지연 (재접속 요망)</div>`;
         }
     }
 
+    // --- [공공데이터포털] 산불위험지수 시군구 단위(세종시 전체) 수신 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
@@ -729,13 +724,8 @@
         const url = `https://apis.data.go.kr/1400377/forestPoint/forestPointListSigunguSearch?serviceKey=${API_KEY}&pageNo=1&numOfRows=10&localArea=36&excludeForecast=0&_type=json`;
 
         try {
-            let text;
-            try {
-                const res = await fetch(url);
-                text = await res.text();
-            } catch (err) {
-                text = await fetchWithProxy(url);
-            }
+            const res = await fetch(url);
+            const text = await res.text();
             
             if (text.startsWith('<')) {
                 statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
@@ -744,10 +734,10 @@
             }
 
             const data = JSON.parse(text);
+            let responseBody = data.response || data;
 
-            if(data && data.response && data.response.header && data.response.header.resultCode === "00") {
-                let items = data?.response?.body?.items?.item;
-                if(!items) throw new Error("No Data");
+            if(responseBody && responseBody.header && responseBody.header.resultCode === "00") {
+                let items = responseBody.body.items.item;
                 if(!Array.isArray(items)) items = [items]; 
 
                 let sejongItem = items.find(item => item.sigunNm && item.sigunNm.includes('세종')) || items[0];
@@ -779,11 +769,13 @@
                     gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:#aaa;">세종시 데이터가 없습니다.</div>`;
                 }
             } else {
-                let errMsg = data?.response?.header?.resultMsg || "데이터 없음";
+                let errMsg = "데이터 없음";
+                if(responseBody && responseBody.header && responseBody.header.resultMsg) {
+                    errMsg = responseBody.header.resultMsg;
+                }
                 statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: ${errMsg}</span>`;
             }
         } catch (e) {
-            console.error("Fetch Error:", e);
             statusEl.innerHTML = "<span style='color:#ff453a; font-size:12px;'>API 연결 실패 (새로고침)</span>";
         }
     }
@@ -792,8 +784,9 @@
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
         try {
-            const url = 'https://www.weatheri.co.kr/special/special01.php';
-            const text = await fetchWithProxy(url);
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
+            const res = await fetch(proxyUrl);
+            const text = await res.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(text, 'text/html');
             const bodyText = doc.body.innerText || "";
@@ -830,7 +823,7 @@
                 <div class="info-group"><span class="info-label">전국 특보 내용</span><div class="info-val content">${contentStr}</div></div>
             `;
         } catch (e) {
-            contentEl.innerHTML = `<div style="text-align:center; color:#666;">대기중...</div>`;
+            contentEl.innerHTML = `<div style="text-align:center; color:#666;">기상청 통신 지연 (재접속 요망)</div>`;
             headerStatusEl.innerText = "연결 실패";
         }
     }
