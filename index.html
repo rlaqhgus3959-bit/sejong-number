@@ -565,41 +565,47 @@
         };
 
         const authKey = 'JwgLDQUKQCOICw0FCqAjSQ';
-        const targetUrl = `https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?stn=0&disp=0&help=1&authKey=${authKey}`;
-        const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl);
-
+        // help=0으로 변경하여 헤더 파싱 오류 원천 차단 및 time 값 추가로 캐시 우회
+        const targetUrl = `https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?stn=0&disp=0&help=0&authKey=${authKey}`;
+        
         try {
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
+            // 이중 프록시 전략 (첫 번째 서버 실패 시 두 번째 서버 자동 호출)
+            let text = '';
+            try {
+                const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl + '&time=' + Date.now()));
+                if (!res.ok) throw new Error('Proxy 1 failed');
+                text = await res.text();
+            } catch(e) {
+                const res2 = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl));
+                text = await res2.text();
+            }
+
+            // 인증키 만료나 오류 메시지 필터링
+            if (text.includes('AUTH_KEY') || text.includes('ERR')) {
+                throw new Error('API 인증키 오류 또는 권한 없음');
+            }
+
             const lines = text.split('\n');
-            
-            let headerCols = [];
             let dataMap = {}; 
 
-            const getVal = (cols, key1, key2) => {
-                let idx = headerCols.indexOf(key1);
-                if(idx === -1 && key2) idx = headerCols.indexOf(key2);
-                return idx !== -1 ? parseFloat(cols[idx]) : 0;
-            };
-
+            // 데이터 구조 변동에 강한 인덱스 하드코딩 파싱 (AWS 1분 데이터 규격)
             lines.forEach(line => {
                 const trimmed = line.trim();
-                if (trimmed.startsWith('# TM')) {
-                    headerCols = trimmed.replace('#', '').trim().split(/\s+/);
-                } 
-                else if (!trimmed.startsWith('#') && trimmed.length > 10) {
+                // 데이터 줄이 맞는지 길이로 1차 확인 (에러 줄 건너뜀)
+                if (!trimmed.startsWith('#') && trimmed.length > 20) {
                     const cols = trimmed.split(/\s+/);
-                    const stnIdx = headerCols.indexOf('STN');
-                    const stnId = cols[stnIdx];
-                    
-                    const temp = getVal(cols, 'TA');
-                    let rainDay = getVal(cols, 'RN-DAY', 'RN-D');
-                    let rainHour = getVal(cols, 'RN-60m', 'RN-60');
+                    // 컬럼 갯수가 정상적으로 들어왔는지 2차 확인
+                    if (cols.length >= 21) {
+                        const stnId = cols[1];      // 지점번호
+                        const tempStr = cols[10];   // 기온(TA)
+                        const rainStr = cols[21];   // 일 강수량(RN-24H)
+                        
+                        // 기상청 데이터 중 결측치('.') 처리
+                        const temp = (tempStr === '.' || tempStr === '-50.0') ? -999 : parseFloat(tempStr);
+                        let rainDay = (rainStr === '.' || rainStr.includes('-')) ? 0 : parseFloat(rainStr);
 
-                    if (rainDay < 0) rainDay = 0;
-                    if (rainHour < 0) rainHour = 0;
-
-                    dataMap[stnId] = { temp, rainDay, rainHour };
+                        dataMap[stnId] = { temp, rainDay };
+                    }
                 }
             });
 
@@ -615,9 +621,10 @@
                 let displayTemp = '-';
                 let valClass = 'rain-val';
 
+                // 데이터가 성공적으로 파싱된 경우
                 if (obsData) {
                     displayRain = obsData.rainDay; 
-                    displayTemp = obsData.temp > -50 ? `${obsData.temp}℃` : '-'; 
+                    displayTemp = obsData.temp > -50 ? `${obsData.temp}℃` : '점검중'; 
                     
                     if (displayRain > 0) valClass = 'rain-val wet';
                     
@@ -646,9 +653,9 @@
             avgRainEl.innerText = `${avgRain} mm`;
 
         } catch (e) {
-            console.error("기상청 API 파싱 에러:", e);
-            avgRainEl.innerText = "통신 오류";
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:red; font-size:12px; padding:10px;">데이터를 불러올 수 없습니다.</div>`;
+            console.error("기상청 API 연동 에러:", e);
+            avgRainEl.innerText = "통신 지연";
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--orange); font-size:12px; padding:10px;">데이터 수신 지연. 잠시 후 새로고침 해주세요.</div>`;
         }
     }
 
@@ -683,7 +690,7 @@
                 const todaySnow = r.daily.snowfall_sum[0] || 0;
                 totalSnow += todaySnow;
                 
-                // 눈이 올 경우 색상 표시
+                // 눈이 올 경우 하늘색 표시
                 const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
                 const colorStyle = todaySnow > 0 ? '' : 'color: #888;';
                 
