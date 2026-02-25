@@ -538,8 +538,8 @@
             render(),
             renderCCTV(),
             renderShelters(),
-            fetchDetailRain(), // 기상청 강수/기온
-            fetchDetailSnow(), // 추가된 적설량
+            fetchDetailRain(), // 강수량(Open-Meteo 교체완료)
+            fetchDetailSnow(), // 적설량
             autoFetchSpecial(),
             autoFetchForest()
         ]);
@@ -549,113 +549,69 @@
         }, 500);
     }
 
-    // --- [기상청 API 허브] 7개 읍면 실시간 강우량 및 기온 (AWS) ---
+    // --- [Open-Meteo API 방식으로 교체] 7개 읍면 실시간 강우량 및 기온 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         
-        const kmaStations = {
-            '조치원': { id: '239', name: '세종(ASOS)' }, 
-            '연서면': { id: '611', name: '세종연서' },
-            '전의면': { id: '629', name: '세종전의' },
-            '전동면': { id: '629', name: '세종전의' }, 
-            '소정면': { id: '629', name: '세종전의' }, 
-            '부강면': { id: '496', name: '세종금남' }, 
-            '연동면': { id: '887', name: '세종연기' }  
-        };
-
-        const authKey = 'JwgLDQUKQCOICw0FCqAjSQ';
-        // help=0으로 변경하여 헤더 파싱 오류 원천 차단 및 time 값 추가로 캐시 우회
-        const targetUrl = `https://apihub.kma.go.kr/api/typ01/cgi-bin/url/nph-aws2_min?stn=0&disp=0&help=0&authKey=${authKey}`;
+        const locs = [
+            { name: '조치원', lat: 36.601, lon: 127.301 },
+            { name: '연서면', lat: 36.560, lon: 127.270 },
+            { name: '전의면', lat: 36.670, lon: 127.200 },
+            { name: '전동면', lat: 36.630, lon: 127.260 },
+            { name: '소정면', lat: 36.720, lon: 127.150 },
+            { name: '부강면', lat: 36.520, lon: 127.370 },
+            { name: '연동면', lat: 36.560, lon: 127.320 }
+        ];
+        
+        const lats = locs.map(l => l.lat).join(',');
+        const lons = locs.map(l => l.lon).join(',');
         
         try {
-            // 이중 프록시 전략 (첫 번째 서버 실패 시 두 번째 서버 자동 호출)
-            let text = '';
-            try {
-                const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(targetUrl + '&time=' + Date.now()));
-                if (!res.ok) throw new Error('Proxy 1 failed');
-                text = await res.text();
-            } catch(e) {
-                const res2 = await fetch('https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent(targetUrl));
-                text = await res2.text();
-            }
-
-            // 인증키 만료나 오류 메시지 필터링
-            if (text.includes('AUTH_KEY') || text.includes('ERR')) {
-                throw new Error('API 인증키 오류 또는 권한 없음');
-            }
-
-            const lines = text.split('\n');
-            let dataMap = {}; 
-
-            // 데이터 구조 변동에 강한 인덱스 하드코딩 파싱 (AWS 1분 데이터 규격)
-            lines.forEach(line => {
-                const trimmed = line.trim();
-                // 데이터 줄이 맞는지 길이로 1차 확인 (에러 줄 건너뜀)
-                if (!trimmed.startsWith('#') && trimmed.length > 20) {
-                    const cols = trimmed.split(/\s+/);
-                    // 컬럼 갯수가 정상적으로 들어왔는지 2차 확인
-                    if (cols.length >= 21) {
-                        const stnId = cols[1];      // 지점번호
-                        const tempStr = cols[10];   // 기온(TA)
-                        const rainStr = cols[21];   // 일 강수량(RN-24H)
-                        
-                        // 기상청 데이터 중 결측치('.') 처리
-                        const temp = (tempStr === '.' || tempStr === '-50.0') ? -999 : parseFloat(tempStr);
-                        let rainDay = (rainStr === '.' || rainStr.includes('-')) ? 0 : parseFloat(rainStr);
-
-                        dataMap[stnId] = { temp, rainDay };
-                    }
-                }
-            });
-
-            let html = '';
+            // 강수량(precipitation_sum)과 현재 기온(temperature_2m) 동시 호출
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&current=temperature_2m&daily=precipitation_sum&timezone=Asia%2FTokyo`;
+            const res = await fetch(url);
+            const data = await res.json();
+            
+            const results = Array.isArray(data) ? data : [data];
+            
             let totalRain = 0;
-            let count = 0;
-
-            Object.keys(kmaStations).forEach(town => {
-                const stnId = kmaStations[town].id;
-                const obsData = dataMap[stnId];
+            let html = '';
+            
+            results.forEach((r, idx) => {
+                const todayRain = r.daily.precipitation_sum[0] || 0;
+                const currentTemp = r.current.temperature_2m || 0;
+                totalRain += todayRain;
                 
-                let displayRain = '-';
-                let displayTemp = '-';
-                let valClass = 'rain-val';
-
-                // 데이터가 성공적으로 파싱된 경우
-                if (obsData) {
-                    displayRain = obsData.rainDay; 
-                    displayTemp = obsData.temp > -50 ? `${obsData.temp}℃` : '점검중'; 
-                    
-                    if (displayRain > 0) valClass = 'rain-val wet';
-                    
-                    totalRain += displayRain;
-                    count++;
-                }
-
+                // 비가 오면 파란색, 안 오면 회색 처리
+                const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
+                const rainColorStyle = todayRain > 0 ? '' : 'color: #888;';
+                
                 html += `
                 <div class="rain-cell">
-                    <div class="rain-loc">${town.replace('면','')}</div>
-                    <div class="${valClass}">${displayRain}<small>mm</small></div>
-                    <div style="font-size:10px; color:#888; margin-top:2px;">${displayTemp}</div>
+                    <div class="rain-loc">${locs[idx].name.replace('면','')}</div>
+                    <div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div>
+                    <div style="font-size:10px; color:#888; margin-top:2px;">${currentTemp}℃</div>
                 </div>`;
             });
-
+            
             html += `
             <div class="rain-cell" style="background:#222;">
                 <div class="rain-loc" style="color:#fff;">기준</div>
                 <div class="rain-val" style="font-size:11px; color:#ccc;">일누적비</div>
                 <div style="font-size:10px; color:#888; margin-top:2px;">현재기온</div>
             </div>`;
-
+            
             gridEl.innerHTML = html;
-
-            const avgRain = count > 0 ? (totalRain / count).toFixed(1) : '-';
+            
+            // 7개 지역 평균 강수량 계산
+            const avgRain = (totalRain / locs.length).toFixed(1);
             avgRainEl.innerText = `${avgRain} mm`;
-
+            
         } catch (e) {
-            console.error("기상청 API 연동 에러:", e);
-            avgRainEl.innerText = "통신 지연";
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--orange); font-size:12px; padding:10px;">데이터 수신 지연. 잠시 후 새로고침 해주세요.</div>`;
+            console.error("강수량 API 연동 에러:", e);
+            avgRainEl.innerText = "통신 오류";
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; color:var(--orange); font-size:12px; padding:10px;">데이터 수신 실패. 새로고침 해주세요.</div>`;
         }
     }
 
