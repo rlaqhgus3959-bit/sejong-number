@@ -11,6 +11,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -195,17 +196,19 @@
         }
         .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; padding: 5px; }
-        .cctv-frame-container { flex: 1; position: relative; background: #000; }
+        
+        .cctv-frame-container { flex: 1; position: relative; background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        video { width: 100%; max-height: 100%; object-fit: contain; }
         iframe { width: 100%; height: 100%; border: none; }
         
         .cctv-fallback {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            text-align: center; width: 80%; pointer-events: none;
+            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            text-align: center; width: 90%; z-index: 100;
         }
         .fallback-btn {
-            background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px;
-            text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
-            pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
+            background: rgba(10, 132, 255, 0.9); color: white; padding: 12px 20px; border-radius: 8px;
+            text-decoration: none; font-weight: bold; display: inline-block;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.5); font-size: 13px; border: 1px solid #fff;
         }
         
         #sync-status {
@@ -317,7 +320,7 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV (국토부 연동)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV (V5 라이브 스트리밍)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -334,8 +337,8 @@
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
-            * 국도/지방도 기기는 통신 부하 방지를 위해 <b>연속 사진 형식</b>으로 송출됩니다.<br>
-            * 동네이름이 없는 도로나 타지역 경계 CCTV는 <b>[기타도로]</b> 탭에 있습니다.
+            * 국토부망을 통해 <b>실시간 동영상</b>이 송출됩니다.<br>
+            * 앱 내 재생이 안될 시 영상 화면 하단의 <b>[새 창으로 열기]</b>를 누르시면 아이폰 비디오 플레이어가 켜집니다.
         </div>
     </div>
 </div>
@@ -393,10 +396,11 @@
         <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
     </div>
     <div class="cctv-frame-container">
+        <video id="cctv-video" controls autoplay playsinline muted></video>
         <iframe id="cctv-frame" src="" allowfullscreen></iframe>
+        
         <div class="cctv-fallback">
-            <div style="color:white; margin-bottom:10px; font-size:14px; text-shadow: 1px 1px 2px black;">영상이 멈춰있거나 안 보이나요?</div>
-            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">안전하게 새 창으로 열기</a>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 아이폰 전체화면 재생 (새 창 열기)</a>
         </div>
     </div>
 </div>
@@ -514,6 +518,9 @@
     let currFilter = 'all';
     let cctvFilter = 'all';
 
+    // 전역 HLS 인스턴스 (비디오 플레이어 제어용)
+    let hlsInstance = null;
+
     window.onload = () => { 
         refreshAll();
         
@@ -540,7 +547,7 @@
         
         await Promise.all([
             render(),
-            autoFetchCCTV(),
+            autoFetchCCTV(), 
             renderShelters(),
             fetchDetailRain(),
             fetchDetailSnow(),
@@ -551,16 +558,17 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [최종] ITS 서버 다중 우회 & 모든 CCTV 보존 (기타도로 탭 추가) ---
+    // --- [완전 수정본] cctvType=1 (실시간 동영상 스트리밍) 요청 및 HLS 재생 ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 스트리밍 영상망 접속 중...</div>`;
 
         const apiKey = "56934196b0354a48ab5a1d020262c673";
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
+        
+        // cctvType=1 로 복구! (실시간 동영상 스트리밍 .m3u8 반환)
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=1&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
 
-        // 보안 우회 서버들 (이 중 하나만 성공해도 통과)
         const proxies = [
             targetUrl, 
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
@@ -583,7 +591,7 @@
         }
 
         if (!rawText) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[CORS 차단] 통신을 할 수 없는 환경입니다.</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">통신을 할 수 없는 환경입니다.</div>`;
             return;
         }
 
@@ -601,11 +609,9 @@
             let filteredData = [];
             
             Array.from(cctvNodes).forEach(node => {
-                // 기본값을 '기타'로 두어 하나도 버리지 않고 전부 저장합니다.
                 let area = '기타';
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
 
-                // 세종 북부 관할 7개 읍면 필터링 (여기에 안 걸리면 전부 '기타'로 빠짐)
                 if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                 else if (name.includes('전의')) area = '전의';
@@ -650,7 +656,6 @@
             div.className = 'cctv-card';
             div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
             
-            // 기타도로(미분류)일 경우 주황색 태그로 표시
             const tagClass = item.area === '기타' ? 'area-tag etc' : 'area-tag';
             
             div.innerHTML = `
@@ -666,16 +671,69 @@
         }
     }
 
+    // 전문 비디오 플레이어 기능 적용
     function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
-        document.getElementById('cctv-frame').src = url; 
+        
+        // 아이폰에서 [새 창 열기] 클릭 시 m3u8 동영상을 즉시 재생할 수 있도록 세팅
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
+        
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        
+        // 이전 영상 초기화
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        ifr.src = '';
+
+        // 동영상 스트리밍(.m3u8) 파일인 경우 HLS 플레이어 또는 네이티브 플레이어 가동
+        if (url.includes('.m3u8')) {
+            vid.style.display = 'block';
+            ifr.style.display = 'none';
+            
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls();
+                hlsInstance.loadSource(url);
+                hlsInstance.attachMedia(vid);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    vid.play().catch(e => console.log('자동재생 방지됨'));
+                });
+            } 
+            // 아이폰(Safari)은 HLS.js 없이 네이티브로 직접 재생 가능
+            else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                vid.src = url;
+                vid.play().catch(e => console.log('자동재생 방지됨'));
+            }
+        } 
+        // 혹시 웹페이지 방식이 섞여있다면 iframe으로 출력
+        else {
+            vid.style.display = 'none';
+            ifr.style.display = 'block';
+            ifr.src = url;
+        }
+
         document.getElementById('cctv-modal').style.display = 'flex';
     }
 
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
-        document.getElementById('cctv-frame').src = "";
+        
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        ifr.src = "";
     }
 
     // --- 강수량 데이터 크롤링 ---
