@@ -147,6 +147,7 @@
         }
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
+        .area-tag.etc { background: rgba(255,159,10,0.15); color: var(--orange); }
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
         .status-btn { 
             font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; 
@@ -316,7 +317,7 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV (V4 3중우회 연동)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV (국토부 연동)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -329,11 +330,12 @@
             <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
             <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
+            <button class="filter-btn" onclick="setCCTVFilter('기타', this)">기타도로</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
             * 국도/지방도 기기는 통신 부하 방지를 위해 <b>연속 사진 형식</b>으로 송출됩니다.<br>
-            * 팝업에서 영상이 차단될 경우 <b>[새 창으로 열기]</b>를 누르세요.
+            * 동네이름이 없는 도로나 타지역 경계 CCTV는 <b>[기타도로]</b> 탭에 있습니다.
         </div>
     </div>
 </div>
@@ -400,13 +402,14 @@
 </div>
 
 <script>
-    // 캐시 삭제 
+    // 서비스 워커 강제 삭제 (캐시 리셋)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
     }
 
+    // 파이어베이스 설정
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -548,17 +551,16 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [V4 최종판] 3중 우회망 돌파 & 완벽 필터링 ---
+    // --- [최종] ITS 서버 다중 우회 & 모든 CCTV 보존 (기타도로 탭 추가) ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS CCTV망 접속 중 (V4 다중접속)...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
 
         const apiKey = "56934196b0354a48ab5a1d020262c673";
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        // XML로 파싱 (자바 샘플코드와 완전히 동일한 조건)
         const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
 
-        // 1순위: 직통 / 2,3순위: 우회서버 (CORS 돌파용)
+        // 보안 우회 서버들 (이 중 하나만 성공해도 통과)
         const proxies = [
             targetUrl, 
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
@@ -566,54 +568,31 @@
         ];
 
         let rawText = "";
-        let debugLog = "";
 
-        // 3개의 망을 순차적으로 찔러봄
         for (let i = 0; i < proxies.length; i++) {
             try {
-                debugLog += `[망 ${i+1}] 통신 시도... `;
                 const res = await fetch(proxies[i]);
                 if (res.ok) {
                     const text = await res.text();
                     if (text && text.includes('<')) { 
                         rawText = text;
-                        debugLog += "성공!\n";
                         break; 
-                    } else {
-                        debugLog += "데이터 구조 이상\n";
                     }
-                } else {
-                    debugLog += `응답코드 ${res.status}\n`;
                 }
-            } catch (err) {
-                debugLog += `보안 차단됨\n`;
-            }
+            } catch (err) {}
         }
 
-        // 모든 통신 실패 시
         if (!rawText) {
-            cctvContainer.innerHTML = `
-                <div style="grid-column:1/-1; text-align:center; padding:15px; border:1px solid #ff453a; border-radius:8px; margin:10px;">
-                    <b style="color:#ff453a;">[CORS 및 보안망에 의해 통신 차단]</b><br>
-                    <span style="font-size:11px; color:#ccc;">브라우저 정책 및 외부서버 차단으로 접속할 수 없습니다.</span><br>
-                    <div style="text-align:left; color:#888; font-size:10px; background:#222; padding:5px; margin-top:10px; white-space:pre-wrap;">${debugLog}</div>
-                </div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[CORS 차단] 통신을 할 수 없는 환경입니다.</div>`;
             return;
         }
 
-        // XML 파싱 시작
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(rawText, "text/xml");
 
-        // 에러 메세지가 있는지 확인 (키 오류 등)
         const resultMsg = xmlDoc.querySelector("message, resultMsg, error");
         if (resultMsg && !xmlDoc.querySelector("data")) {
-            cctvContainer.innerHTML = `
-                <div style="grid-column:1/-1; text-align:center; padding:15px; border:1px solid #ff9800; border-radius:8px; margin:10px;">
-                    <b style="color:#ff9800;">[국토부 ITS 서버 응답 거절]</b><br>
-                    <span style="font-size:11px; color:#ccc;">(API 키 승인 대기중이거나 일일 사용량 초과입니다.)</span><br>
-                    <div style="text-align:left; color:#888; font-size:10px; background:#222; padding:5px; margin-top:10px;">원문: ${resultMsg.textContent}</div>
-                </div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
             return;
         }
 
@@ -622,10 +601,11 @@
             let filteredData = [];
             
             Array.from(cctvNodes).forEach(node => {
-                let area = null;
+                // 기본값을 '기타'로 두어 하나도 버리지 않고 전부 저장합니다.
+                let area = '기타';
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
 
-                // 세종시 북부 관할 7개 읍면만 필터링 (타지역 완벽 차단)
+                // 세종 북부 관할 7개 읍면 필터링 (여기에 안 걸리면 전부 '기타'로 빠짐)
                 if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                 else if (name.includes('전의')) area = '전의';
@@ -634,12 +614,9 @@
                 else if (name.includes('부강')) area = '부강';
                 else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
 
-                // 필터에 걸러진 지역만 추가
-                if (area) {
-                    let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
-                    let secureUrl = rawUrl.replace('http://', 'https://');
-                    filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
-                }
+                let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
+                let secureUrl = rawUrl.replace('http://', 'https://');
+                filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
             });
 
             dynamicCCTVData = filteredData;
@@ -647,10 +624,10 @@
             if(dynamicCCTVData.length > 0) {
                 renderCCTV();
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">검색된 관내 7개 읍면 CCTV가 없습니다. (타지역 CCTV 제외됨)</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">CCTV 데이터가 없습니다.</div>`;
             }
         } else {
-             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">현재 세종 북부 관할에 송출 중인 ITS 영상이 0건입니다.</div>`;
+             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">현재 송출 중인 영상이 0건입니다.</div>`;
         }
     }
 
@@ -672,8 +649,12 @@
             const div = document.createElement('div');
             div.className = 'cctv-card';
             div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
+            
+            // 기타도로(미분류)일 경우 주황색 태그로 표시
+            const tagClass = item.area === '기타' ? 'area-tag etc' : 'area-tag';
+            
             div.innerHTML = `
-                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
+                <div><span class="${tagClass}">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
                 <div class="cctv-btn">영상보기</div>
             `;
@@ -681,7 +662,7 @@
         });
         
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 국토부 제공 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 등록된 CCTV가 없습니다.</div>`;
         }
     }
 
