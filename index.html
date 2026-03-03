@@ -538,7 +538,7 @@
         
         await Promise.all([
             render(),
-            autoFetchCCTV(), // 통신 에러 해결 로직 적용
+            autoFetchCCTV(),
             renderShelters(),
             fetchDetailRain(),
             fetchDetailSnow(),
@@ -549,58 +549,60 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [완전 수정본] 국가교통정보센터 API (포트 9443 우회 서버 이중화 및 에러 추적) ---
+    // --- [에러 추적 및 완벽 우회망 적용] 국토부 CCTV 자동 연동 ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 실시간 CCTV 통신 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 연결 중...</div>`;
 
+        // 샘플코드와 완전히 동일한 파라미터 조합 (세종 북부서 관할 좌표)
         const apiKey = "56934196b0354a48ab5a1d020262c673";
-        // 세종북부서 관할 위경도
-        const minX = 127.10, maxX = 127.45;
-        const minY = 36.40, maxY = 36.80;
-        
-        // cctvType=2 (웹 스트리밍 URL 직접 반환)
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=2&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
+        const type = "all";
+        const cctvType = "3"; // iframe 용 웹플레이어
+        const minX = "127.100000";
+        const maxX = "127.450000";
+        const minY = "36.400000";
+        const maxY = "36.800000";
+        const getType = "json";
+
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=${getType}`;
         
         try {
-            let data = null;
-            let errorMessage = "";
+            let resText = "";
+            let errorHtml = "";
 
             try {
-                // 1순위: 포트 9443을 가장 잘 뚫어주는 전용 프록시 (corsproxy.io)
-                const res1 = await fetch(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-                if (!res1.ok) throw new Error("1순위 우회 실패");
-                data = await res1.json();
-            } catch(e1) {
+                // 1순위: 포트 9443을 가장 잘 통과시키는 우회 서버 (allorigins의 날것 데이터 추출 모드)
+                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`);
+                resText = await res.text();
+            } catch (e1) {
                 try {
-                    // 2순위: JSON으로 포장해서 가져오는 프록시 (allorigins)
-                    const res2 = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&disableCache=true`);
-                    const jsonWrapper = await res2.json();
-                    
-                    if (jsonWrapper.contents) {
-                        // 만약 국토부 서버에서 XML 형태의 에러를 뱉었다면 캐치해서 출력
-                        if (jsonWrapper.contents.trim().startsWith('<')) {
-                            errorMessage = jsonWrapper.contents.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                            throw new Error("ITS XML 에러");
-                        }
-                        data = JSON.parse(jsonWrapper.contents);
-                    } else {
-                        throw new Error("응답값 비어있음");
-                    }
-                } catch(e2) {
-                    if (errorMessage) {
-                        cctvContainer.innerHTML = `
-                        <div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px; word-break:keep-all; border:1px solid #ff453a; border-radius:8px; margin:10px;">
-                            <b>[ITS 서버 응답 거절]</b><br><br>API 키가 아직 승인 대기 중이거나 일일 한도 초과입니다.<br>
-                            <div style="color:#aaa; font-size:10px; margin-top:5px;">원문: ${errorMessage.substring(0, 100)}...</div>
-                        </div>`;
-                        return;
-                    }
-                    throw new Error("우회망 최종 실패");
+                    // 2순위: 혹시 막힐 경우를 대비한 예비 우회 서버
+                    const res2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                    resText = await res2.text();
+                } catch (e2) {
+                    throw new Error("우회서버 접속 자체 차단됨");
                 }
             }
 
-            // 데이터 정상 수신 시 처리
+            // 국토부 서버에서 에러가 날 경우 XML 형태로 메세지를 뱉습니다. 
+            // 이 메세지를 화면에 바로 띄워 원인을 알 수 있게 만듭니다.
+            if (resText && resText.trim().startsWith('<')) {
+                console.error("ITS XML Error:", resText);
+                let errMsg = resText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                cctvContainer.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px; word-break:keep-all; border:1px solid #ff453a; border-radius:8px; margin:10px;">
+                        <b>[국토부 서버에서 접속 거절]</b><br><br>
+                        API 키 오류이거나 일일 사용 한도 초과입니다.<br>
+                        <div style="color:#888; font-size:10px; margin-top:5px; text-align:left; background:#222; padding:5px; height:60px; overflow-y:auto;">
+                            [에러 원문]<br>${errMsg}
+                        </div>
+                    </div>`;
+                return;
+            }
+
+            // 정상적으로 JSON 데이터를 받았을 경우
+            const data = JSON.parse(resText);
+
             if (data && data.response && data.response.datacount !== undefined) {
                 const count = parseInt(data.response.datacount);
                 
@@ -612,6 +614,7 @@
                         let area = '기타';
                         const name = item.cctvname || '이름없음';
                         
+                        // 지역 자동 분류
                         if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
                         else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                         else if (name.includes('전의')) area = '전의';
@@ -628,14 +631,14 @@
                     
                     renderCCTV();
                 } else {
-                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">세종 북부 관할에 현재 송출 중인 ITS 영상이 0건입니다.<br>(API 키 활성화 대기 중일 수 있습니다)</div>`;
+                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">세종 북부 관할에 현재 송출 중인 ITS 영상이 0건입니다.</div>`;
                 }
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">국토부 서버에서 데이터를 주지 않았습니다. (데이터 형식 오류)</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">올바른 데이터가 수신되지 않았습니다. (데이터 형식 오류)</div>`;
             }
         } catch (e) {
             console.error("CCTV API 통신 에러:", e);
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">우회망 통신 오류<br>새로고침을 눌러 다시 시도해주세요.</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;"><b>[우회망 연결 차단]</b><br>보안 문제로 통신이 차단되었습니다.<br>새로고침을 눌러 다시 시도해주세요.</div>`;
         }
     }
 
@@ -673,7 +676,8 @@
     function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-frame').src = url; 
-        // 아이폰/사파리에서 iframe이 하얀색으로 막힐 경우, 새 창 열기를 누르면 100% 실행되도록 원본 HTTP 주소 매핑
+        
+        // 아이폰/사파리에서 iframe이 보안상 막힐 경우, 새 창 열기를 누르면 100% 실행되도록 원본 주소 매핑
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
         document.getElementById('cctv-modal').style.display = 'flex';
     }
