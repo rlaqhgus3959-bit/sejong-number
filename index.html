@@ -148,7 +148,6 @@
         }
         .card-info { margin-bottom: 4px; }
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
-        .area-tag.etc { background: rgba(255,159,10,0.15); color: var(--orange); }
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
         .status-btn { 
             font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; 
@@ -320,7 +319,7 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV (V5 라이브 스트리밍)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 핵심거점 실시간 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -333,12 +332,11 @@
             <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
             <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
-            <button class="filter-btn" onclick="setCCTVFilter('기타', this)">기타도로</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
             * 국토부망을 통해 <b>실시간 동영상</b>이 송출됩니다.<br>
-            * 앱 내 재생이 안될 시 영상 화면 하단의 <b>[새 창으로 열기]</b>를 누르시면 아이폰 비디오 플레이어가 켜집니다.
+            * 앱 내 재생이 안될 시 화면 하단의 <b>[새 창으로 열기]</b>를 누르시면 폰 기본 플레이어로 재생됩니다.
         </div>
     </div>
 </div>
@@ -558,7 +556,7 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [완전 수정본] cctvType=1 (실시간 동영상 스트리밍) 요청 및 HLS 재생 ---
+    // --- [기타도로 제거 + 조치원 4개 거점 엄격 필터링] ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
         cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 스트리밍 영상망 접속 중...</div>`;
@@ -566,7 +564,7 @@
         const apiKey = "56934196b0354a48ab5a1d020262c673";
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
         
-        // cctvType=1 로 복구! (실시간 동영상 스트리밍 .m3u8 반환)
+        // cctvType=1 (실시간 동영상 스트리밍 .m3u8 반환)
         const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=1&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
 
         const proxies = [
@@ -609,20 +607,32 @@
             let filteredData = [];
             
             Array.from(cctvNodes).forEach(node => {
-                let area = '기타';
+                let area = null;
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
 
-                if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
+                // --- 🚨 핵심 필터링 로직 ---
+                // 1. 조치원: 요청하신 4개 거점만 정확히 필터링
+                if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
+                    area = '조치원';
+                }
+                // 2. 조치원이지만 위 4개가 아니면 무조건 버림 (area = null 유지)
+                else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
+                    area = null;
+                }
+                // 3. 나머지 읍면들은 정상적으로 유지
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                 else if (name.includes('전의')) area = '전의';
                 else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
                 else if (name.includes('소정') || name.includes('운당')) area = '소정';
                 else if (name.includes('부강')) area = '부강';
                 else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
+                // 그 외 모든 타지역 CCTV는 전부 버려집니다 (기타 탭 삭제완료)
 
-                let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
-                let secureUrl = rawUrl.replace('http://', 'https://');
-                filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
+                if (area) {
+                    let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
+                    let secureUrl = rawUrl.replace('http://', 'https://');
+                    filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
+                }
             });
 
             dynamicCCTVData = filteredData;
@@ -656,10 +666,8 @@
             div.className = 'cctv-card';
             div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
             
-            const tagClass = item.area === '기타' ? 'area-tag etc' : 'area-tag';
-            
             div.innerHTML = `
-                <div><span class="${tagClass}">${item.area}</span><div class="loc-name">${item.name}</div></div>
+                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
                 <div class="cctv-btn">영상보기</div>
             `;
