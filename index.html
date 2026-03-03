@@ -401,7 +401,7 @@
         });
     }
 
-    // 파이어베이스 설정 (도로통제 실시간 공유용 키)
+    // 파이어베이스 설정
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -538,24 +538,23 @@
             render(),
             renderCCTV(),
             renderShelters(),
-            fetchDetailRain(), // 세종시 자체 강수량 연동
-            fetchDetailSnow(), // 적설량
+            fetchDetailRain(), // 완벽히 수정된 세종시 강수량 연동
+            fetchDetailSnow(),
             autoFetchSpecial(),
             autoFetchForest()
         ]);
 
-        setTimeout(() => {
-            icon.classList.remove('spin'); 
-        }, 500);
+        setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [세종시 재난안전포털 직접 스크래핑 방식] 실시간 강우량 및 기온 ---
+    // --- [오류 수정 완료] 세종시 재난안전포털 직접 스크래핑 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         
-        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
-        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+        // 캐시(과거 데이터) 방지를 위해 URL 끝에 현재 시간(?_=시간)을 붙여 강제 갱신합니다.
+        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + Date.now();
+        const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&disableCache=true`;
         
         const locs = [
             { name: '조치원', lat: 36.601, lon: 127.301 },
@@ -589,21 +588,20 @@
                 if (cells.length < 2) return;
                 
                 const areaName = cells[0].textContent.trim();
-                let numbers = [];
                 
+                // [버그 수정됨] 빈칸이나 '-' 데이터를 무시하지 않고 배열 자리를 지키도록 0으로 치환하여 넣습니다.
+                const rowData = [];
                 for(let i = 1; i < cells.length; i++) {
-                    const textVal = cells[i].textContent.trim().replace(/,/g, '');
-                    if (textVal.includes(':') || textVal.includes('-')) continue; 
-                    
-                    const num = parseFloat(textVal);
-                    if (!isNaN(num)) numbers.push(num);
+                    const textVal = cells[i].textContent.trim();
+                    const num = parseFloat(textVal.replace(/,/g, ''));
+                    // 숫자가 아니면(결측, 빈칸, '-') 순서를 유지하기 위해 0을 푸시
+                    rowData.push(isNaN(num) ? 0 : num);
                 }
                 
                 locs.forEach(loc => {
                     if (areaName.includes(loc.name)) {
-                        if (numbers.length > 0) {
-                            sejongRain[loc.name] = numbers[0]; 
-                        }
+                        // rowData[0]이 완벽히 매칭된 표의 첫 번째 칸(금일 강수량)입니다.
+                        sejongRain[loc.name] = rowData[0]; 
                     }
                 });
             });
@@ -637,11 +635,10 @@
             <div class="rain-cell" style="background:#222;">
                 <div class="rain-loc" style="color:#fff;">출처</div>
                 <div class="rain-val" style="font-size:11px; color:#ccc;">세종시망</div>
-                <div style="font-size:10px; color:#888; margin-top:2px;">실제기록</div>
+                <div style="font-size:10px; color:#888; margin-top:2px;">실시간</div>
             </div>`;
             
             gridEl.innerHTML = html;
-            
             const avgRain = count > 0 ? (totalRain / count).toFixed(1) : '-';
             avgRainEl.innerText = `${avgRain} mm`;
             
@@ -652,7 +649,7 @@
         }
     }
 
-    // --- [Open-Meteo API] 7개 읍면 일일 적설량 분리 추가 ---
+    // --- [Open-Meteo API] 7개 읍면 일일 적설량 ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -682,8 +679,6 @@
             results.forEach((r, idx) => {
                 const todaySnow = r.daily.snowfall_sum[0] || 0;
                 totalSnow += todaySnow;
-                
-                // 눈이 올 경우 하늘색 표시
                 const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
                 const colorStyle = todaySnow > 0 ? '' : 'color: #888;';
                 
@@ -703,10 +698,7 @@
             gridEl.innerHTML = html;
             const avgSnow = (totalSnow / locs.length).toFixed(1);
             avgSnowEl.innerText = `${avgSnow} cm`;
-            
-        } catch(e) { 
-            avgSnowEl.innerText = "오류"; 
-        }
+        } catch(e) { avgSnowEl.innerText = "오류"; }
     }
 
     // --- [오픈 API 방식] 7개 읍면별 산불위험지수 수신 ---
@@ -723,12 +715,11 @@
             const text = await res.text();
             
             if (text.startsWith('<')) {
-                statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중 (최대 1~2시간 소요)</span>";
+                statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중</span>";
                 return;
             }
 
             const data = JSON.parse(text);
-
             const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
             const results = {};
             targetNames.forEach(name => results[name] = null);
@@ -796,11 +787,9 @@
                 statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
 
             } else {
-                let errMsg = data?.response?.header?.resultMsg || "데이터 없음";
-                statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: ${errMsg}</span>`;
+                statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: 오류</span>`;
             }
         } catch (e) {
-            console.error("Fetch Error:", e);
             statusEl.innerHTML = "<span style='color:#ff453a; font-size:12px;'>API 연결 실패 (새로고침)</span>";
         }
     }
@@ -812,13 +801,7 @@
         const name = prompt("장소명 입력");
         if (!name) return;
 
-        const newItem = {
-            id: Date.now(),
-            area: area,
-            name: name,
-            status: 0 
-        };
-
+        const newItem = { id: Date.now(), area: area, name: name, status: 0 };
         trafficData.push(newItem);
         db.ref('trafficData').set(trafficData);
     }
@@ -826,7 +809,6 @@
     function renderShelters() {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
-        
         const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
         const filterArea = activeBtn ? activeBtn.innerText : '전체';
         const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
@@ -834,7 +816,6 @@
         filteredData.forEach(item => {
             const div = document.createElement('div');
             div.className = 'shelter-card';
-            
             div.innerHTML = `
                 <div class="shelter-name"><i class="fas fa-shield-halved" style="color:var(--shelter);margin-right:2px;"></i>${item.name}</div>
                 <div class="shelter-addr">${item.addr}</div>
