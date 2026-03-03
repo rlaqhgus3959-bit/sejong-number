@@ -400,7 +400,7 @@
 </div>
 
 <script>
-    // 서비스 워커 강제 삭제 (캐시 문제 해결)
+    // 서비스 워커 강제 삭제
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
@@ -549,7 +549,7 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [완전 수정본] 국가교통정보센터 API (안정적인 Raw JSON 연동) ---
+    // --- [완전 수정본] 국가교통정보센터 API (에러 추적 & 우회망 이중화) ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
         cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 실시간 CCTV 통신 중...</div>`;
@@ -559,52 +559,75 @@
         const minX = 127.10, maxX = 127.45;
         const minY = 36.40, maxY = 36.80;
         
-        // cctvType=2 (웹 플레이어 URL 반환)
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=2&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
+        // cctvType=3 (웹 스트리밍 플레이어 반환) - 모바일과 웹 상황판 임베딩에 가장 최적화
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
         
-        // 가장 안정적인 allorigins의 raw JSON 우회 서버로 교체 (캐시 방지 타임스탬프 추가)
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`;
-
         try {
-            const res = await fetch(proxyUrl);
-            const data = await res.json(); // 응답을 한 번만 벗겨서 바로 JSON으로 변환
+            let htmlText = '';
+            
+            try {
+                // 1순위: 가장 빠르고 날것으로 주는 우회 서버 (codetabs)
+                const res1 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                htmlText = await res1.text();
+                if(!htmlText || htmlText.includes('Error')) throw new Error('codetabs 우회 실패');
+            } catch(e1) {
+                // 2순위: 데이터 누락이 적은 안정적인 우회 서버 (allorigins)
+                const res2 = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`);
+                htmlText = await res2.text();
+            }
 
-            if (data && data.response) {
-                const count = parseInt(data.response.datacount) || 0;
+            // [핵심] API 키가 미승인이거나 막혔을 경우, ITS 서버는 XML 형태로 에러 사유를 보냅니다.
+            if (htmlText.startsWith('<')) {
+                console.error("ITS XML Error:", htmlText);
+                let errMsg = htmlText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                cctvContainer.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px; word-break:keep-all; border:1px solid #ff453a; border-radius:8px; margin:10px;">
+                        <b>[ITS 서버 응답 거절]</b><br><br>
+                        API 키가 아직 승인 대기 중이거나 호출 권한이 없습니다.<br>
+                        (보통 1~2시간 소요됩니다)<br><br>
+                        <span style="color:#aaa; font-size:10px;">국토부 원문: ${errMsg.substring(0, 150)}...</span>
+                    </div>`;
+                return;
+            }
+
+            const data = JSON.parse(htmlText);
+
+            if (data && data.response && data.response.datacount !== undefined) {
+                const count = parseInt(data.response.datacount);
                 
                 if (count > 0 && data.response.data) {
                     let items = data.response.data;
-                    if (!Array.isArray(items)) items = [items]; // 결과가 1개일 경우 배열로 강제 변환
+                    if (!Array.isArray(items)) items = [items];
                     
                     dynamicCCTVData = items.map(item => {
                         let area = '기타';
                         const name = item.cctvname || '이름없음';
                         
                         if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
-                        else if (name.includes('연서') || name.includes('봉암') || name.includes('월하')) area = '연서';
+                        else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                         else if (name.includes('전의')) area = '전의';
-                        else if (name.includes('전동') || name.includes('심중')) area = '전동';
+                        else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
                         else if (name.includes('소정') || name.includes('운당')) area = '소정';
                         else if (name.includes('부강')) area = '부강';
                         else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
                         
                         let rawUrl = item.cctvurl || '';
+                        // 아이폰 사파리에서 보안 경고 뜨지 않도록 강제 https 변환
                         let secureUrl = rawUrl.replace('http://', 'https://');
                         
-                        // rawUrl(http원본)은 새창열기용, secureUrl(https)은 iframe용
                         return { area: area, name: name, url: secureUrl, rawUrl: rawUrl };
                     });
                     
                     renderCCTV();
                 } else {
-                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">현재 세종 북부 관할에 전송 중인 영상이 0건입니다.<br>(API 키 활성화 대기 중일 수 있습니다)</div>`;
+                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">지정된 좌표(세종북부서 관할) 내에 현재 송출 중인 ITS 영상이 없습니다.</div>`;
                 }
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">국토부 서버에서 데이터를 주지 않았습니다.</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">데이터 파싱 오류. 국토부 서버 응답이 지연되고 있습니다.</div>`;
             }
         } catch (e) {
-            console.error("CCTV API 통신 에러:", e);
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">ITS 서버 연결 실패: 우회망 통신 오류<br>새로고침을 눌러주세요.</div>`;
+            console.error("CCTV API 에러:", e);
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">우회망 통신 오류<br>새로고침(우측 상단)을 눌러 다시 시도해주세요.</div>`;
         }
     }
 
@@ -625,7 +648,7 @@
             
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            // 파라미터로 rawUrl 도 넘겨줍니다.
+            // 파라미터로 원본 HTTP 주소(rawUrl)도 같이 넘겨줍니다.
             div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
@@ -636,7 +659,7 @@
         });
         
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 등록된 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 국토부 제공 CCTV가 없습니다.</div>`;
         }
     }
 
@@ -644,8 +667,7 @@
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-frame').src = url; 
         
-        // 아이폰 사파리 보안상 앱 내에서 http 영상이 막혔을 경우, 
-        // '새 창으로 열기' 버튼을 누르면 원본(http) 주소로 직접 연결하여 100% 뜨게 만듭니다.
+        // 사파리(아이폰) 보안 정책으로 앱 내 팝업 재생이 막힐 경우, [새 창으로 열기]를 누르면 강제로 원본 주소로 이동하여 무조건 보이게 합니다.
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
         document.getElementById('cctv-modal').style.display = 'flex';
     }
