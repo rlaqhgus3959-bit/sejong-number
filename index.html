@@ -204,7 +204,7 @@
         .fallback-btn {
             background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px;
             text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
-            pointer-events: auto;
+            pointer-events: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.5);
         }
         
         #sync-status {
@@ -333,7 +333,7 @@
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
-            * 버튼 클릭시 팝업으로 영상이 재생됩니다. (제공: 국가교통정보센터)
+            * 팝업에서 영상이 차단될 경우 [새 창으로 열기]를 눌러주세요.
         </div>
     </div>
 </div>
@@ -424,7 +424,6 @@
     
     let isAdmin = false;
 
-    // --- 대피소 69개소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -508,7 +507,6 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // API 연동을 위해 동적 배열 선언
     let dynamicCCTVData = []; 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
@@ -540,7 +538,7 @@
         
         await Promise.all([
             render(),
-            autoFetchCCTV(), // CCTV 실시간 데이터 가져오기 (추가됨)
+            autoFetchCCTV(),
             renderShelters(),
             fetchDetailRain(),
             fetchDetailSnow(),
@@ -551,61 +549,62 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [신규 기능] 국가교통정보센터 API 연동 (CCTV 자동 불러오기) ---
+    // --- [완전 수정본] 국가교통정보센터 API (안정적인 Raw JSON 연동) ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 실시간 CCTV 목록 수신중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 실시간 CCTV 통신 중...</div>`;
 
-        // 반장님이 발급받으신 진짜 API 키
         const apiKey = "56934196b0354a48ab5a1d020262c673";
+        // 세종북부서 관할 위경도 (충분히 넓게 포착)
+        const minX = 127.10, maxX = 127.45;
+        const minY = 36.40, maxY = 36.80;
         
-        // 세종시 북부 관할을 모두 덮는 Bounding Box 좌표 (경도:127.10~127.45 / 위도:36.45~36.78)
-        const minX = 127.10; const maxX = 127.45;
-        const minY = 36.45; const maxY = 36.78;
+        // cctvType=2 (웹 플레이어 URL 반환)
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=2&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
         
-        // cctvType=1 로 변경 (웹 플레이어가 포함되어 iframe 임베딩에 최적화됨)
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=1&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
-        
-        try {
-            let res, data;
-            
-            try {
-                // 프록시 없이 텍스트를 바로 꺼내오도록 시도
-                const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-                res = await fetch(proxyUrl);
-                data = await res.json();
-            } catch(e) {
-                throw new Error('프록시 응답 오류');
-            }
+        // 가장 안정적인 allorigins의 raw JSON 우회 서버로 교체 (캐시 방지 타임스탬프 추가)
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`;
 
-            if (data && data.response && data.response.data) {
-                let items = data.response.data;
-                if (!Array.isArray(items)) items = [items];
+        try {
+            const res = await fetch(proxyUrl);
+            const data = await res.json(); // 응답을 한 번만 벗겨서 바로 JSON으로 변환
+
+            if (data && data.response) {
+                const count = parseInt(data.response.datacount) || 0;
                 
-                dynamicCCTVData = items.map(item => {
-                    let area = '기타';
-                    const name = item.cctvname || '이름없음';
+                if (count > 0 && data.response.data) {
+                    let items = data.response.data;
+                    if (!Array.isArray(items)) items = [items]; // 결과가 1개일 경우 배열로 강제 변환
                     
-                    // CCTV 이름을 보고 지역을 스마트하게 자동 분류합니다.
-                    if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
-                    else if (name.includes('연서') || name.includes('봉암') || name.includes('월하')) area = '연서';
-                    else if (name.includes('전의')) area = '전의';
-                    else if (name.includes('전동') || name.includes('심중')) area = '전동';
-                    else if (name.includes('소정') || name.includes('운당')) area = '소정';
-                    else if (name.includes('부강')) area = '부강';
-                    else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
+                    dynamicCCTVData = items.map(item => {
+                        let area = '기타';
+                        const name = item.cctvname || '이름없음';
+                        
+                        if (name.includes('조치원') || name.includes('번암') || name.includes('신안') || name.includes('서창')) area = '조치원';
+                        else if (name.includes('연서') || name.includes('봉암') || name.includes('월하')) area = '연서';
+                        else if (name.includes('전의')) area = '전의';
+                        else if (name.includes('전동') || name.includes('심중')) area = '전동';
+                        else if (name.includes('소정') || name.includes('운당')) area = '소정';
+                        else if (name.includes('부강')) area = '부강';
+                        else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
+                        
+                        let rawUrl = item.cctvurl || '';
+                        let secureUrl = rawUrl.replace('http://', 'https://');
+                        
+                        // rawUrl(http원본)은 새창열기용, secureUrl(https)은 iframe용
+                        return { area: area, name: name, url: secureUrl, rawUrl: rawUrl };
+                    });
                     
-                    let secureUrl = (item.cctvurl || '').replace('http://', 'https://');
-                    return { area: area, name: name, url: secureUrl };
-                });
-                
-                renderCCTV();
+                    renderCCTV();
+                } else {
+                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">현재 세종 북부 관할에 전송 중인 영상이 0건입니다.<br>(API 키 활성화 대기 중일 수 있습니다)</div>`;
+                }
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">관내 CCTV 응답이 없습니다.<br>(신규 API 키는 1~2시간 후 활성화될 수 있습니다)</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">국토부 서버에서 데이터를 주지 않았습니다.</div>`;
             }
         } catch (e) {
-            console.error("CCTV API 에러:", e);
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">ITS 서버 연결에 실패했습니다. (새로고침 요망)</div>`;
+            console.error("CCTV API 통신 에러:", e);
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">ITS 서버 연결 실패: 우회망 통신 오류<br>새로고침을 눌러주세요.</div>`;
         }
     }
 
@@ -614,7 +613,7 @@
         const group = btn.parentElement;
         group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
-        renderCCTV(); // 동적 배열을 다시 그려줌
+        renderCCTV();
     }
 
     function renderCCTV() {
@@ -626,7 +625,8 @@
             
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            div.onclick = () => openCCTV(item.name, item.url);
+            // 파라미터로 rawUrl 도 넘겨줍니다.
+            div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
@@ -636,14 +636,17 @@
         });
         
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 구역에 국토부 제공 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 등록된 CCTV가 없습니다.</div>`;
         }
     }
 
-    function openCCTV(name, url) {
+    function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
-        document.getElementById('cctv-frame').src = url;
-        document.getElementById('cctv-link-btn').href = url;
+        document.getElementById('cctv-frame').src = url; 
+        
+        // 아이폰 사파리 보안상 앱 내에서 http 영상이 막혔을 경우, 
+        // '새 창으로 열기' 버튼을 누르면 원본(http) 주소로 직접 연결하여 100% 뜨게 만듭니다.
+        document.getElementById('cctv-link-btn').href = rawUrl || url; 
         document.getElementById('cctv-modal').style.display = 'flex';
     }
 
