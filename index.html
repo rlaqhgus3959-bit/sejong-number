@@ -538,7 +538,7 @@
             render(),
             renderCCTV(),
             renderShelters(),
-            fetchDetailRain(), // 완벽히 수정된 세종시 강수량 연동
+            fetchDetailRain(), // 가로형 데이터 파싱 반영
             fetchDetailSnow(),
             autoFetchSpecial(),
             autoFetchForest()
@@ -547,12 +547,11 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [오류 수정 완료] 세종시 재난안전포털 직접 스크래핑 ---
+    // --- [가로형 표 구조 완벽 대응] 세종시 강수량 크롤링 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         
-        // 캐시(과거 데이터) 방지를 위해 URL 끝에 현재 시간(?_=시간)을 붙여 강제 갱신합니다.
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + Date.now();
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&disableCache=true`;
         
@@ -581,30 +580,38 @@
             const doc = parser.parseFromString(rainDataProxy.contents, 'text/html');
             
             const sejongRain = {};
-            const rows = doc.querySelectorAll('table tbody tr');
+            const rows = doc.querySelectorAll('table tr');
             
+            let headerRow = [];
+            let valueRow = [];
+
+            // 1. 올려주신 데이터 형태에 맞춰 가로(열) 기준으로 데이터 추출
             rows.forEach(row => {
-                const cells = row.querySelectorAll('th, td');
-                if (cells.length < 2) return;
-                
-                const areaName = cells[0].textContent.trim();
-                
-                // [버그 수정됨] 빈칸이나 '-' 데이터를 무시하지 않고 배열 자리를 지키도록 0으로 치환하여 넣습니다.
-                const rowData = [];
-                for(let i = 1; i < cells.length; i++) {
-                    const textVal = cells[i].textContent.trim();
-                    const num = parseFloat(textVal.replace(/,/g, ''));
-                    // 숫자가 아니면(결측, 빈칸, '-') 순서를 유지하기 위해 0을 푸시
-                    rowData.push(isNaN(num) ? 0 : num);
+                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
+                // '조치원'이 포함된 줄이 지역명 헤더(동네 이름들)
+                if (cells.some(c => c.includes('조치원'))) {
+                    headerRow = cells;
                 }
-                
+                // '합계'가 포함된 줄이 오늘의 강수량 수치들
+                if (cells.some(c => c.includes('합계'))) {
+                    valueRow = cells;
+                }
+            });
+
+            // 2. 찾아낸 헤더와 값을 1:1로 매칭
+            if (headerRow.length > 0 && valueRow.length > 0) {
                 locs.forEach(loc => {
-                    if (areaName.includes(loc.name)) {
-                        // rowData[0]이 완벽히 매칭된 표의 첫 번째 칸(금일 강수량)입니다.
-                        sejongRain[loc.name] = rowData[0]; 
+                    // 헤더에서 동네 이름의 순서(인덱스)를 찾음
+                    const idx = headerRow.findIndex(h => h.includes(loc.name));
+                    if (idx !== -1 && idx < valueRow.length) {
+                        // 찾은 순서의 수치를 가져옴
+                        const valStr = valueRow[idx].replace(/,/g, '');
+                        const num = parseFloat(valStr);
+                        // 비정상적인 수치면 0으로 처리
+                        sejongRain[loc.name] = isNaN(num) ? 0 : num;
                     }
                 });
-            });
+            }
 
             const tempData = await tempRes.json();
             const tempResults = Array.isArray(tempData) ? tempData : [tempData];
