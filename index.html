@@ -11,6 +11,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -196,6 +197,7 @@
         .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; padding: 5px; }
         
         .cctv-frame-container { flex: 1; position: relative; background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        video { width: 100%; max-height: 100%; object-fit: contain; }
         iframe { width: 100%; height: 100%; border: none; }
         
         .cctv-fallback {
@@ -332,9 +334,6 @@
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
-            * 조치원은 핵심 거점만 제공됩니다.
-        </div>
     </div>
 </div>
 
@@ -391,7 +390,9 @@
         <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
     </div>
     <div class="cctv-frame-container">
-        <iframe id="cctv-frame" src="" allowfullscreen></iframe>
+        <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
+        <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
+        
         <div class="cctv-fallback">
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
         </div>
@@ -455,6 +456,7 @@
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
     let cctvFilter = 'all';
+    let hlsInstance = null;
 
     window.onload = () => { 
         refreshAll();
@@ -470,21 +472,11 @@
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
-        
-        await Promise.all([ 
-            render(), 
-            autoFetchCCTV(), // 제일 잘되던 코드로 완벽하게 교체된 모듈
-            renderShelters(), 
-            fetchDetailRain(), 
-            fetchDetailSnow(), 
-            autoFetchSpecial(), 
-            autoFetchForest() 
-        ]);
-        
+        await Promise.all([ render(), autoFetchCCTV(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [반장님이 가장 만족하신 제일 잘되던 그 CCTV 코드 100% 동일 적용] ---
+    // --- [반장님이 올려주신 완벽하게 작동했던 CCTV 코드 원본 그대로 복사] ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
         cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 국도망(its) 연결 중...</div>`;
@@ -557,7 +549,7 @@
             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 국도망 송출 데이터가 0건입니다.</div>`;
         }
     }
-    
+
     function setCCTVFilter(type, btn) {
         cctvFilter = type;
         const group = btn.parentElement;
@@ -586,19 +578,65 @@
         }
     }
 
-    function openCCTV(name, url) {
+    // 동영상 및 웹플레이어 분기 처리 기능 (원본 그대로)
+    function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
-        document.getElementById('cctv-frame').src = url; 
-        document.getElementById('cctv-link-btn').href = url; // 새 창 열기 버튼도 작동하게 수정
+        document.getElementById('cctv-link-btn').href = rawUrl || url; 
+        
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        ifr.src = '';
+
+        // m3u8 동영상인 경우 비디오 플레이어 동작
+        if (url.includes('.m3u8')) {
+            vid.style.display = 'block';
+            ifr.style.display = 'none';
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls();
+                hlsInstance.loadSource(url);
+                hlsInstance.attachMedia(vid);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    vid.play().catch(e => console.log('자동재생 방지됨'));
+                });
+            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                vid.src = url;
+                vid.play().catch(e => console.log('자동재생 방지됨'));
+            }
+        } 
+        // cctvType=3 (사진 웹페이지) 인 경우 iframe으로 로드
+        else {
+            vid.style.display = 'none';
+            ifr.style.display = 'block';
+            ifr.src = url;
+        }
+
         document.getElementById('cctv-modal').style.display = 'flex';
     }
 
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
-        document.getElementById('cctv-frame').src = "";
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        ifr.src = "";
     }
 
-    // --- 기상청 강수량 ---
+    // --- 여기서부터는 기존에 잘 작동하던 날씨/적설량/산불/대피소 등등 건드리지 않은 원본 코드 ---
+
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
@@ -645,7 +683,6 @@
         }
     }
 
-    // --- 기상청 적설량 ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -697,7 +734,6 @@
         } catch(e) { avgSnowEl.innerText = "오류"; }
     }
 
-    // --- 산림청 산불위험지수 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
