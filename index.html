@@ -317,7 +317,7 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 CCTV (국토부 ITS)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 실시간 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -332,9 +332,9 @@
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-            * 국도/지방도 규격에 따라 <b>1~3초 간격 갱신형 사진</b>으로 제공됩니다.<br>
-            * 팝업 재생이 안될 시 화면 하단의 <b>[새 창으로 열기]</b>를 누르시면 됩니다.
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
+            * 국도망 특성 상 <b>1~3초 간격 갱신형 사진(cctvType=3)</b>으로 송출됩니다.<br>
+            * 조치원 구역은 지정된 4개 주요 거점만 노출됩니다.
         </div>
     </div>
 </div>
@@ -370,6 +370,7 @@
                 <button class="filter-btn" onclick="setFilter('부강', this)">부강</button>
             </div>
         </div>
+        
         <div class="list-container" id="list"></div>
     </div>
 </div>
@@ -393,19 +394,20 @@
     <div class="cctv-frame-container">
         <iframe id="cctv-frame" src="" allowfullscreen></iframe>
         <div class="cctv-fallback">
-            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 새 창으로 열기</a>
         </div>
     </div>
 </div>
 
 <script>
-    // 서비스 워커 강제 리셋 (캐시 문제 완전 해결)
+    // 서비스 워커 강제 삭제 (캐시 리셋)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
     }
 
+    // 파이어베이스 설정
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -420,26 +422,77 @@
     
     let isAdmin = false;
 
-    // 대피소 데이터 압축형
+    // 대피소 데이터
     const shelterData = [
         { area:'조치원', name:'복합커뮤니티센터', addr:'대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
         { area:'조치원', name:'교동초등학교', addr:'새내18길 21', cap:'417명', lat:36.6022, lng:127.3012 },
         { area:'조치원', name:'대동초등학교', addr:'대동학교길 11', cap:'465명', lat:36.5968, lng:127.2965 },
+        { area:'조치원', name:'명동초등학교', addr:'새내8길 115', cap:'177명', lat:36.5925, lng:127.3031 },
         { area:'조치원', name:'세종여고', addr:'봉산로 16', cap:'152명', lat:36.6012, lng:127.2835 },
+        { area:'조치원', name:'신봉초등학교', addr:'서북부로 10', cap:'262명', lat:36.6085, lng:127.2885 },
+        { area:'조치원', name:'번암1리 경로당', addr:'군청로 11', cap:'19명', lat:36.5932, lng:127.3025 },
+        { area:'조치원', name:'서창2리 두진(아)경로당', addr:'모과나무길 31', cap:'23명', lat:36.5955, lng:127.2955 },
+        { area:'조치원', name:'세종e편한세상아파트경로당', addr:'섭골길 59', cap:'66명', lat:36.6155, lng:127.2845 },
+        { area:'조치원', name:'신안2리 경로당', addr:'안터길 83', cap:'19명', lat:36.6185, lng:127.2925 },
+        { area:'조치원', name:'신흥e편한세상경로당', addr:'이화1로 15', cap:'19명', lat:36.5942, lng:127.2885 },
+        { area:'조치원', name:'신흥주공아파트경로당', addr:'이화로 5', cap:'54명', lat:36.5943, lng:127.2899 },
+        { area:'조치원', name:'신흥푸르지오경로당', addr:'도원1로 16', cap:'26명', lat:36.5923, lng:127.2896 },
+        { area:'조치원', name:'자이아파트경로당', addr:'도원로 16', cap:'62명', lat:36.5899, lng:127.2899 },
+        { area:'조치원', name:'조형아파트경로당', addr:'운주산로 60', cap:'13명', lat:36.5995, lng:127.2855 },
+        { area:'조치원', name:'남리마을회관', addr:'장안로 37', cap:'26명', lat:36.5985, lng:127.3015 },
         { area:'조치원', name:'세종고', addr:'조치원중고길 10', cap:'411명', lat:36.6065, lng:127.2955 },
+        { area:'조치원', name:'세종중학교', addr:'새내로 160', cap:'231명', lat:36.6055, lng:127.2965 },
         { area:'연동', name:'연동면 복컴', addr:'장욱로 7', cap:'195명', lat:36.5585, lng:127.3255 },
         { area:'연동', name:'연동중학교', addr:'내판로 10-13', cap:'320명', lat:36.5595, lng:127.3245 },
+        { area:'연동', name:'연동초등학교', addr:'청연로 606-36', cap:'119명', lat:36.5605, lng:127.3235 },
+        { area:'연동', name:'내판4리 마을회관', addr:'새말다복동길 31-9', cap:'27명', lat:36.5555, lng:127.3285 },
+        { area:'연동', name:'명학2리 마을회관', addr:'태산로 88-12', cap:'15명', lat:36.5485, lng:127.3355 },
+        { area:'연동', name:'문주리마을회관', addr:'간말길 6', cap:'30명', lat:36.5655, lng:127.3155 },
+        { area:'연동', name:'예양2리 마을회관', addr:'강변길 119-1', cap:'30명', lat:36.5455, lng:127.3155 },
+        { area:'연동', name:'응암2리마을회관', addr:'응암노곡길 2', cap:'28명', lat:36.5755, lng:127.3255 },
         { area:'부강', name:'부강면사무소', addr:'부강5길 38', cap:'91명', lat:36.5255, lng:127.3685 },
         { area:'부강', name:'부강중학교', addr:'부강로 25-7', cap:'1152명', lat:36.5285, lng:127.3655 },
+        { area:'부강', name:'부강초등학교', addr:'부강로 15', cap:'326명', lat:36.5275, lng:127.3665 },
+        { area:'부강', name:'세종미래고등학교', addr:'문곡달미길 6', cap:'308명', lat:36.5355, lng:127.3755 },
+        { area:'부강', name:'등곡1리경로당', addr:'등곡1길 160-22', cap:'23명', lat:36.5155, lng:127.3855 },
+        { area:'부강', name:'부강6리마을회관', addr:'부강4길 28', cap:'42명', lat:36.5295, lng:127.3695 },
+        { area:'부강', name:'부강4,5리마을회관', addr:'부촌길12-1', cap:'42명', lat:36.5245, lng:127.3645 },
+        { area:'부강', name:'부강3리마을회관', addr:'부강5길11', cap:'115명', lat:36.5265, lng:127.3675 },
         { area:'연서', name:'연서면사무소', addr:'대첩로 238', cap:'61명', lat:36.5655, lng:127.2785 },
         { area:'연서', name:'도원초등학교', addr:'도원로 63', cap:'166명', lat:36.5855, lng:127.2855 },
+        { area:'연서', name:'쌍류초등학교', addr:'별말길 73', cap:'325명', lat:36.5455, lng:127.2855 },
+        { area:'연서', name:'연봉초등학교', addr:'당산로 357-1', cap:'278명', lat:36.5555, lng:127.2955 },
+        { area:'연서', name:'연서중학교', addr:'연서로 115', cap:'346명', lat:36.5685, lng:127.2755 },
+        { area:'연서', name:'연서초등학교', addr:'연서로 148', cap:'227명', lat:36.5695, lng:127.2745 },
+        { area:'연서', name:'고복1리마을회관', addr:'도시안고복로 1061', cap:'18명', lat:36.6055, lng:127.2455 },
+        { area:'연서', name:'국촌2리마을회관', addr:'함박로 130', cap:'18명', lat:36.5755, lng:127.2655 },
+        { area:'연서', name:'부동리마을회관', addr:'용연로 853', cap:'32명', lat:36.5855, lng:127.2555 },
+        { area:'연서', name:'쌍전리마을회관', addr:'큰창고개길 3-3', cap:'11명', lat:36.5585, lng:127.2655 },
+        { area:'연서', name:'와촌1리마을회관', addr:'용연로 759', cap:'10명', lat:36.5955, lng:127.2655 },
+        { area:'연서', name:'월하1리마을회관', addr:'대첩로 204', cap:'44명', lat:36.5725, lng:127.2855 },
+        { area:'연서', name:'월하2리마을회관', addr:'작은창고개길 16-3', cap:'10명', lat:36.5705, lng:127.2835 },
         { area:'전의', name:'전의면 복컴', addr:'운주산로 1276', cap:'223명', lat:36.6785, lng:127.2055 },
         { area:'전의', name:'전의중학교', addr:'운주산로 1260-6', cap:'376명', lat:36.6765, lng:127.2045 },
+        { area:'전의', name:'전의초등학교', addr:'운주산로 1204-9', cap:'223명', lat:36.6735, lng:127.2035 },
+        { area:'전의', name:'관정1리 군량골경로당', addr:'군량골길 48', cap:'25명', lat:36.6655, lng:127.1955 },
+        { area:'전의', name:'달성학구 경로당', addr:'압실길 2', cap:'16명', lat:36.6555, lng:127.2155 },
+        { area:'전의', name:'달전1리 경로당', addr:'윗다락골길 46', cap:'21명', lat:36.6855, lng:127.1855 },
+        { area:'전의', name:'신흥리 경로당', addr:'사시리길 34', cap:'25명', lat:36.6955, lng:127.2055 },
+        { area:'전의', name:'유천1리경로당', addr:'오류골길 112', cap:'23명', lat:36.6825, lng:127.2155 },
+        { area:'전의', name:'읍내1리 할머니경로당', addr:'북양천길 5', cap:'21명', lat:36.6795, lng:127.2025 },
+        { area:'전의', name:'전의면사무소', addr:'운주산로 1270', cap:'71명', lat:36.6775, lng:127.2050 },
         { area:'전동', name:'전동면 복컴', addr:'운주산로 386', cap:'294명', lat:36.6355, lng:127.2655 },
         { area:'전동', name:'전동초등학교', addr:'하노장3길 9', cap:'153명', lat:36.6385, lng:127.2685 },
+        { area:'전동', name:'전동분회 경로당', addr:'하노장1길 35', cap:'28명', lat:36.6365, lng:127.2675 },
+        { area:'전동', name:'미곡1리 마을회관', addr:'운주산로 946-2', cap:'30명', lat:36.6555, lng:127.2355 },
+        { area:'전동', name:'봉대리 마을회관', addr:'봉대2길 17', cap:'23명', lat:36.6255, lng:127.2755 },
+        { area:'전동', name:'송성3리마을회관', addr:'성곡새말길 14-19', cap:'78명', lat:36.6155, lng:127.2555 },
         { area:'소정', name:'소정면사무소', addr:'소정구길 204', cap:'50명', lat:36.7155, lng:127.1555 },
-        { area:'소정', name:'소정초등학교', addr:'학교말길 10', cap:'185명', lat:36.7185, lng:127.1535 }
+        { area:'소정', name:'소정초등학교', addr:'학교말길 10', cap:'185명', lat:36.7185, lng:127.1535 },
+        { area:'소정', name:'소정면 맹골경로당', addr:'맹골1길 13-4', cap:'23명', lat:36.7055, lng:127.1655 },
+        { area:'소정', name:'소정면 소정1리 경로당', addr:'학교말길 1', cap:'29명', lat:36.7175, lng:127.1545 },
+        { area:'소정', name:'소정면 운당2리 경로당', addr:'운당너머말길 29', cap:'25명', lat:36.7255, lng:127.1455 }
     ];
 
     const defaultData = [
@@ -472,27 +525,33 @@
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
-        // 롤백된 기능들 모두 포함하여 동시 실행!
-        await Promise.all([ render(), autoFetchCCTV(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
+        
+        await Promise.all([ 
+            render(), 
+            autoFetchCCTV(), 
+            renderShelters(), 
+            fetchDetailRain(), 
+            fetchDetailSnow(), 
+            autoFetchSpecial(), 
+            autoFetchForest() 
+        ]);
+        
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [복구 완료] 가장 안정적으로 작동했던 XML 기반 CCTV 통신 로직 ---
+    // --- [가장 잘 되던 원조 코드 100% 롤백] XML + cctvType=3 + type=all ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 CCTV망 접속 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
 
         const apiKey = "56934196b0354a48ab5a1d020262c673";
-        const type = "its"; // 국도/지방도 지정 (타지역 고속도로 제거)
-        const cctvType = "3"; // 가장 안정적인 정지영상 연속 갱신 포맷
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        const getType = "xml"; // 에러 없이 가장 잘 가져오는 XML 포맷 유지
+        
+        // 반장님이 "너무 잘 된다"고 하셨던 그 시절의 파라미터입니다! (type=all, cctvType=3, getType=xml)
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=all&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
 
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=${getType}`;
-
-        // 가장 잘 뚫렸던 3중 우회망 유지
+        // 가장 잘 뚫렸던 우회망 리스트
         const proxies = [
-            targetUrl, 
             `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
         ];
@@ -505,7 +564,7 @@
                 if (res.ok) {
                     if (proxies[i].includes('allorigins')) {
                         const json = await res.json();
-                        if (json.contents) { rawText = json.contents; break; }
+                        if (json.contents && json.contents.includes('<')) { rawText = json.contents; break; }
                     } else {
                         const text = await res.text();
                         if (text && text.includes('<')) { rawText = text; break; }
@@ -536,13 +595,15 @@
                 let area = null;
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
 
-                // 조치원 4대 거점 엄격 필터링
+                // --- 🚨 조치원 4대 거점 엄격 필터링 ---
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
                     area = '조치원';
                 } 
+                // 위 4개가 아닌 조치원, 번암 등은 전부 버림 (area = null)
                 else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
                     area = null;
                 }
+                // 나머지 지역은 정상적으로 분류
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                 else if (name.includes('전의')) area = '전의';
                 else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
@@ -596,7 +657,7 @@
         });
         
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 노출할 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 등록된 CCTV가 없습니다.</div>`;
         }
     }
 
@@ -612,7 +673,7 @@
         document.getElementById('cctv-frame').src = "";
     }
 
-    // --- 기상청 강수량 복구 완료 ---
+    // --- 기상청 강수량 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
@@ -659,7 +720,7 @@
         }
     }
 
-    // --- 기상청 적설량 복구 완료 ---
+    // --- 기상청 적설량 ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -711,7 +772,7 @@
         } catch(e) { avgSnowEl.innerText = "오류"; }
     }
 
-    // --- 산림청 산불위험지수 복구 완료 ---
+    // --- 산림청 산불위험지수 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
@@ -804,25 +865,58 @@
         }
     }
 
-    function autoFetchSpecial() {
+    function renderShelters() {
+        const container = document.getElementById('shelter-list');
+        container.innerHTML = '';
+        const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
+        const filterArea = activeBtn ? activeBtn.innerText : '전체';
+        const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
+        filteredData.forEach(item => {
+            const div = document.createElement('div');
+            div.className = 'shelter-card';
+            div.innerHTML = `<div class="shelter-name">${item.name}</div><div class="shelter-addr">${item.addr}</div><div class="shelter-cap">수용: ${item.cap}</div><button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')">길찾기</button>`;
+            container.appendChild(div);
+        });
+    }
+    
+    function filterShelter(area, btn) {
+        document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderShelters(); 
+    }
+
+    function openKakaoNavi(lat, lng, name) {
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
+        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+        if (isMobile) { location.href = appUrl; setTimeout(() => { if (!document.hidden) window.location.href = webUrl; }, 1500); } 
+        else { window.open(webUrl, '_blank'); }
+    }
+
+    function toggleStatus(idx) {
+        if (!isAdmin) return alert("관리자 권한 필요");
+        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
+        db.ref('trafficData').set(trafficData);
+    }
+
+    async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
-        fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php'))
-            .then(res => res.text())
-            .then(text => {
-                const doc = new DOMParser().parseFromString(text, 'text/html');
-                const bodyText = doc.body.innerText || "";
-                const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2})/);
-                let timeStr = timeMatch ? timeMatch[1] : "수신중";
-                let sejongAlert = null;
-                bodyText.split('\n').forEach(line => {
-                    if (line.trim().startsWith('o') && line.includes('세종')) sejongAlert = line.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)?.[0];
-                });
-                if (sejongAlert) { headerStatusEl.innerText = `세종: ${sejongAlert}`; headerStatusEl.className = "sejong-summary warn"; } 
-                else { headerStatusEl.innerText = "세종: 특보 없음"; headerStatusEl.className = "sejong-summary safe"; }
-                contentEl.innerHTML = `<div class="info-group"><span class="info-label">업데이트</span><div class="info-val time">${timeStr}</div></div>`;
-            })
-            .catch(() => { headerStatusEl.innerText = "통신지연"; });
+        try {
+            const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php'));
+            const text = await res.text();
+            const doc = new DOMParser().parseFromString(text, 'text/html');
+            const bodyText = doc.body.innerText || "";
+            const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2})/);
+            let timeStr = timeMatch ? timeMatch[1] : "수신중";
+            let sejongAlert = null;
+            bodyText.split('\n').forEach(line => {
+                if (line.trim().startsWith('o') && line.includes('세종')) sejongAlert = line.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)?.[0];
+            });
+            if (sejongAlert) { headerStatusEl.innerText = `세종: ${sejongAlert}`; headerStatusEl.className = "sejong-summary warn"; } 
+            else { headerStatusEl.innerText = "세종: 특보 없음"; headerStatusEl.className = "sejong-summary safe"; }
+            contentEl.innerHTML = `<div class="info-group"><span class="info-label">업데이트</span><div class="info-val time">${timeStr}</div></div>`;
+        } catch (e) { headerStatusEl.innerText = "통신지연"; }
     }
 
     function toggleAdmin() {
