@@ -317,13 +317,13 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 국도 CCTV (ITS 연동)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 실시간 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:10px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
             <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
@@ -333,8 +333,8 @@
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
-            * 국도망(its)은 <b>정지사진(자동갱신)</b> 포맷으로 제공됩니다.<br>
-            * 앱 내 팝업 재생이 안될 시 영상 하단의 <b>[새 창으로 열기]</b>를 누르시면 됩니다.
+            * 국토부망 특성 상 <b>1~3초 간격 갱신형 사진</b>으로 송출됩니다.<br>
+            * 조치원 구역은 지정된 4개 주요 거점만 노출됩니다.
         </div>
     </div>
 </div>
@@ -393,7 +393,6 @@
     </div>
     <div class="cctv-frame-container">
         <iframe id="cctv-frame" src="" allowfullscreen></iframe>
-        
         <div class="cctv-fallback">
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
         </div>
@@ -401,7 +400,7 @@
 </div>
 
 <script>
-    // 서비스 워커 강제 리셋 (캐시 문제 완전 해결)
+    // 서비스 워커 강제 삭제 (캐시 리셋)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
@@ -487,90 +486,100 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [가장 잘 되던 원조 CCTV 코드 100% 롤백] ---
+    // --- [가장 잘 되던 원조 CCTV 로직 완벽 복구] ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 탐색 중...</div>`;
 
         const apiKey = "56934196b0354a48ab5a1d020262c673";
-        // 반장님이 "너무 잘 된다"고 하셨던 그 파라미터 그대로 (type=its, cctvType=3, getType=xml)
-        const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=its&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
+        // 반장님이 "너무 잘됨" 하셨던 완벽 작동 파라미터 100% 복구 (all, 3, json)
+        const type = "all";
+        const cctvType = "3";
+        const minX = "127.100000";
+        const maxX = "127.450000";
+        const minY = "36.400000";
+        const maxY = "36.800000";
+        const getType = "json";
 
-        const proxies = [
-            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
-        ];
-
-        let rawText = "";
-
-        for (let i = 0; i < proxies.length; i++) {
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=${getType}`;
+        
+        try {
+            let resText = "";
             try {
-                const res = await fetch(proxies[i]);
-                if (res.ok) {
-                    if (proxies[i].includes('allorigins')) {
-                        const json = await res.json();
-                        if (json.contents && json.contents.includes('<')) { rawText = json.contents; break; }
-                    } else {
-                        const text = await res.text();
-                        if (text && text.includes('<')) { rawText = text; break; }
-                    }
-                }
-            } catch (err) {}
-        }
-
-        if (!rawText) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[통신 차단] 보안망으로 인해 데이터를 가져올 수 없습니다.</div>`;
-            return;
-        }
-
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(rawText, "text/xml");
-
-        const resultMsg = xmlDoc.querySelector("message, resultMsg, error");
-        if (resultMsg && !xmlDoc.querySelector("data")) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
-            return;
-        }
-
-        const cctvNodes = xmlDoc.querySelectorAll("data");
-        if (cctvNodes.length > 0) {
-            let filteredData = [];
-            
-            Array.from(cctvNodes).forEach(node => {
-                let area = null;
-                const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
-
-                // --- 조치원 4대 거점 엄격 필터링 ---
-                if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
-                    area = '조치원';
-                } 
-                else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
-                    area = null;
-                }
-                else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
-                else if (name.includes('전의')) area = '전의';
-                else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
-                else if (name.includes('소정') || name.includes('운당')) area = '소정';
-                else if (name.includes('부강')) area = '부강';
-                else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
-
-                if (area) {
-                    let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
-                    let secureUrl = rawUrl.replace('http://', 'https://');
-                    filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
-                }
-            });
-
-            dynamicCCTVData = filteredData;
-
-            if(dynamicCCTVData.length > 0) {
-                renderCCTV();
-            } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
+                // 1순위: 가장 빠르고 안정적이었던 우회 서버
+                const res = await fetch(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`);
+                resText = await res.text();
+            } catch (e1) {
+                // 2순위: 예비 서버
+                const res2 = await fetch(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+                resText = await res2.text();
             }
-        } else {
-             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">현재 송출 중인 영상이 0건입니다.</div>`;
+
+            if (!resText) throw new Error("응답 없음");
+
+            // 국토부 서버에서 에러(XML)를 뱉었을 경우 예외처리
+            if (resText.trim().startsWith('<')) {
+                let errMsg = resText.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px; border:1px solid #ff9800; border-radius:8px;"><b>[ITS 서버 응답 거절]</b><br><br>${errMsg.substring(0, 150)}</div>`;
+                return;
+            }
+
+            const data = JSON.parse(resText);
+
+            if (data && data.response && data.response.datacount !== undefined) {
+                const count = parseInt(data.response.datacount);
+                
+                if (count > 0 && data.response.data) {
+                    let items = data.response.data;
+                    if (!Array.isArray(items)) items = [items];
+                    
+                    let filteredData = [];
+                    
+                    items.forEach(item => {
+                        let area = null;
+                        const name = item.cctvname || '이름없음';
+
+                        // --- 🚨 조치원 핵심 4곳 필터링 적용 ---
+                        if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
+                            area = '조치원';
+                        } else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
+                            area = null; // 나머지 조치원 지역은 화면에서 숨김
+                        } else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) {
+                            area = '연서';
+                        } else if (name.includes('전의')) {
+                            area = '전의';
+                        } else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) {
+                            area = '전동';
+                        } else if (name.includes('소정') || name.includes('운당')) {
+                            area = '소정';
+                        } else if (name.includes('부강')) {
+                            area = '부강';
+                        } else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) {
+                            area = '연동';
+                        }
+
+                        if (area) {
+                            let rawUrl = item.cctvurl || '';
+                            let secureUrl = rawUrl.replace('http://', 'https://');
+                            filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
+                        }
+                    });
+
+                    dynamicCCTVData = filteredData;
+                    
+                    if(dynamicCCTVData.length > 0) {
+                        renderCCTV();
+                    } else {
+                        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 거점 CCTV가 없습니다.</div>`;
+                    }
+                } else {
+                    cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">송출 중인 영상이 0건입니다.</div>`;
+                }
+            } else {
+                throw new Error("JSON 파싱 오류");
+            }
+        } catch (e) {
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff453a; font-size:12px;">통신 오류<br>새로고침을 눌러 다시 시도해주세요.</div>`;
         }
     }
 
@@ -623,7 +632,7 @@
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
