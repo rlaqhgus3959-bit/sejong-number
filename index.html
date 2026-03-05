@@ -1,1593 +1,797 @@
 <!DOCTYPE html>
-
 <html lang="ko">
-
 <head>
-
     <meta charset="UTF-8">
-
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
-
     <meta http-equiv="Pragma" content="no-cache">
-
     <meta http-equiv="Expires" content="0">
-
     
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-
     <title>세종북부서 재난상황실</title>
-
     
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
-
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-
     <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
-
     
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-
     <style>
-
         :root {
-
             --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
-
             --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-
             --shelter: #ffd60a; --kakao: #FAE100; --snow: #8be9fd;
-
         }
-
         body {
-
             background: var(--bg); color: var(--text);
-
             font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
-
             margin: 0; padding: env(safe-area-inset-top) 20px 40px 20px;
-
             -webkit-tap-highlight-color: transparent; user-select: none;
-
         }
-
-
 
         header { margin-bottom: 10px; }
-
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-
         .title-group { display: flex; align-items: center; gap: 10px; }
-
         h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
-
         
-
         .refresh-btn {
-
             background: #333; border: 1px solid #444; color: white;
-
             width: 32px; height: 32px; border-radius: 50%;
-
             display: flex; align-items: center; justify-content: center;
-
             cursor: pointer; font-size: 14px;
-
         }
-
         .refresh-btn:active { background: #555; transform: scale(0.95); }
-
         .spin { animation: spin 1s linear infinite; }
-
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-
-
         .accord-section {
-
             background: #2c2c2e; border: 1px solid var(--line);
-
             border-radius: 16px; overflow: hidden; margin-bottom: 15px;
-
             transition: all 0.3s ease;
-
         }
-
         
-
         .accord-header {
-
             background: #3a3a3c; padding: 12px 15px;
-
             display: flex; justify-content: space-between; align-items: center;
-
             cursor: pointer; user-select: none;
-
         }
-
         .accord-header:active { background: #444; }
-
         
-
         .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
-
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
-
         
-
         .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
-
         .accord-section.open .accord-content { display: block; }
-
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
 
-
-
         .sejong-summary {
-
             font-size: 13px; font-weight: 600; color: #ccc;
-
             background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px;
-
             display: inline-block; margin-left: auto;
-
         }
-
         .sejong-summary.safe { color: var(--green); }
-
         .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
 
-
-
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-
         @keyframes blink { 50% { opacity: 0.5; } }
 
-
-
         .info-group { margin-bottom: 12px; }
-
         .info-label { font-size: 11px; color: var(--sub); font-weight: bold; display: block; margin-bottom: 4px; }
-
         .info-val { font-size: 14px; font-weight: 500; line-height: 1.5; color: #fff; }
-
         .info-val.time { color: var(--orange); font-family: monospace; }
-
         .info-val.content { 
-
             background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; 
-
             border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all; 
-
             font-size: 13px;
-
         }
-
-
 
         .rain-grid {
-
             display: grid; grid-template-columns: repeat(4, 1fr); 
-
             gap: 1px; background: #444; border: 1px solid #444;
-
         }
-
         .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
-
         .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
-
         .rain-val { font-size: 13px; font-weight: 700; color: white; }
-
         .rain-val.wet { color: var(--blue); }
-
         .rain-val.snowing { color: var(--snow); }
-
         .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
-
         .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
-
         .snow-avg-val { font-size: 24px; font-weight: 800; color: var(--snow); }
 
-
-
         .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
-
         .shelter-card {
-
             background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
-
             border-radius: 8px; display: flex; flex-direction: column; 
-
             justify-content: space-between; align-items: center; 
-
             height: 105px; min-width: 0; overflow: hidden; box-sizing: border-box;
-
         }
-
         .shelter-name { 
-
             font-size: 10px; font-weight: 700; color: #fff; width: 100%;
-
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; letter-spacing: -0.5px;
-
         }
-
         .shelter-addr { 
-
             font-size: 9px; color: #888; width: 100%;
-
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
-
         }
-
         .shelter-cap { font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
-
         
-
         .shelter-btn {
-
             background: var(--kakao); color: #3b1e1e;
-
             text-align: center; padding: 5px 0; width: 100%;
-
             border-radius: 4px; font-size: 10px; font-weight: 800; text-decoration: none;
-
             display: block; margin-top: auto; border: none;
-
             transition: all 0.2s; cursor: pointer; white-space: nowrap;
-
         }
-
         .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
-
         .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
 
-
-
         .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 5px; }
-
         .cctv-card {
-
             background: #1c1c1e; padding: 10px; border-radius: 12px;
-
             display: flex; flex-direction: column; justify-content: space-between;
-
             border: 1px solid var(--line); min-height: 90px; cursor: pointer;
-
             position: relative;
-
         }
-
         .cctv-card:active { background: #333; }
-
         .cctv-icon { 
-
             font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
-
             background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
-
         }
-
         .cctv-btn {
-
             background: #333; color: #ccc; font-size: 11px; padding: 6px; 
-
             text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
-
         }
-
-
 
         .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
-
         .traffic-card {
-
             background: #1c1c1e; padding: 8px; border-radius: 10px;
-
             display: flex; flex-direction: column; justify-content: space-between;
-
             border: 1px solid var(--line); min-height: 80px; position: relative;
-
         }
-
         .card-info { margin-bottom: 4px; }
-
         .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
-
         .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
-
         .status-btn { 
-
             font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; 
-
             text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
-
         }
-
         .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
-
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
-
         
-
         .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
-
         .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
-
         .dash-val { font-size: 18px; font-weight: 700; display: block; }
-
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
-
-
         .admin-btn {
-
             background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
-
             padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
-
             cursor: pointer;
-
         }
-
         .admin-btn.active { color: var(--red); border-color: var(--red); }
 
-
-
         .filter-area { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
-
         .search-row { display: flex; gap: 8px; }
-
         .search-input { flex: 1; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; }
-
         
-
         .add-loc-btn {
-
             background: var(--blue); color: white; border: none; padding: 0 15px;
-
             border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer;
-
             white-space: nowrap; display: none;
-
         }
-
-
 
         .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
-
         .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
-
         .filter-btn.active { background: #eee; color: black; font-weight: 700; }
 
-
-
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
-
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-
-
         #cctv-modal {
-
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-
             background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
-
         }
-
         .cctv-modal-header {
-
             padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;
-
             border-bottom: 1px solid #444;
-
         }
-
         .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-
         .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; padding: 5px; }
-
         
-
         .cctv-frame-container { flex: 1; position: relative; background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-
         video { width: 100%; max-height: 100%; object-fit: contain; }
-
         iframe { width: 100%; height: 100%; border: none; }
-
         
-
         .cctv-fallback {
-
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
-
             text-align: center; width: 90%; z-index: 100;
-
         }
-
         .fallback-btn {
-
             background: rgba(10, 132, 255, 0.9); color: white; padding: 12px 20px; border-radius: 8px;
-
             text-decoration: none; font-weight: bold; display: inline-block;
-
             box-shadow: 0 4px 6px rgba(0,0,0,0.5); font-size: 13px; border: 1px solid #fff;
-
         }
-
         
-
         #sync-status {
-
             position: fixed; bottom: 10px; right: 10px; 
-
             font-size: 10px; color: #666; background: rgba(0,0,0,0.5);
-
             padding: 2px 6px; border-radius: 4px; pointer-events: none;
-
         }
-
         .live { color: #00ff00 !important; }
 
-
-
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
-
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
-
         .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
-
     </style>
-
 </head>
-
 <body>
 
-
-
 <header>
-
     <div class="top-nav">
-
         <div class="title-group">
-
             <h1>세종북부서 재난상황실</h1>
-
             <button class="refresh-btn" onclick="refreshAll()" title="수동 업데이트">
-
                 <i id="refresh-icon" class="fas fa-rotate-right"></i>
-
             </button>
-
         </div>
-
         <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">⚙️ 관리자</button>
-
     </div>
-
 </header>
 
-
-
 <div class="accord-section" id="sec-weather">
-
     <div class="accord-header" onclick="toggleSection('sec-weather')">
-
         <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
-
         <div id="sejong-status" class="sejong-summary">확인중...</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content" id="monitor-content">
-
         <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section" id="sec-rain">
-
     <div class="accord-header" onclick="toggleSection('sec-rain')">
-
         <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 실시간 강우량 및 기온</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="rain-avg-box">
-
             <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균 강수</div>
-
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
-
         </div>
-
         <div class="rain-grid" id="rain-grid"></div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section" id="sec-snow">
-
     <div class="accord-header" onclick="toggleSection('sec-snow')">
-
         <div class="ah-title"><i class="fas fa-snowflake"></i> 지역별 예상 적설량</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="rain-avg-box">
-
             <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균 적설</div>
-
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
-
         </div>
-
         <div class="rain-grid" id="snow-grid"></div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section" id="sec-forest">
-
     <div class="accord-header" onclick="toggleSection('sec-forest')">
-
         <div class="ah-title"><i class="fas fa-tree"></i> 읍면별 산불위험지수</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="forest-body" style="margin-bottom: 5px;">
-
             <div>
-
                 <div style="font-size:12px; color:#aaa; margin-bottom:2px;">공공데이터포털 (실시간 최대값)</div>
-
                 <div class="forest-status" id="forest-status-text" style="font-size:14px; color:#fff;">
-
                     <i class="fas fa-spinner fa-spin"></i> API 연결 중...
-
                 </div>
-
             </div>
-
             <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">산림청 보기</a>
-
         </div>
-
         <div class="rain-grid" id="forest-grid"></div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section" id="sec-shelter">
-
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-
         <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 임시주거(대피) 시설 (69개소)</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="filter-group" style="margin-bottom:10px;">
-
             <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
-
             <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
-
             <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
-
             <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
-
             <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
-
             <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
-
             <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
-
             <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
-
         </div>
-
         <div class="shelter-list" id="shelter-list"></div>
-
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-
              * 버튼 클릭 시 <b>카카오맵 네비게이션</b>이 실행됩니다.
-
         </div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section open" id="sec-cctv">
-
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-
         <div class="ah-title"><i class="fas fa-video"></i> 주요거점 국도 CCTV (ITS 연동)</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="filter-group" style="margin-bottom:10px;">
-
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
-
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
-
         </div>
-
         <div class="cctv-container" id="cctv-list"></div>
-
         <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
-
             * 국도망(its)은 현장 사정에 따라 <b>스트리밍</b> 또는 <b>정지사진(자동갱신)</b> 포맷이 섞여 제공될 수 있습니다.
-
         </div>
-
     </div>
-
 </div>
-
-
 
 <div class="accord-section open" id="sec-control">
-
     <div class="accord-header" onclick="toggleSection('sec-control')">
-
         <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
-
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-
     </div>
-
     <div class="accord-content">
-
         <div class="dashboard">
-
             <div class="dash-item">
-
                 <span class="dash-val c-red" id="cnt-ban">0</span>
-
                 <span style="font-size:11px; color:#aaa;">통제중</span>
-
             </div>
-
             <div class="dash-item">
-
                 <span class="dash-val" id="cnt-total">16</span>
-
                 <span style="font-size:11px; color:#aaa;">전체관리</span>
-
             </div>
-
         </div>
-
-
 
         <div class="filter-area">
-
             <div class="search-row">
-
                 <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
-
                 <button class="add-loc-btn" id="add-loc-btn" onclick="addTrafficLocation()">+ 추가</button>
-
             </div>
-
             <div class="filter-group">
-
                 <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
-
                 <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제</button>
-
                 <button class="filter-btn" onclick="setFilter('free', this)">✅ 정상</button>
-
                 <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
-
                 <button class="filter-btn" onclick="setFilter('전의', this)">전의</button>
-
                 <button class="filter-btn" onclick="setFilter('부강', this)">부강</button>
-
             </div>
-
         </div>
-
         
-
         <div class="list-container" id="list"></div>
-
     </div>
-
 </div>
-
-
 
 <div class="official-links">
-
     <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
-
     <a href="tel:112" class="link-btn"><i class="fas fa-phone"></i> 112 연결</a>
-
 </div>
-
-
 
 <div style="height:30px; text-align:center; font-size:11px; color:#444;">
-
     <button onclick="resetData()" style="background:none; border:none; color:#666; text-decoration:underline;">[관리자] 데이터 초기화</button>
-
 </div>
-
-
 
 <div id="sync-status">● Live Sync</div>
 
-
-
 <div id="cctv-modal">
-
     <div class="cctv-modal-header">
-
         <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
-
         <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
-
     </div>
-
     <div class="cctv-frame-container">
-
         <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
-
         <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
-
         
-
         <div class="cctv-fallback">
-
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
-
         </div>
-
     </div>
-
 </div>
 
-
-
 <script>
-
     // 서비스 워커 강제 리셋 (캐시 문제 완전 해결)
-
     if ('serviceWorker' in navigator) {
-
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
-
             for(let registration of registrations) { registration.unregister(); }
-
         });
-
     }
 
-
-
     const firebaseConfig = {
-
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
-
         authDomain: "shut-down-80255.firebaseapp.com",
-
         databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com",
-
         projectId: "shut-down-80255",
-
         storageBucket: "shut-down-80255.firebasestorage.app",
-
         messagingSenderId: "620282815079",
-
         appId: "1:620282815079:web:bd561b5a00483e94fdaac2"
-
     };
-
     firebase.initializeApp(firebaseConfig);
-
     const db = firebase.database();
-
     
-
     let isAdmin = false;
 
-
-
     const shelterData = [
-
         { area:'조치원', name:'복합커뮤니티센터', addr:'대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
-
         { area:'조치원', name:'조치원읍사무소', addr:'새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
-
         { area:'조치원', name:'교동초등학교', addr:'새내18길 21', cap:'417명', lat:36.6022, lng:127.3012 },
-
         { area:'조치원', name:'대동초등학교', addr:'대동학교길 11', cap:'465명', lat:36.5968, lng:127.2965 },
-
         { area:'조치원', name:'세종여고', addr:'봉산로 16', cap:'152명', lat:36.6012, lng:127.2835 },
-
         { area:'조치원', name:'세종고', addr:'조치원중고길 10', cap:'411명', lat:36.6065, lng:127.2955 },
-
         { area:'연동', name:'연동면 복컴', addr:'장욱로 7', cap:'195명', lat:36.5585, lng:127.3255 },
-
         { area:'연동', name:'연동중학교', addr:'내판로 10-13', cap:'320명', lat:36.5595, lng:127.3245 },
-
         { area:'부강', name:'부강면사무소', addr:'부강5길 38', cap:'91명', lat:36.5255, lng:127.3685 },
-
         { area:'부강', name:'부강중학교', addr:'부강로 25-7', cap:'1152명', lat:36.5285, lng:127.3655 },
-
         { area:'연서', name:'연서면사무소', addr:'대첩로 238', cap:'61명', lat:36.5655, lng:127.2785 },
-
         { area:'연서', name:'도원초등학교', addr:'도원로 63', cap:'166명', lat:36.5855, lng:127.2855 },
-
         { area:'전의', name:'전의면 복컴', addr:'운주산로 1276', cap:'223명', lat:36.6785, lng:127.2055 },
-
         { area:'전의', name:'전의중학교', addr:'운주산로 1260-6', cap:'376명', lat:36.6765, lng:127.2045 },
-
         { area:'전동', name:'전동면 복컴', addr:'운주산로 386', cap:'294명', lat:36.6355, lng:127.2655 },
-
         { area:'전동', name:'전동초등학교', addr:'하노장3길 9', cap:'153명', lat:36.6385, lng:127.2685 },
-
         { area:'소정', name:'소정면사무소', addr:'소정구길 204', cap:'50명', lat:36.7155, lng:127.1555 },
-
         { area:'소정', name:'소정초등학교', addr:'학교말길 10', cap:'185명', lat:36.7185, lng:127.1535 }
-
     ];
-
-
 
     const defaultData = [
-
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
-
         { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'송하한정식 앞', status:2 },
-
         { id:5, area:'부강', name:'부용가교', status:2 }, { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
-
         { id:7, area:'전의', name:'전동면 청람리', status:0 }, { id:8, area:'조치원', name:'내창천', status:0 },
-
         { id:9, area:'조치원', name:'봉암하상도로', status:0 }, { id:10, area:'전의', name:'유천리 양안지하차도', status:0 },
-
         { id:11, area:'전의', name:'청송농공단지 앞', status:0 }, { id:12, area:'조치원', name:'서창역~신안2리', status:0 },
-
         { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
-
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
-
     ];
 
-
-
     let dynamicCCTVData = []; 
-
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
-
     let currFilter = 'all';
-
     let cctvFilter = 'all';
-
     let hlsInstance = null;
 
-
-
     window.onload = () => { 
-
         refreshAll();
-
         db.ref('trafficData').on('value', (snapshot) => {
-
             const data = snapshot.val();
-
             if(data) { trafficData = data; render(); document.getElementById('sync-status').classList.add('live'); } 
-
             else { db.ref('trafficData').set(defaultData); }
-
         });
-
     };
-
-
 
     function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
 
-
-
     async function refreshAll() {
-
         const icon = document.getElementById('refresh-icon');
-
         icon.classList.add('spin'); 
-
         await Promise.all([ render(), autoFetchCCTV(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
-
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
-
     }
-
-
 
     // API 통신을 위한 공통 프록시 함수 (에러 발생 시 null 반환)
-
     async function fetchCCTVData(url) {
-
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`;
-
         try {
-
             const res = await fetch(proxyUrl);
-
             const text = await res.text();
-
             if (text.trim().startsWith('<')) return { error: text };
-
             return JSON.parse(text);
-
         } catch(e) {
-
             return null;
-
         }
-
     }
 
-
-
     // --- [최종 완벽본] type=its (국도) 기반 CCTV 하이브리드 요청 ---
-
     async function autoFetchCCTV() {
-
         const cctvContainer = document.getElementById('cctv-list');
-
         cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 탐색 중...</div>`;
 
-
-
         const apiKey = "56934196b0354a48ab5a1d020262c673";
-
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-
         
-
         // 요청 가이드라인 반영 (출력: json, 도로: its)
-
         // 1차 시도: 실시간 스트리밍(HLS HTTPS) cctvType=4
-
         const targetUrl_HLS = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=its&cctvType=4&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
-
         // 2차 시도: 정지 영상(사진 갱신형) cctvType=3
-
         const targetUrl_IMG = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=its&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
-
-
 
         let data = await fetchCCTVData(targetUrl_HLS);
 
-
-
         // 동영상이 0건이거나 에러라면, 정지영상(cctvType=3)으로 재요청 (국도망의 특징 반영)
-
         if (!data || !data.response || parseInt(data.response.datacount) === 0 || data.error) {
-
             console.log("동영상 스트리밍 없음. 정지영상 포맷으로 전환 시도...");
-
             data = await fetchCCTVData(targetUrl_IMG);
-
         }
-
-
 
         if (!data || data.error) {
-
             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[통신 차단] 네트워크 보안으로 인해 데이터를 가져올 수 없습니다.</div>`;
-
             return;
-
         }
-
-
 
         if (data && data.response && parseInt(data.response.datacount) > 0 && data.response.data) {
-
             let items = data.response.data;
-
             if (!Array.isArray(items)) items = [items];
-
             
-
             let filteredData = [];
-
             
-
             items.forEach(item => {
-
                 let area = null;
-
                 const name = item.cctvname || '이름없음';
 
-
-
                 // --- 조치원 4대 핵심 거점 필터링 ---
-
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
-
                     area = '조치원';
-
                 } 
-
                 // 위 4개가 아닌 조치원은 모두 배제
-
                 else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
-
                     area = null;
-
                 }
-
                 // 나머지 지역 분류
-
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
-
                 else if (name.includes('전의')) area = '전의';
-
                 else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
-
                 else if (name.includes('소정') || name.includes('운당')) area = '소정';
-
                 else if (name.includes('부강')) area = '부강';
-
                 else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
 
-
-
                 // 필터링 된 CCTV만 배열에 저장 (보안 강화를 위해 HTTPS 변환)
-
                 if (area) {
-
                     let rawUrl = item.cctvurl || '';
-
                     let secureUrl = rawUrl.replace('http://', 'https://');
-
                     filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
-
                 }
-
             });
-
-
 
             dynamicCCTVData = filteredData;
-
             
-
             if(dynamicCCTVData.length > 0) {
-
                 renderCCTV();
-
             } else {
-
                 cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
-
             }
-
         } else {
-
             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 국도망(its) 송출 데이터가 0건입니다.</div>`;
-
         }
-
     }
-
-
 
     function setCCTVFilter(type, btn) {
-
         cctvFilter = type;
-
         const group = btn.parentElement;
-
         group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-
         btn.classList.add('active');
-
         renderCCTV();
-
     }
-
-
 
     function renderCCTV() {
-
         const container = document.getElementById('cctv-list');
-
         container.innerHTML = '';
-
         dynamicCCTVData.forEach(item => {
-
             if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
-
             const div = document.createElement('div');
-
             div.className = 'cctv-card';
-
             div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
-
             div.innerHTML = `
-
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
-
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
-
                 <div class="cctv-btn">영상보기</div>
-
             `;
-
             container.appendChild(div);
-
         });
-
         if(container.innerHTML === '') {
-
             container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 노출할 CCTV가 없습니다.</div>`;
-
         }
-
     }
-
-
 
     // 동영상 및 웹플레이어 분기 처리 기능
-
     function openCCTV(name, url, rawUrl) {
-
         document.getElementById('cctv-title').innerText = name;
-
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
-
         
-
         const vid = document.getElementById('cctv-video');
-
         const ifr = document.getElementById('cctv-frame');
-
         
-
         if (hlsInstance) {
-
             hlsInstance.destroy();
-
             hlsInstance = null;
-
         }
-
         vid.pause();
-
         vid.removeAttribute('src');
-
         vid.load();
-
         ifr.src = '';
 
-
-
         // m3u8 동영상인 경우 비디오 플레이어 동작
-
         if (url.includes('.m3u8')) {
-
             vid.style.display = 'block';
-
             ifr.style.display = 'none';
-
             if (Hls.isSupported()) {
-
                 hlsInstance = new Hls();
-
                 hlsInstance.loadSource(url);
-
                 hlsInstance.attachMedia(vid);
-
                 hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-
                     vid.play().catch(e => console.log('자동재생 방지됨'));
-
                 });
-
             } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-
                 vid.src = url;
-
                 vid.play().catch(e => console.log('자동재생 방지됨'));
-
             }
-
         } 
-
         // cctvType=3 (사진 웹페이지) 인 경우 iframe으로 로드
-
         else {
-
             vid.style.display = 'none';
-
             ifr.style.display = 'block';
-
             ifr.src = url;
-
         }
-
-
 
         document.getElementById('cctv-modal').style.display = 'flex';
-
     }
-
-
 
     function closeCCTV() {
-
         document.getElementById('cctv-modal').style.display = 'none';
-
         const vid = document.getElementById('cctv-video');
-
         const ifr = document.getElementById('cctv-frame');
-
         if (hlsInstance) {
-
             hlsInstance.destroy();
-
             hlsInstance = null;
-
         }
-
         vid.pause();
-
         vid.removeAttribute('src');
-
         vid.load();
-
         ifr.src = "";
-
     }
-
-
 
     async function fetchDetailRain() {
-
         const gridEl = document.getElementById('rain-grid');
-
         const avgRainEl = document.getElementById('avg-rain-val');
-
         const timeMin = Math.floor(Date.now() / 60000);
-
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-
         const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
-
         
-
         try {
-
             const res = await fetch(proxyUrl);
-
             const htmlText = await res.text();
-
             const parser = new DOMParser();
-
             const doc = parser.parseFromString(htmlText, 'text/html');
-
             const sejongRain = {};
-
             let headerRow = [], valueRow = [];
 
-
-
             doc.querySelectorAll('table tr').forEach(row => {
-
                 const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
-
                 if (cells.some(c => c.includes('조치원'))) headerRow = cells;
-
                 if (cells.some(c => c.includes('합계'))) valueRow = cells;
-
             });
-
-
 
             if (headerRow.length > 0 && valueRow.length > 0) {
-
                 locs.forEach(loc => {
-
                     const idx = headerRow.findIndex(h => h.includes(loc.name));
-
                     if (idx !== -1 && idx < valueRow.length) {
-
                         const num = parseFloat(valueRow[idx].replace(/,/g, ''));
-
                         sejongRain[loc.name] = isNaN(num) ? 0 : num;
-
                     }
-
                 });
-
             }
 
-
-
             let html = ''; let totalRain = 0; let count = 0;
-
             locs.forEach(loc => {
-
                 const todayRain = sejongRain[loc.name] !== undefined ? sejongRain[loc.name] : 0;
-
                 totalRain += todayRain; count++;
-
                 const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
-
                 html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}">${todayRain}<small>mm</small></div></div>`;
-
             });
-
             gridEl.innerHTML = html;
-
             avgRainEl.innerText = `${count > 0 ? (totalRain/count).toFixed(1) : '-'} mm`;
-
         } catch (e) {
-
             avgRainEl.innerText = "지연";
-
         }
-
     }
-
-
 
     function renderShelters() {
-
         const container = document.getElementById('shelter-list');
-
         container.innerHTML = '';
-
         const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
-
         const filterArea = activeBtn ? activeBtn.innerText : '전체';
-
         const filteredData = filterArea === '전체' ? shelterData : shelterData.filter(s => s.area === filterArea);
-
         filteredData.forEach(item => {
-
             const div = document.createElement('div');
-
             div.className = 'shelter-card';
-
             div.innerHTML = `<div class="shelter-name">${item.name}</div><div class="shelter-addr">${item.addr}</div><div class="shelter-cap">수용: ${item.cap}</div><button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')">길찾기</button>`;
-
             container.appendChild(div);
-
         });
-
     }
-
     
-
     function filterShelter(area, btn) {
-
         document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
-
         btn.classList.add('active');
-
         renderShelters(); 
-
     }
-
-
 
     function openKakaoNavi(lat, lng, name) {
-
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
         const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-
         const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
-
         if (isMobile) { location.href = appUrl; setTimeout(() => { if (!document.hidden) window.location.href = webUrl; }, 1500); } 
-
         else { window.open(webUrl, '_blank'); }
-
     }
-
-
 
     function toggleStatus(idx) {
-
         if (!isAdmin) return alert("관리자 권한 필요");
-
         trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-
         db.ref('trafficData').set(trafficData);
-
     }
-
-
 
     async function autoFetchSpecial() {
-
         const contentEl = document.getElementById('monitor-content');
-
         const headerStatusEl = document.getElementById('sejong-status');
-
         try {
-
             const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php'));
-
             const text = await res.text();
-
             const doc = new DOMParser().parseFromString(text, 'text/html');
-
             const bodyText = doc.body.innerText || "";
-
             const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2})/);
-
             let timeStr = timeMatch ? timeMatch[1] : "수신중";
-
             let sejongAlert = null;
-
             bodyText.split('\n').forEach(line => {
-
                 if (line.trim().startsWith('o') && line.includes('세종')) sejongAlert = line.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)?.[0];
-
             });
-
             if (sejongAlert) { headerStatusEl.innerText = `세종: ${sejongAlert}`; headerStatusEl.className = "sejong-summary warn"; } 
-
             else { headerStatusEl.innerText = "세종: 특보 없음"; headerStatusEl.className = "sejong-summary safe"; }
-
             contentEl.innerHTML = `<div class="info-group"><span class="info-label">업데이트</span><div class="info-val time">${timeStr}</div></div>`;
-
         } catch (e) { headerStatusEl.innerText = "통신지연"; }
-
     }
-
-
 
     function toggleAdmin() {
-
         if (!isAdmin) {
-
             if (prompt("비밀번호:") === "2580") { isAdmin = true; document.getElementById('admin-btn').classList.add('active'); document.getElementById('add-loc-btn').style.display = 'block'; render(); }
-
         } else { isAdmin = false; document.getElementById('admin-btn').classList.remove('active'); document.getElementById('add-loc-btn').style.display = 'none'; render(); }
-
     }
-
-
 
     function render() {
-
         const container = document.getElementById('list');
-
         const searchVal = document.getElementById('search').value.toLowerCase();
-
         let banCnt = 0; container.innerHTML = '';
-
         trafficData.forEach((item, idx) => {
-
             if(item.status === 2) banCnt++;
-
             if(currFilter === 'ban' && item.status === 0) return;
-
             if(currFilter === 'free' && item.status !== 0) return;
-
             if(['조치원','전의','부강'].includes(currFilter) && item.area !== currFilter) return;
-
             if(searchVal && !item.name.includes(searchVal)) return;
-
             const div = document.createElement('div');
-
             div.className = 'traffic-card';
-
             div.innerHTML = `<div class="card-info"><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div>`;
-
             container.appendChild(div);
-
         });
-
         document.getElementById('cnt-total').innerText = trafficData.length;
-
         document.getElementById('cnt-ban').innerText = banCnt;
-
     }
-
-
 
     function setFilter(type, btn) {
-
         currFilter = type; document.querySelectorAll('.filter-area .filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); render();
-
     }
-
-
 
     function addTrafficLocation() {
-
         const area = prompt("지역 입력 (예: 조치원)"); if (!area) return;
-
         const name = prompt("장소명 입력"); if (!name) return;
-
         trafficData.push({ id: Date.now(), area: area, name: name, status: 0 });
-
         db.ref('trafficData').set(trafficData);
-
     }
-
-
 
     function resetData() {
-
         if (!isAdmin) return;
-
         if(confirm('초기화하시겠습니까?')) db.ref('trafficData').set(defaultData);
-
     }
-
 </script>
 
-
-
 </body>
-
 </html>
