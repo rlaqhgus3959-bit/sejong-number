@@ -198,6 +198,7 @@
         
         .cctv-frame-container { flex: 1; position: relative; background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
         video { width: 100%; max-height: 100%; object-fit: contain; }
+        iframe { width: 100%; height: 100%; border: none; }
         
         .cctv-fallback {
             position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
@@ -318,13 +319,13 @@
 
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 동영상 CCTV (ITS)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 실시간 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:10px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
             <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
@@ -389,7 +390,9 @@
         <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
     </div>
     <div class="cctv-frame-container">
-        <video id="cctv-video" controls autoplay playsinline muted></video>
+        <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
+        <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
+        
         <div class="cctv-fallback">
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
         </div>
@@ -473,36 +476,44 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [반장님이 올려주신 XML 파싱 + type=all + cctvType=1 완벽 적용] ---
+    // --- 반장님이 주신 정확한 주소 적용 ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
         cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
 
-        const apiKey = "56934196b0354a48ab5a1d020262c673";
-        const type = "all"; 
-        const cctvType = "1"; 
-        const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
+        // 반장님이 요청하신 주소 원문 그대로 적용
+        const targetUrl = "https://openapi.its.go.kr:9443/cctvInfo?apiKey=56934196b0354a48ab5a1d020262c673&type=its&cctvType=1&minX=127.140004294763&maxX=127.40809957074&minY=36.5529282846312&maxY=36.7324183697358&getType=xml";
+
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+        ];
 
         let rawText = "";
-        try {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`;
-            const res = await fetch(proxyUrl);
-            rawText = await res.text();
-            
-            // XML 데이터(response 태그)가 없으면 예비 프록시로 재시도
-            if (!rawText || rawText.includes("Error") || !rawText.includes("<response>")) {
-                const proxyUrl2 = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-                const res2 = await fetch(proxyUrl2);
-                rawText = await res2.text();
-            }
-        } catch(e) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">네트워크 보안으로 인해 통신이 차단되었습니다.</div>`;
+
+        for (let i = 0; i < proxies.length; i++) {
+            try {
+                const res = await fetch(proxies[i]);
+                if (res.ok) {
+                    const text = await res.text();
+                    if (text && text.includes('<')) { rawText = text; break; }
+                }
+            } catch (err) {}
+        }
+
+        if (!rawText) {
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[통신 차단] 보안망으로 인해 데이터를 가져올 수 없습니다.</div>`;
             return;
         }
 
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(rawText, "text/xml");
+
+        const resultMsg = xmlDoc.querySelector("message, resultMsg, error");
+        if (resultMsg && !xmlDoc.querySelector("data")) {
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
+            return;
+        }
 
         const cctvNodes = xmlDoc.querySelectorAll("data");
         if (cctvNodes.length > 0) {
@@ -512,11 +523,11 @@
                 let area = null;
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '';
 
-                // --- 조치원 4대 거점 필터링 (서창, 욱일, 홍대, 상리) ---
+                // --- 조치원 4대 거점 필터링 ---
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
                     area = '조치원';
                 } else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
-                    area = null;
+                    area = null; 
                 } else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) {
                     area = '연서';
                 } else if (name.includes('전의')) {
@@ -543,7 +554,7 @@
             if(dynamicCCTVData.length > 0) {
                 renderCCTV();
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 지역 거점 CCTV가 없습니다.</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
             }
         } else {
             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 영상 송출 데이터가 0건입니다.</div>`;
@@ -578,12 +589,13 @@
         }
     }
 
-    // 비디오 플레이어 기능 적용
+    // 비디오 플레이어 기능 복구
     function openCCTV(name, url) {
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-link-btn').href = url;
         
         const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
         
         if (hlsInstance) {
             hlsInstance.destroy();
@@ -592,20 +604,26 @@
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
+        ifr.src = '';
 
-        vid.style.display = 'block';
-        
-        // HLS 동영상 재생 로직
-        if (Hls.isSupported()) {
-            hlsInstance = new Hls();
-            hlsInstance.loadSource(url);
-            hlsInstance.attachMedia(vid);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+        if (url.includes('.m3u8')) {
+            vid.style.display = 'block';
+            ifr.style.display = 'none';
+            if (Hls.isSupported()) {
+                hlsInstance = new Hls();
+                hlsInstance.loadSource(url);
+                hlsInstance.attachMedia(vid);
+                hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
+                    vid.play().catch(e => console.log('재생 방지됨'));
+                });
+            } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                vid.src = url;
                 vid.play().catch(e => console.log('재생 방지됨'));
-            });
-        } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-            vid.src = url;
-            vid.play().catch(e => console.log('재생 방지됨'));
+            }
+        } else {
+            vid.style.display = 'none';
+            ifr.style.display = 'block';
+            ifr.src = url;
         }
 
         document.getElementById('cctv-modal').style.display = 'flex';
@@ -614,6 +632,7 @@
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
         const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
@@ -621,9 +640,9 @@
         vid.pause();
         vid.removeAttribute('src');
         vid.load();
+        ifr.src = "";
     }
 
-    // --- 기상청 강수량 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
