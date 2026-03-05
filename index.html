@@ -95,7 +95,7 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
-        /* 격자형 데이터 (강우량, 적설량 등) 자동 채움(auto-fill) 반응형 적용 */
+        /* 격자형 데이터 자동 채움 반응형 적용 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
@@ -110,7 +110,7 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        /* 대피소 카드 */
+        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
             background: var(--card-elevated); padding: 12px 8px; 
@@ -140,7 +140,7 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 카드 */
+        /* CCTV 가로 늘어남 방지 */
         .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
             background: var(--card-elevated); padding: 12px; border-radius: 16px;
@@ -156,7 +156,7 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        /* 도로 통제 현황 */
+        /* 도로 통제 현황 가로 늘어남 방지 */
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
@@ -290,7 +290,7 @@
 
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
-        <div class="ah-title"><i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 예상 적설량</div>
+        <div class="ah-title"><i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 실시간 적설량</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -447,7 +447,7 @@
     
     let isAdmin = false;
 
-    // 사진 4장에서 추출한 대피소 69개 100% (전화번호 포함)
+    // 대피소 69개 100% (전화번호 포함)
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -780,7 +780,7 @@
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
-        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do?_=' + timeMin;
+        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
         const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
@@ -792,34 +792,57 @@
             const sejongSnow = {};
             let avgSnow = null;
 
+            let sinIdx = 1, choeIdx = 2; 
+            const headers = Array.from(doc.querySelectorAll('table th')).map(th => th.textContent.replace(/\s+/g, ''));
+            headers.forEach((h, i) => {
+                if (h.includes('신적설')) sinIdx = i;
+                if (h.includes('최심')) choeIdx = i;
+            });
+
             doc.querySelectorAll('table tr').forEach(row => {
-                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/,/g, ''));
-                if (cells.length >= 2) {
-                    const key = cells[0];
-                    const val = parseFloat(cells[1]);
-                    if (!isNaN(val)) {
-                        if (key.includes('평균')) avgSnow = val;
-                        if (key.includes('조치원')) sejongSnow['조치원'] = val;
-                        if (key.includes('연서')) sejongSnow['연서'] = val;
-                        if (key.includes('전의')) sejongSnow['전의'] = val;
-                        if (key.includes('전동')) sejongSnow['전동'] = val;
-                        if (key.includes('소정')) sejongSnow['소정'] = val;
-                        if (key.includes('부강')) sejongSnow['부강'] = val;
-                        if (key.includes('연동')) sejongSnow['연동'] = val;
+                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
+                if (cells.length > 1) {
+                    const rowText = row.textContent.replace(/\s+/g, '');
+                    
+                    if (rowText.includes('평균')) {
+                        const val = parseFloat(cells[sinIdx]?.replace(/,/g, ''));
+                        if (!isNaN(val)) avgSnow = val;
                     }
+
+                    locs.forEach(loc => {
+                        if (rowText.includes(loc.name)) {
+                            let sVal = parseFloat(cells[sinIdx]?.replace(/,/g, ''));
+                            let cVal = parseFloat(cells[choeIdx]?.replace(/,/g, ''));
+                            
+                            if(isNaN(sVal) || isNaN(cVal)) {
+                                const nums = cells.map(c => parseFloat(c.replace(/,/g, ''))).filter(n => !isNaN(n));
+                                sVal = nums[0] || 0;
+                                cVal = nums[1] || sVal;
+                            }
+                            sejongSnow[loc.name] = { sin: isNaN(sVal) ? 0 : sVal, choe: isNaN(cVal) ? 0 : cVal };
+                        }
+                    });
                 }
             });
 
             let html = ''; let totalSnow = 0; let count = 0;
             locs.forEach(loc => {
-                const todaySnow = sejongSnow[loc.name] !== undefined ? sejongSnow[loc.name] : 0;
-                totalSnow += todaySnow; count++;
-                const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = todaySnow > 0 ? '' : 'color: var(--sub);';
+                const data = sejongSnow[loc.name] || {sin: 0, choe: 0};
+                totalSnow += data.sin; count++;
+                const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
                 
-                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${colorStyle}">${todaySnow}<small>cm</small></div></div>`;
+                html += `<div class="rain-cell">
+                    <div class="rain-loc">${loc.name}</div>
+                    <div class="${valClass}" style="${colorStyle}">${data.sin}<small>cm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${data.choe}</div>
+                </div>`;
             });
-            html += `<div class="rain-cell" style="background:var(--card);"><div class="rain-loc" style="color:#fff;">출처</div><div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div></div>`;
+            html += `<div class="rain-cell" style="background:var(--card);">
+                <div class="rain-loc" style="color:#fff;">출처</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
+                <div style="font-size:10px; color:var(--green); margin-top:2px;">Live</div>
+            </div>`;
             
             gridEl.innerHTML = html;
             if (avgSnow !== null) {
