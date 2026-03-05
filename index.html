@@ -55,7 +55,6 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -68,7 +67,6 @@
         .accord-header:active { background: #222; }
         
         .ah-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; color: #fff; flex: 1; }
-        /* 아이콘 크기 및 정렬 완벽 최적화 */
         .ah-title i { font-size: 17px; width: 22px; text-align: center; } 
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
@@ -86,7 +84,6 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
-        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -96,9 +93,9 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
-        /* 격자형 데이터 (강우량, 적설량 등) 애플스타일 위젯화 */
+        /* 큰 모니터에서도 흉하게 안 늘어나도록 자동 채움(auto-fill) 반응형 적용 */
         .rain-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); 
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
         }
         .rain-cell { background: var(--card-elevated); padding: 12px 4px; text-align: center; border-radius: 12px; }
@@ -111,12 +108,13 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        /* 대피소 카드 애플스타일 적용 */
-        .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
+        .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
-            background: var(--card-elevated); padding: 10px 6px; 
+            background: var(--card-elevated); padding: 12px 8px; 
             border-radius: 14px; display: flex; flex-direction: column; 
-            align-items: center; box-sizing: border-box;
+            align-items: center; justify-content: space-between; box-sizing: border-box;
+            min-height: 110px;
         }
         .shelter-name { 
             font-size: 11px; font-weight: 700; color: #fff; width: 100%;
@@ -124,11 +122,10 @@
         }
         .shelter-addr { 
             font-size: 9px; color: var(--sub); width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 4px;
         }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 700; margin: 6px 0; }
         
-        /* 버튼 세로 정렬 및 크기 최적화 */
         .shelter-btn-group { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: auto; }
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
@@ -141,12 +138,12 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 카드 애플스타일 */
-        .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
+        /* CCTV 가로 늘어남 방지 */
+        .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
             background: var(--card-elevated); padding: 12px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 95px; cursor: pointer; transition: 0.2s;
+            min-height: 100px; cursor: pointer; transition: 0.2s;
         }
         .cctv-card:active { transform: scale(0.96); opacity: 0.8; }
         .cctv-icon { 
@@ -157,19 +154,19 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        /* 도로 통제 현황 애플스타일 */
-        .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+        /* 도로 통제 현황 가로 늘어남 방지 */
+        .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
             display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 85px; position: relative;
+            min-height: 90px; position: relative;
         }
         .card-info { margin-bottom: 6px; }
         .area-tag { font-size: 10px; color: var(--sub); background: #1c1c1e; padding: 2px 6px; border-radius: 6px; align-self: flex-start; margin-bottom: 6px; display: inline-block; font-weight:600;}
         .loc-name { font-size: 12px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
         .status-btn { 
             font-size: 11px; font-weight: 800; padding: 6px; border-radius: 8px; 
-            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
+            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer; margin-top:4px;
         }
         .st-ban { background: var(--red); color: white; }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); }
@@ -185,7 +182,6 @@
         }
         .admin-btn.active { color: var(--red); }
 
-        /* 필터 및 검색바 (iOS 스타일 둥근 검색창) */
         .filter-area { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
         .search-row { display: flex; gap: 8px; }
         .search-input { 
@@ -211,7 +207,6 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        /* 모달 팝업 */
         #cctv-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -361,7 +356,7 @@
 
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황 (69개소)</div>
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 대피소 현황 (69개소)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -387,7 +382,7 @@
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:15px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
             <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
@@ -396,6 +391,9 @@
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
+        <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
+            * 국도망(its)은 현장 사정에 따라 스트리밍 또는 자동갱신 사진으로 제공됩니다.
+        </div>
     </div>
 </div>
 
@@ -446,7 +444,6 @@
     
     let isAdmin = false;
 
-    // 대피소 69개 100% 원상복구 (전화번호 포함)
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
