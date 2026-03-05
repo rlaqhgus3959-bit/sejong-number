@@ -221,7 +221,6 @@
     </div>
 </header>
 
-<!-- 기상특보 -->
 <div class="accord-section" id="sec-weather">
     <div class="accord-header" onclick="toggleSection('sec-weather')">
         <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
@@ -233,7 +232,6 @@
     </div>
 </div>
 
-<!-- 강우량 -->
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 실시간 강우량 및 기온</div>
@@ -248,7 +246,6 @@
     </div>
 </div>
 
-<!-- 적설량 -->
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
         <div class="ah-title"><i class="fas fa-snowflake"></i> 지역별 예상 적설량</div>
@@ -263,7 +260,6 @@
     </div>
 </div>
 
-<!-- 산불위험지수 -->
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
         <div class="ah-title"><i class="fas fa-tree"></i> 읍면별 산불위험지수</div>
@@ -283,7 +279,6 @@
     </div>
 </div>
 
-<!-- 대피시설 -->
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
         <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 임시주거(대피) 시설 (69개소)</div>
@@ -307,7 +302,6 @@
     </div>
 </div>
 
-<!-- CCTV - 원본 그대로 -->
 <div class="accord-section open" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
         <div class="ah-title"><i class="fas fa-video"></i> 주요거점 국도 CCTV (ITS 연동)</div>
@@ -331,7 +325,6 @@
     </div>
 </div>
 
-<!-- 도로통제 -->
 <div class="accord-section open" id="sec-control">
     <div class="accord-header" onclick="toggleSection('sec-control')">
         <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
@@ -377,7 +370,6 @@
 
 <div id="sync-status">● Live Sync</div>
 
-<!-- CCTV 모달 -->
 <div id="cctv-modal">
     <div class="cctv-modal-header">
         <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
@@ -410,6 +402,13 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
+    // ✅ 본인 Cloudflare Worker 프록시 주소
+    const MY_PROXY = "https://its-proxy.rlaqhgus3959.workers.dev";
+
+    function proxyUrl(targetUrl) {
+        return `${MY_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+    }
 
     let isAdmin = false;
 
@@ -470,14 +469,13 @@
     }
 
     // =============================================
-    // CCTV - 원본(잘 되던 버전) 그대로 유지
+    // CCTV - 내 Cloudflare Worker 프록시 사용
     // =============================================
     async function fetchCCTVData(url) {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`;
         try {
-            const res = await fetch(proxyUrl);
+            const res = await fetch(proxyUrl(url));
             const text = await res.text();
-            if (text.trim().startsWith('<')) return { error: text };
+            if (!text || text.trim().startsWith('<')) return { error: 'html_response' };
             return JSON.parse(text);
         } catch(e) {
             return null;
@@ -502,7 +500,7 @@
         }
 
         if (!data || data.error) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[통신 차단] 네트워크 보안으로 인해 데이터를 가져올 수 없습니다.</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[오류] 데이터를 가져올 수 없습니다. 새로고침 해주세요.</div>`;
             return;
         }
 
@@ -537,7 +535,7 @@
 
             dynamicCCTVData = filteredData;
             if(dynamicCCTVData.length > 0) { renderCCTV(); }
-            else { cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`; }
+            else { cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 관내 CCTV가 없습니다.</div>`; }
         } else {
             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 국도망(its) 송출 데이터가 0건입니다.</div>`;
         }
@@ -607,19 +605,18 @@
     }
 
     // =============================================
-    // 강우량 + 기온 (기존 원본 프록시 유지, 기온 추가)
+    // 강우량 + 기온
     // =============================================
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
 
         try {
             const [rainRes, tempRes] = await Promise.all([
-                fetch(proxyUrl),
+                fetch(proxyUrl(targetUrl)),
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m&timezone=Asia%2FTokyo`)
             ]);
 
@@ -748,13 +745,13 @@
     }
 
     // =============================================
-    // 기상특보 (원본 기반, 전국특보 내용 표시 개선)
+    // 기상특보
     // =============================================
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
         try {
-            const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php'));
+            const res = await fetch(proxyUrl('https://www.weatheri.co.kr/special/special01.php'));
             const text = await res.text();
             const doc = new DOMParser().parseFromString(text, 'text/html');
             const bodyText = doc.body.innerText || "";
