@@ -68,7 +68,8 @@
         .accord-header:active { background: #222; }
         
         .ah-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; color: #fff; flex: 1; }
-        .ah-title i { font-size: 16px; width: 20px; text-align: center; } /* 아이콘 정렬 */
+        /* 아이콘 크기 및 정렬 완벽 최적화 */
+        .ah-title i { font-size: 17px; width: 22px; text-align: center; } 
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
         .accord-content { display: none; padding: 0 20px 20px 20px; animation: slideDown 0.3s ease forwards; }
@@ -224,7 +225,7 @@
         
         .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; }
         video { width: 100%; max-height: 100%; object-fit: contain; }
-        iframe { width: 100%; height: 100%; border: none; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; }
         
         .cctv-fallback {
             position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
@@ -360,7 +361,7 @@
 
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 대피소 현황 (69개소)</div>
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황 (69개소)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -445,6 +446,7 @@
     
     let isAdmin = false;
 
+    // 대피소 69개 100% 원상복구 (전화번호 포함)
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -626,10 +628,10 @@
             if(dynamicCCTVData.length > 0) {
                 renderCCTV();
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">선별된 거점 영상이 없습니다.</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
             }
         } else {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">송출 데이터가 없습니다.</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">국토부 영상 송출 데이터가 0건입니다.</div>`;
         }
     }
 
@@ -651,7 +653,7 @@
             div.onclick = () => openCCTV(item.name, item.url);
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
-                <div class="cctv-icon"><i class="fas fa-play-circle"></i></div>
+                <div class="cctv-icon"><i class="fas fa-video"></i></div>
                 <div class="cctv-btn">영상보기</div>
             `;
             container.appendChild(div);
