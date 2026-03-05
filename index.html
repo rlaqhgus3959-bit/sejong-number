@@ -334,6 +334,9 @@
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
+            * 조치원 구역은 핵심 거점만 제공됩니다.
+        </div>
     </div>
 </div>
 
@@ -400,6 +403,7 @@
 </div>
 
 <script>
+    // 서비스 워커 강제 삭제 (캐시 리셋)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
@@ -472,39 +476,66 @@
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
-        await Promise.all([ render(), autoFetchCCTV(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
+        
+        // 에러 나던 부분 모두 롤백 완료. 안정적으로 동시 실행.
+        await Promise.all([ 
+            render(), 
+            autoFetchCCTV(), 
+            renderShelters(), 
+            fetchDetailRain(), 
+            fetchDetailSnow(), 
+            autoFetchSpecial(), 
+            autoFetchForest() 
+        ]);
+        
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [반장님이 올려주신 완벽하게 작동했던 CCTV 코드 원본 그대로 복사] ---
+    // --- [가장 잘 되던 코드] type=all, cctvType=1, getType=xml ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> ITS 국도망(its) 연결 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
 
         const apiKey = "56934196b0354a48ab5a1d020262c673";
-        const type = "its"; // 국도/지방도 전용 (고속도로 배제)
-        const cctvType = "3"; // 갱신형 웹 플레이어 반환
+        // 반장님이 "이 코드 때 잘 됐다"고 하셨던 그 파라미터 완벽히 동일 적용
+        const type = "all"; 
+        const cctvType = "1"; 
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
-        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=xml`;
+        const getType = "xml";
+
+        const targetUrl = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=${type}&cctvType=${cctvType}&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=${getType}`;
+
+        // 가장 잘 뚫렸던 우회망 리스트 유지
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+        ];
 
         let rawText = "";
-        try {
-            const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`;
-            const res = await fetch(proxyUrl);
-            rawText = await res.text();
-            
-            if (!rawText || rawText.includes("Error")) {
-                const proxyUrl2 = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-                const res2 = await fetch(proxyUrl2);
-                rawText = await res2.text();
-            }
-        } catch(e) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">네트워크 보안으로 인해 통신이 차단되었습니다.</div>`;
+
+        for (let i = 0; i < proxies.length; i++) {
+            try {
+                const res = await fetch(proxies[i]);
+                if (res.ok) {
+                    const text = await res.text();
+                    if (text && text.includes('<')) { rawText = text; break; }
+                }
+            } catch (err) {}
+        }
+
+        if (!rawText) {
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff453a; font-size:11px;">[통신 차단] 보안망으로 인해 데이터를 가져올 수 없습니다.</div>`;
             return;
         }
 
         const parser = new DOMParser();
         const xmlDoc = parser.parseFromString(rawText, "text/xml");
+
+        const resultMsg = xmlDoc.querySelector("message, resultMsg, error");
+        if (resultMsg && !xmlDoc.querySelector("data")) {
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
+            return;
+        }
 
         const cctvNodes = xmlDoc.querySelectorAll("data");
         if (cctvNodes.length > 0) {
@@ -512,29 +543,31 @@
             
             Array.from(cctvNodes).forEach(node => {
                 let area = null;
-                const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '';
+                const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '이름없음';
 
-                // --- 조치원 4대 거점 필터링 (서창, 욱일, 홍대, 상리) ---
+                // --- 🚨 조치원 핵심 4곳 필터링 적용 ---
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
                     area = '조치원';
-                } 
-                // 위 4개가 아닌 조치원 내 카메라는 철저히 배제
-                else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
-                    area = null;
+                } else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
+                    area = null; // 불필요한 조치원 지역은 화면에서 제외
+                } else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) {
+                    area = '연서';
+                } else if (name.includes('전의')) {
+                    area = '전의';
+                } else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) {
+                    area = '전동';
+                } else if (name.includes('소정') || name.includes('운당')) {
+                    area = '소정';
+                } else if (name.includes('부강')) {
+                    area = '부강';
+                } else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) {
+                    area = '연동';
                 }
-                // 나머지 지역 분류
-                else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
-                else if (name.includes('전의')) area = '전의';
-                else if (name.includes('전동') || name.includes('심중') || name.includes('청송')) area = '전동';
-                else if (name.includes('소정') || name.includes('운당')) area = '소정';
-                else if (name.includes('부강')) area = '부강';
-                else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
 
-                // 구역이 확정된 핵심 카메라만 추가 (타지역은 폐기)
                 if (area) {
                     let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
                     let secureUrl = rawUrl.replace('http://', 'https://');
-                    filteredData.push({ area: area, name: name, url: secureUrl });
+                    filteredData.push({ area: area, name: name, url: secureUrl, rawUrl: rawUrl });
                 }
             });
 
@@ -543,10 +576,10 @@
             if(dynamicCCTVData.length > 0) {
                 renderCCTV();
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 거점 CCTV가 없습니다.</div>`;
             }
         } else {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 국도망 송출 데이터가 0건입니다.</div>`;
+             cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">송출 중인 영상이 0건입니다.</div>`;
         }
     }
 
@@ -561,11 +594,13 @@
     function renderCCTV() {
         const container = document.getElementById('cctv-list');
         container.innerHTML = '';
+        
         dynamicCCTVData.forEach(item => {
             if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
+            
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            div.onclick = () => openCCTV(item.name, item.url);
+            div.onclick = () => openCCTV(item.name, item.url, item.rawUrl);
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
@@ -573,12 +608,13 @@
             `;
             container.appendChild(div);
         });
+        
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 노출할 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 등록된 CCTV가 없습니다.</div>`;
         }
     }
 
-    // 동영상 및 웹플레이어 분기 처리 기능 (원본 그대로)
+    // 영상 재생기 복구 (동영상과 이미지 혼합 처리)
     function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
@@ -595,24 +631,22 @@
         vid.load();
         ifr.src = '';
 
-        // m3u8 동영상인 경우 비디오 플레이어 동작
         if (url.includes('.m3u8')) {
             vid.style.display = 'block';
             ifr.style.display = 'none';
+            
             if (Hls.isSupported()) {
                 hlsInstance = new Hls();
                 hlsInstance.loadSource(url);
                 hlsInstance.attachMedia(vid);
                 hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() {
-                    vid.play().catch(e => console.log('자동재생 방지됨'));
+                    vid.play().catch(e => console.log('재생 방지됨'));
                 });
             } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
                 vid.src = url;
-                vid.play().catch(e => console.log('자동재생 방지됨'));
+                vid.play().catch(e => console.log('재생 방지됨'));
             }
-        } 
-        // cctvType=3 (사진 웹페이지) 인 경우 iframe으로 로드
-        else {
+        } else {
             vid.style.display = 'none';
             ifr.style.display = 'block';
             ifr.src = url;
@@ -623,8 +657,10 @@
 
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
+        
         const vid = document.getElementById('cctv-video');
         const ifr = document.getElementById('cctv-frame');
+        
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
@@ -635,14 +671,13 @@
         ifr.src = "";
     }
 
-    // --- 여기서부터는 기존에 잘 작동하던 날씨/적설량/산불/대피소 등등 건드리지 않은 원본 코드 ---
-
+    // --- 기상청 강수량 복구 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
@@ -683,6 +718,7 @@
         }
     }
 
+    // --- 기상청 적설량 복구 ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -734,6 +770,7 @@
         } catch(e) { avgSnowEl.innerText = "오류"; }
     }
 
+    // --- 산림청 산불위험지수 복구 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
@@ -860,23 +897,39 @@
         db.ref('trafficData').set(trafficData);
     }
 
+    // --- 기상특보 복구 ---
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
         try {
-            const res = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php'));
+            const proxyUrl = 'https://api.codetabs.com/v1/proxy?quest=' + encodeURIComponent('https://www.weatheri.co.kr/special/special01.php');
+            const res = await fetch(proxyUrl);
             const text = await res.text();
-            const doc = new DOMParser().parseFromString(text, 'text/html');
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(text, 'text/html');
             const bodyText = doc.body.innerText || "";
-            const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2})/);
-            let timeStr = timeMatch ? timeMatch[1] : "수신중";
+            const timeMatch = bodyText.match(/발효현황\s*[:]?\s*(\d{4}[\.\-]\d{2}[\.\-]\d{2}\s*\d{2}:\d{2}(:\d{2})?)/);
+            let timeStr = timeMatch ? timeMatch[1] : "수신중...";
+            const lines = bodyText.split('\n');
+            const uniqueSet = new Set();
             let sejongAlert = null;
-            bodyText.split('\n').forEach(line => {
-                if (line.trim().startsWith('o') && line.includes('세종')) sejongAlert = line.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/)?.[0];
+            lines.forEach(line => {
+                const trimmed = line.trim();
+                if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) {
+                    uniqueSet.add(trimmed);
+                    if (trimmed.includes("세종")) {
+                        const alertName = trimmed.match(/(호우|대설|강풍|풍랑|한파|폭염|건조)(주의보|경보)/);
+                        if (alertName) sejongAlert = alertName[0];
+                    }
+                }
             });
             if (sejongAlert) { headerStatusEl.innerText = `세종: ${sejongAlert}`; headerStatusEl.className = "sejong-summary warn"; } 
             else { headerStatusEl.innerText = "세종: 특보 없음"; headerStatusEl.className = "sejong-summary safe"; }
-            contentEl.innerHTML = `<div class="info-group"><span class="info-label">업데이트</span><div class="info-val time">${timeStr}</div></div>`;
+            let contentStr = "";
+            if (uniqueSet.size > 0) { contentStr = Array.from(uniqueSet).map(w => w.replace(/^o\s*/, "🚨 ")).join("<br>"); } 
+            else if (bodyText.includes("없습니다")) { contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 특보 없음"; } 
+            else { contentStr = "특보 데이터 없음"; }
+            contentEl.innerHTML = `<div class="info-group"><span class="info-label">발효시각</span><div class="info-val time">${timeStr}</div></div><div class="info-group"><span class="info-label">전국 특보 내용</span><div class="info-val content">${contentStr}</div></div>`;
         } catch (e) { headerStatusEl.innerText = "통신지연"; }
     }
 
