@@ -479,17 +479,26 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- 반장님이 올려주신 완벽히 잘 되던 CCTV 통신 로직 100% 동일 복구 ---
+    // ✅ 프록시 자동 폴백 (4개 순차 시도, 각 5초 타임아웃)
     async function fetchCCTVData(url) {
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`;
-        try {
-            const res = await fetch(proxyUrl);
-            const text = await res.text();
-            if (text.trim().startsWith('<')) return { error: text };
-            return JSON.parse(text);
-        } catch(e) {
-            return null;
+        const proxies = [
+            (u) => `https://api.allorigins.win/raw?url=${encodeURIComponent(u)}&_=${Date.now()}`,
+            (u) => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(u)}`,
+            (u) => `https://corsproxy.io/?${encodeURIComponent(u)}`,
+            (u) => `https://cors-anywhere.herokuapp.com/${u}`,
+        ];
+        for (const makeProxy of proxies) {
+            try {
+                const res = await fetch(makeProxy(url), { signal: AbortSignal.timeout(5000) });
+                const text = await res.text();
+                if (!text || text.trim().startsWith('<')) continue;
+                return JSON.parse(text);
+            } catch(e) {
+                console.warn('프록시 실패, 다음 시도...', e);
+                continue;
+            }
         }
+        return null;
     }
 
     async function autoFetchCCTV() {
@@ -499,7 +508,6 @@
         const apiKey = "56934196b0354a48ab5a1d020262c673";
         const minX = "127.100000", maxX = "127.450000", minY = "36.400000", maxY = "36.800000";
         
-        // 반장님이 제일 잘된다고 하셨던 로직 완벽 복구 (cctvType=4 -> cctvType=3 자동 하이브리드)
         const targetUrl_HLS = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=its&cctvType=4&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
         const targetUrl_IMG = `https://openapi.its.go.kr:9443/cctvInfo?apiKey=${apiKey}&type=its&cctvType=3&minX=${minX}&maxX=${maxX}&minY=${minY}&maxY=${maxY}&getType=json`;
 
@@ -525,7 +533,6 @@
                 let area = null;
                 const name = item.cctvname || '이름없음';
 
-                // 조치원 핵심 4개 필터링
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
                     area = '조치원';
                 } 
@@ -586,7 +593,6 @@
         }
     }
 
-    // --- 반장님이 올려주신 완벽하게 작동했던 플레이어 로직 100% 동일 복구 ---
     function openCCTV(name, url, rawUrl) {
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-link-btn').href = rawUrl || url; 
@@ -641,7 +647,6 @@
         ifr.src = "";
     }
 
-    // --- 절대 건드리지 않은 안정적인 기존 코드들 (기상, 강수량, 적설량, 산불 등) ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
