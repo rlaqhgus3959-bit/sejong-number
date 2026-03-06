@@ -359,7 +359,7 @@
 
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 대피소 현황 (69개소)</div>
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황 (69개소)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -776,11 +776,13 @@
         }
     }
 
+    // --- [세종시청 공식 적설량 데이터 파싱 로직 적용] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
-        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
+        // 반장님이 짚어주신 공식 URL
+        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do?_=' + timeMin;
         const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
@@ -789,63 +791,62 @@
             const htmlText = await res.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
-            const sejongSnow = {};
+            
+            let headerRow = [];
+            let valueRow = [];
+            let sejongSnow = {};
             let avgSnow = null;
 
-            let sinIdx = 1, choeIdx = 2; 
-            const headers = Array.from(doc.querySelectorAll('table th')).map(th => th.textContent.replace(/\s+/g, ''));
-            headers.forEach((h, i) => {
-                if (h.includes('신적설')) sinIdx = i;
-                if (h.includes('최심')) choeIdx = i;
-            });
-
+            // 표에서 구분(지역)과 데이터(최심) 배열 추출
             doc.querySelectorAll('table tr').forEach(row => {
-                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
-                if (cells.length > 1) {
-                    const rowText = row.textContent.replace(/\s+/g, '');
-                    
-                    if (rowText.includes('평균')) {
-                        const val = parseFloat(cells[sinIdx]?.replace(/,/g, ''));
-                        if (!isNaN(val)) avgSnow = val;
-                    }
-
-                    locs.forEach(loc => {
-                        if (rowText.includes(loc.name)) {
-                            let sVal = parseFloat(cells[sinIdx]?.replace(/,/g, ''));
-                            let cVal = parseFloat(cells[choeIdx]?.replace(/,/g, ''));
-                            
-                            if(isNaN(sVal) || isNaN(cVal)) {
-                                const nums = cells.map(c => parseFloat(c.replace(/,/g, ''))).filter(n => !isNaN(n));
-                                sVal = nums[0] || 0;
-                                cVal = nums[1] || sVal;
-                            }
-                            sejongSnow[loc.name] = { sin: isNaN(sVal) ? 0 : sVal, choe: isNaN(cVal) ? 0 : cVal };
-                        }
-                    });
+                const ths = Array.from(row.querySelectorAll('th')).map(c => c.textContent.replace(/\s+/g, '')); 
+                if (ths.length > 0 && ths.some(th => th.includes('조치원'))) {
+                    headerRow = ths;
                 }
+                const tds = Array.from(row.querySelectorAll('td')).map(c => c.textContent.trim());
+                if (tds.length > 0 && tds.some(td => td.includes('최심'))) {
+                    valueRow = tds;
+                }
+                // 만약 th, td가 혼합되어 있는 경우 대비용 통합 탐색
+                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
+                if(cells.includes('조치원')) headerRow = cells;
+                if(cells.includes('최심')) valueRow = cells;
             });
+
+            if (headerRow.length > 0 && valueRow.length > 0) {
+                const avgIdx = headerRow.findIndex(h => h.includes('평균'));
+                if(avgIdx !== -1 && avgIdx < valueRow.length) {
+                    avgSnow = parseFloat(valueRow[avgIdx]);
+                }
+
+                locs.forEach(loc => {
+                    const idx = headerRow.findIndex(h => h.includes(loc.name)); 
+                    if (idx !== -1 && idx < valueRow.length) {
+                        const num = parseFloat(valueRow[idx]);
+                        sejongSnow[loc.name] = isNaN(num) ? 0 : num;
+                    }
+                });
+            }
 
             let html = ''; let totalSnow = 0; let count = 0;
             locs.forEach(loc => {
-                const data = sejongSnow[loc.name] || {sin: 0, choe: 0};
-                totalSnow += data.sin; count++;
-                const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
+                const todaySnow = sejongSnow[loc.name] !== undefined ? sejongSnow[loc.name] : 0;
+                totalSnow += todaySnow; count++;
+                const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = todaySnow > 0 ? '' : 'color: var(--sub);';
                 
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${loc.name}</div>
-                    <div class="${valClass}" style="${colorStyle}">${data.sin}<small>cm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${data.choe}</div>
+                    <div class="${valClass}" style="${colorStyle}">${todaySnow}<small>cm</small></div>
                 </div>`;
             });
             html += `<div class="rain-cell" style="background:var(--card);">
                 <div class="rain-loc" style="color:#fff;">출처</div>
                 <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
-                <div style="font-size:10px; color:var(--green); margin-top:2px;">Live</div>
             </div>`;
             
             gridEl.innerHTML = html;
-            if (avgSnow !== null) {
+            if (avgSnow !== null && !isNaN(avgSnow)) {
                 avgSnowEl.innerText = `${avgSnow} cm`;
             } else {
                 avgSnowEl.innerText = `${count > 0 ? (totalSnow/count).toFixed(1) : '-'} cm`;
