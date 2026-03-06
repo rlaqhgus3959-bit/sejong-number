@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
+            /* 애플(iOS) 스타일 다크모드 색상표 */
             --bg: #000000; 
             --card: #1c1c1e; 
             --card-elevated: #2c2c2e;
@@ -54,6 +55,7 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
+        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -66,6 +68,7 @@
         .accord-header:active { background: #222; }
         
         .ah-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; color: #fff; flex: 1; }
+        /* 아이콘 크기 및 정렬 완벽 최적화 */
         .ah-title i { font-size: 17px; width: 22px; text-align: center; } 
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
@@ -83,6 +86,7 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
+        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -92,8 +96,9 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
+        /* 격자형 데이터 (강우량, 적설량 등) 애플스타일 위젯화 */
         .rain-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
+            display: grid; grid-template-columns: repeat(4, 1fr); 
             gap: 8px; background: transparent; border: none;
         }
         .rain-cell { background: var(--card-elevated); padding: 12px 4px; text-align: center; border-radius: 12px; }
@@ -106,12 +111,12 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
+        /* 대피소 카드 애플스타일 적용 */
+        .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .shelter-card {
-            background: var(--card-elevated); padding: 12px 8px; 
+            background: var(--card-elevated); padding: 10px 6px; 
             border-radius: 14px; display: flex; flex-direction: column; 
-            align-items: center; justify-content: space-between; box-sizing: border-box;
-            min-height: 110px;
+            align-items: center; box-sizing: border-box;
         }
         .shelter-name { 
             font-size: 11px; font-weight: 700; color: #fff; width: 100%;
@@ -119,10 +124,11 @@
         }
         .shelter-addr { 
             font-size: 9px; color: var(--sub); width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 4px;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
         }
         .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 700; margin: 6px 0; }
         
+        /* 버튼 세로 정렬 및 크기 최적화 */
         .shelter-btn-group { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: auto; }
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
@@ -135,11 +141,12 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
+        /* CCTV 카드 애플스타일 */
+        .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-height: 420px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
             background: var(--card-elevated); padding: 12px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 100px; cursor: pointer; transition: 0.2s;
+            min-height: 95px; cursor: pointer; transition: 0.2s;
         }
         .cctv-card:active { transform: scale(0.96); opacity: 0.8; }
         .cctv-icon { 
@@ -150,18 +157,19 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
+        /* 도로 통제 현황 애플스타일 */
+        .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
             display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 90px; position: relative;
+            min-height: 85px; position: relative;
         }
         .card-info { margin-bottom: 6px; }
         .area-tag { font-size: 10px; color: var(--sub); background: #1c1c1e; padding: 2px 6px; border-radius: 6px; align-self: flex-start; margin-bottom: 6px; display: inline-block; font-weight:600;}
         .loc-name { font-size: 12px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
         .status-btn { 
             font-size: 11px; font-weight: 800; padding: 6px; border-radius: 8px; 
-            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer; margin-top:4px;
+            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
         }
         .st-ban { background: var(--red); color: white; }
         .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); }
@@ -177,6 +185,7 @@
         }
         .admin-btn.active { color: var(--red); }
 
+        /* 필터 및 검색바 (iOS 스타일 둥근 검색창) */
         .filter-area { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
         .search-row { display: flex; gap: 8px; }
         .search-input { 
@@ -202,6 +211,7 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+        /* 모달 팝업 */
         #cctv-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -268,22 +278,10 @@
 
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
-        <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온
-            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
-        </div>
+        <div class="ah-title"><i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div id="rain-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
-            <div style="margin-bottom:6px;">
-                <span style="color:var(--orange); font-weight:bold;">호우주의보 :</span> 3시간 누적강우량이 60mm 이상 예상되거나 12시간 누적강우량이 110mm 이상 예상될 때
-            </div>
-            <div>
-                <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
-            </div>
-        </div>
-
         <div class="rain-avg-box">
             <div style="font-size:12px; color:var(--sub); font-weight:600;">7개 읍면 일평균 강수</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
@@ -294,29 +292,12 @@
 
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
-        <div class="ah-title">
-            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 실시간 적설량
-            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleSnowInfo(event)"></i>
-        </div>
+        <div class="ah-title"><i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 예상 적설량</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div id="snow-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
-            <div style="margin-bottom:8px;">
-                <b style="color:#fff;">신 적 설 :</b> 금일 내린 적설 중 관측시점의 적설<br>
-                <b style="color:#fff;">최심신적설 :</b> 금일 내린 적설 중 가장 높은(깊은) 값<br>
-                <b style="color:#fff;">적 설 량 :</b> 현재 쌓여 있는 적설<br>
-                <b style="color:#fff;">최심적설량 :</b> 임의의 기간동안 쌓여 있는 적설 중 가장 높은 값
-            </div>
-            <div style="font-size:11px; margin-bottom:8px; color:#aaa;">* 금일 적설 = 신적설, 현재적설 = 적설</div>
-            <div>
-                <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
-                <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
-            </div>
-        </div>
-
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 적설량</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">7개 읍면 일평균 적설</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -406,7 +387,7 @@
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:15px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
             <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
@@ -415,9 +396,6 @@
             <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
-        <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
-            * 국도망(its)은 현장 사정에 따라 스트리밍 또는 자동갱신 사진으로 제공됩니다.
-        </div>
     </div>
 </div>
 
@@ -440,6 +418,7 @@
     <div class="cctv-frame-container">
         <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
         <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
+        
         <div class="cctv-fallback">
             <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 열기</a>
         </div>
@@ -467,7 +446,7 @@
     
     let isAdmin = false;
 
-    // 대피소 69개 100% 명단
+    // 대피소 69개 100% 원상복구 (전화번호 포함)
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -573,18 +552,6 @@
         el.classList.toggle('open'); 
     }
 
-    function toggleRainInfo(e) {
-        e.stopPropagation(); 
-        const box = document.getElementById('rain-info-box');
-        box.style.display = box.style.display === 'none' ? 'block' : 'none';
-    }
-
-    function toggleSnowInfo(e) {
-        e.stopPropagation(); 
-        const box = document.getElementById('snow-info-box');
-        box.style.display = box.style.display === 'none' ? 'block' : 'none';
-    }
-
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
@@ -592,34 +559,30 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // 100% 원복: 가장 안정적이고 빠른 순차 접속 기법 (Promise.any 제거)
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 탐색 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 고속 접속 중...</div>`;
 
         const targetUrl = "https://openapi.its.go.kr:9443/cctvInfo?apiKey=56934196b0354a48ab5a1d020262c673&type=its&cctvType=1&minX=127.140004294763&maxX=127.40809957074&minY=36.5529282846312&maxY=36.7324183697358&getType=xml";
 
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
         let rawText = "";
 
         try {
-            for (let i = 0; i < proxies.length; i++) {
-                const res = await fetch(proxies[i]);
-                if (res.ok) {
-                    const text = await res.text();
-                    if (text && text.includes('<response>')) { 
-                        rawText = text; 
-                        break; 
-                    }
-                }
-            }
-            if (!rawText) throw new Error("통신 차단");
-        } catch(e) {
-            console.log("우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
+            const fetchPromises = proxies.map(proxy => 
+                fetch(proxy).then(res => res.text()).then(text => {
+                    if (text && text.includes('<response>')) return text;
+                    throw new Error("Invalid Format");
+                })
+            );
+            rawText = await Promise.any(fetchPromises);
+        } catch (error) {
+            console.log("모든 우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
             rawText = fallbackXML;
         }
 
@@ -812,109 +775,35 @@
         }
     }
 
-    // --- [적설량: 세로 행(row) 기반 정밀 매칭 알고리즘 최종 적용] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
-        const timeMin = Math.floor(Date.now() / 60000);
-        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
-        
-        // 데이터 고속 로딩 3중 우회망
-        const proxies = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-        ];
-
-        // 노출할 9개소 지정 (생활권 제외)
         const locs = [
-            {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
-            {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
+            { name: '조치원', lat: 36.601, lon: 127.301 }, { name: '연서면', lat: 36.560, lon: 127.270 },
+            { name: '전의면', lat: 36.670, lon: 127.200 }, { name: '전동면', lat: 36.630, lon: 127.260 },
+            { name: '소정면', lat: 36.720, lon: 127.150 }, { name: '부강면', lat: 36.520, lon: 127.370 }, { name: '연동면', lat: 36.560, lon: 127.320 }
         ];
+        const lats = locs.map(l => l.lat).join(',');
+        const lons = locs.map(l => l.lon).join(',');
         
         try {
-            let htmlText = "";
-            const fetchPromises = proxies.map(proxy => 
-                fetch(proxy).then(res => res.text()).then(text => {
-                    if (text && text.includes('조치원')) return text;
-                    throw new Error("Invalid Format");
-                })
-            );
-            htmlText = await Promise.any(fetchPromises);
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=snowfall_sum&timezone=Asia%2FTokyo`;
+            const res = await fetch(url);
+            const data = await res.json();
+            const results = Array.isArray(data) ? data : [data];
             
-            let sejongSnow = {};
-            let avgSnow = 0;
-
-            // 표의 각 줄(tr)을 순회하며 지역이름이 행(row)의 시작인 것을 파악하여 숫자를 강제 매칭
-            doc.querySelectorAll('table tr').forEach(tr => {
-                const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
-                if (cells.length < 2) return;
-
-                // 1열(구분)의 값 (지역명)
-                const regionName = cells[0];
-                
-                // 숫자만 추출하는 필터 함수 (문자 섞임 방지)
-                const extractNum = (str) => {
-                    if (!str) return 0;
-                    const match = str.match(/-?\d+(\.\d+)?/);
-                    return match ? parseFloat(match[0]) : 0;
-                };
-
-                // '평균' 데이터 행일 경우
-                if (regionName.includes('평균')) {
-                    // 보통 1번 인덱스가 신적설, 4번이 적설량
-                    avgSnow = extractNum(cells[4] || cells[cells.length - 1]);
-                } 
-                // 그 외 '조치원읍', '연동면' 등 지역 데이터 행일 경우
-                else {
-                    const matchedLoc = locs.find(l => regionName.includes(l.name));
-                    if (matchedLoc) {
-                        // 세종시 표 세로 기준: [0]지역명, [1]신적설, [2]최심신적설, [3]전일최심, [4]적설량
-                        const sVal = extractNum(cells[1]); // 신적설
-                        const cVal = extractNum(cells[2]); // 최심신적설
-                        const jVal = extractNum(cells[4]); // 적설량
-
-                        sejongSnow[matchedLoc.name] = { sin: sVal, choe: cVal, juk: jVal };
-                    }
-                }
+            let totalSnow = 0; let html = '';
+            results.forEach((r, idx) => {
+                const todaySnow = r.daily.snowfall_sum[0] || 0;
+                totalSnow += todaySnow;
+                const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = todaySnow > 0 ? '' : 'color: var(--sub);';
+                html += `<div class="rain-cell"><div class="rain-loc">${locs[idx].name.replace('면','')}</div><div class="${valClass}" style="${colorStyle}">${todaySnow}<small>cm</small></div></div>`;
             });
-
-            // 화면 그리기
-            let html = ''; 
-            locs.forEach(loc => {
-                const data = sejongSnow[loc.name] || {sin: 0, choe: 0, juk: 0};
-                
-                const valClass = data.juk > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = data.juk > 0 ? '' : 'color: var(--sub);';
-                
-                let displayName = loc.name;
-                if(displayName === '조치원') displayName = '조치원읍';
-                else displayName += '면';
-
-                html += `<div class="rain-cell">
-                    <div class="rain-loc">${displayName}</div>
-                    <div class="${valClass}" style="${colorStyle}">${data.juk.toFixed(1)}<small>cm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">신적설: ${data.sin.toFixed(1)}</div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${data.choe.toFixed(1)}</div>
-                </div>`;
-            });
-            
-            html += `<div class="rain-cell" style="background:var(--card);">
-                <div class="rain-loc" style="color:#fff;">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">Live</div>
-            </div>`;
-            
+            html += `<div class="rain-cell" style="background:var(--card);"><div class="rain-loc" style="color:#fff;">기준</div><div class="rain-val" style="font-size:11px; color:var(--sub);">일누적</div></div>`;
             gridEl.innerHTML = html;
-            avgSnowEl.innerText = `${avgSnow.toFixed(1)} cm`;
-
-        } catch(e) { 
-            avgSnowEl.innerText = "오류"; 
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px;">데이터 수신 지연 / 표 양식 변경됨</div>`;
-        }
+            avgSnowEl.innerText = `${(totalSnow / locs.length).toFixed(1)} cm`;
+        } catch(e) { avgSnowEl.innerText = "오류"; }
     }
 
     async function autoFetchForest() {
