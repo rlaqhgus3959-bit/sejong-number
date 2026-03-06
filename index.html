@@ -475,7 +475,7 @@
     
     let isAdmin = false;
 
-    // 대피소 69개 100% 명단
+    // 대피소 69개소 전체 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -556,10 +556,17 @@
         { id:9, area:'조치원', name:'봉암하상도로', status:0 }, { id:10, area:'전의', name:'유천리 양안지하차도', status:0 },
         { id:11, area:'전의', name:'청송농공단지 앞', status:0 }, { id:12, area:'조치원', name:'서창역~신안2리', status:0 },
         { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
-        { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
+        { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 },
+        { id:17, area:'조치원', name:'상조천교(금강홍수통제소)', status:0 }
     ];
 
-    let dynamicCCTVData = []; 
+    // 관내 CCTV 목록에 금강홍수통제소(상조천교) 강제 주입
+    let dynamicCCTVData = [{
+        area: '조치원',
+        name: '[하천] 상조천교 (금강홍수통제소)',
+        url: 'https://www.geumriver.go.kr/html/sumun/rtmpView.jsp?wlobscd=3011675&cctvcd=152004'
+    }]; 
+    
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
     let cctvFilter = 'all';
@@ -623,7 +630,6 @@
             );
             rawText = await Promise.any(fetchPromises);
         } catch (error) {
-            console.log("모든 우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
             rawText = fallbackXML;
         }
 
@@ -663,6 +669,9 @@
                     filteredData.push({ area: area, name: name, url: secureUrl });
                 }
             });
+
+            // 금강홍수통제소(상조천교) 강제 주입 추가
+            filteredData.push(dynamicCCTVData[0]);
 
             dynamicCCTVData = filteredData;
             
@@ -762,30 +771,16 @@
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        
-        const proxies = [
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-        ];
-        
+        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
-            let htmlText = "";
-            const fetchPromises = proxies.map(proxy => 
-                fetch(proxy).then(res => res.text()).then(text => {
-                    if (text && text.includes('조치원')) return text;
-                    throw new Error("Invalid Format");
-                })
-            );
-            
-            const [fetchedHtml, tempRes] = await Promise.all([
-                Promise.any(fetchPromises),
+            const [rainRes, tempRes] = await Promise.all([
+                fetch(proxyUrl),
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m&timezone=Asia%2FTokyo`)
             ]);
             
-            htmlText = fetchedHtml;
+            const htmlText = await rainRes.text();
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
             const sejongRain = {};
@@ -830,35 +825,34 @@
         }
     }
 
-    // --- [적설량 전면 교체: 세로형 표 구조 완벽 매칭 (숫자 추출 알고리즘 적용 완료)] ---
+    // --- [적설량 세로형 표 파싱 엔진 완전 교체 (줄 단위 숫자 추출 방식 적용)] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
         
-        // 데이터 로딩 딜레이 방지를 위해 우회망 3개 동시 투입
+        // 3중 우회망 레이싱
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
-        // 1,2,3,6생활권 제외한 관내 및 인접 9개소
+        // 관내 및 인접 9곳 노출
         const locs = [
             {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
             {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
         ];
         
         try {
-            let htmlText = "";
             const fetchPromises = proxies.map(proxy => 
                 fetch(proxy).then(res => res.text()).then(text => {
                     if (text && text.includes('조치원')) return text;
                     throw new Error("Invalid Format");
                 })
             );
-            htmlText = await Promise.any(fetchPromises);
+            const htmlText = await Promise.any(fetchPromises);
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
@@ -866,43 +860,37 @@
             let sejongSnow = {};
             let avgSnow = 0;
 
-            // 세로형 표 행(tr)별로 분석하여 데이터 추출
+            // 1. 모든 줄의 데이터를 순회하며 세로형 표 데이터 추출
             doc.querySelectorAll('table tr').forEach(tr => {
                 const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
-                if (cells.length < 2) return;
+                if (cells.length < 3) return;
 
-                // 1열(구분)의 값
-                const regionName = cells[0];
+                const rowTitle = cells[0];
                 
-                // 숫자 추출 함수
+                // 숫자 추출 헬퍼 (공백 및 특수문자 대응)
                 const extractNum = (str) => {
                     if (!str) return 0;
                     const match = str.match(/-?\d+(\.\d+)?/);
                     return match ? parseFloat(match[0]) : 0;
                 };
 
-                // '평균' 데이터 행
-                if (regionName.includes('평균')) {
-                    // 보통 1번 인덱스가 신적설, 4번이 적설량
-                    // 적설량을 메인으로 쓰기로 했으므로 4번 인덱스 추출. 만약 칸이 모자라면 마지막 숫자를 씀.
-                    const aVal = extractNum(cells[4] || cells[cells.length - 1]);
-                    avgSnow = aVal;
+                if (rowTitle.includes('평균')) {
+                    avgSnow = extractNum(cells[4] || cells[cells.length - 1]); // 적설량 또는 마지막 값
                 } 
-                // 그 외 '조치원읍', '연동면' 등 지역 데이터 행
                 else {
-                    const matchedLoc = locs.find(l => regionName.includes(l.name));
+                    const matchedLoc = locs.find(l => rowTitle.includes(l.name));
                     if (matchedLoc) {
-                        // 세종시 표 기준: 1번칸=신적설, 2번칸=최심신적설, 4번칸=적설량
-                        const sVal = extractNum(cells[1]); // 신적설
-                        const cVal = extractNum(cells[2]); // 최심신적설
-                        const jVal = extractNum(cells[4]); // 적설량
-
-                        sejongSnow[matchedLoc.name] = { sin: sVal, choe: cVal, juk: jVal };
+                        // 세종시 표 기준: [1]신적설, [2]최심신적설, [3]전일최심, [4]적설량
+                        const sinVal = extractNum(cells[1]);
+                        const choeVal = extractNum(cells[2]);
+                        const jukVal = extractNum(cells[4]);
+                        
+                        sejongSnow[matchedLoc.name] = { sin: sinVal, choe: choeVal, juk: jukVal };
                     }
                 }
             });
 
-            // 화면 그리기 (적설량을 가장 큰 글씨로)
+            // 화면 그리기 (적설량을 메인으로 변경)
             let html = ''; 
             locs.forEach(loc => {
                 const data = sejongSnow[loc.name] || {sin: 0, choe: 0, juk: 0};
