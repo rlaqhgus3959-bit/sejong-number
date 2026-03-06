@@ -776,7 +776,7 @@
         }
     }
 
-    // --- [세종시청 공식 신적설/최심신적설 완벽 1:1 매칭 파싱 적용] ---
+    // --- [세종시청 공식 신적설/최심신적설 완벽 1:1 매칭 파싱 적용 완료] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -792,65 +792,75 @@
             const doc = parser.parseFromString(htmlText, 'text/html');
             
             let headers = [];
-            let sinRow = [];
-            let choeRow = [];
-            
-            doc.querySelectorAll('table tr').forEach(row => {
-                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
-                const rowText = cells.join('').replace(/\s+/g, '');
+            let sinNumbers = [];
+            let choeNumbers = [];
+
+            // 테이블 전체 행을 스캔하여 숫자값만 정확히 추출
+            doc.querySelectorAll('table tr').forEach(tr => {
+                const text = tr.textContent.replace(/\s+/g, '');
                 
-                if (rowText.includes('조치원') && rowText.includes('전의')) {
-                    headers = cells.map(c => c.replace(/\s+/g, ''));
-                } else if (rowText.includes('신적설') && !rowText.includes('최심')) {
-                    sinRow = cells;
-                } else if (rowText.includes('최심')) {
-                    choeRow = cells;
+                // 1. 헤더 (지역명) 추출
+                if (text.includes('조치원') && text.includes('전의')) {
+                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
+                        const cText = cell.textContent.replace(/\s+/g, '');
+                        if (cText && cText !== '구분' && cText !== '구분') {
+                            headers.push(cText);
+                        }
+                    });
+                } 
+                // 2. 신적설 추출
+                else if (text.includes('신적설') && !text.includes('최심')) {
+                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
+                        const num = parseFloat(cell.textContent.trim());
+                        if (!isNaN(num)) sinNumbers.push(num);
+                    });
+                } 
+                // 3. 최심신적설 추출
+                else if (text.includes('최심')) {
+                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
+                        const num = parseFloat(cell.textContent.trim());
+                        if (!isNaN(num)) choeNumbers.push(num);
+                    });
                 }
             });
 
-            if (sinRow.length === 0) sinRow = choeRow;
+            // 만약 한쪽 데이터만 갱신된 경우 보정
+            if (sinNumbers.length === 0 && choeNumbers.length > 0) sinNumbers = [...choeNumbers];
+            if (choeNumbers.length === 0 && sinNumbers.length > 0) choeNumbers = [...sinNumbers];
 
-            const extractVal = (rowArr, idx) => {
-                if (!rowArr || idx < 0 || idx >= rowArr.length) return 0.0;
-                const match = rowArr[idx].match(/-?\d+(\.\d+)?/);
-                return match ? parseFloat(match[0]) : 0.0;
-            };
+            let sejongSnow = {};
+            let avgSnow = 0;
 
-            let avgSnow = 0.0;
-            const avgIdx = headers.findIndex(h => h.includes('평균') || h.includes('평균'));
-            
+            // 헤더의 순서(인덱스)와 숫자의 순서(인덱스)를 1:1로 매칭
+            headers.forEach((h, idx) => {
+                let sVal = sinNumbers[idx] !== undefined ? sinNumbers[idx] : 0;
+                let cVal = choeNumbers[idx] !== undefined ? choeNumbers[idx] : sVal;
+
+                if (h.includes('평균')) {
+                    avgSnow = sVal;
+                } else {
+                    const cleanName = h.replace('읍', '').replace('면', '');
+                    sejongSnow[cleanName] = { sin: sVal, choe: cVal };
+                }
+            });
+
             let html = ''; let totalSnow = 0; let count = 0;
-            
             locs.forEach(loc => {
-                let idx = headers.findIndex(h => h.includes(loc.name));
+                // 각 지역 이름으로 매칭된 값 찾기
+                const matchKey = Object.keys(sejongSnow).find(k => k.includes(loc.name.replace('면', '')));
+                const data = matchKey ? sejongSnow[matchKey] : { sin: 0, choe: 0 };
                 
-                let sIdx = idx;
-                let cIdx = idx;
-                if (headers.length > 0 && sinRow.length > 0) sIdx = idx + (sinRow.length - headers.length);
-                if (headers.length > 0 && choeRow.length > 0) cIdx = idx + (choeRow.length - headers.length);
-
-                let sVal = extractVal(sinRow, sIdx);
-                let cVal = extractVal(choeRow, cIdx);
-
-                totalSnow += sVal; count++;
-                
-                const valClass = sVal > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = sVal > 0 ? '' : 'color: var(--sub);';
+                totalSnow += data.sin; count++;
+                const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
                 
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${loc.name}</div>
-                    <div class="${valClass}" style="${colorStyle}">${sVal.toFixed(1)}<small>cm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">최심: ${cVal.toFixed(1)}</div>
+                    <div class="${valClass}" style="${colorStyle}">${data.sin.toFixed(1)}<small>cm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">최심: ${data.choe.toFixed(1)}</div>
                 </div>`;
             });
             
-            if (avgIdx !== -1) {
-                let aIdx = avgIdx + (sinRow.length - headers.length);
-                avgSnow = extractVal(sinRow, aIdx);
-            } else {
-                avgSnow = count > 0 ? (totalSnow / count) : 0;
-            }
-
             html += `<div class="rain-cell" style="background:var(--card);">
                 <div class="rain-loc" style="color:#fff;">출처</div>
                 <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
