@@ -16,210 +16,229 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            --bg: #000000; --card: #1c1c1e; --text: #ffffff; --sub: #8e8e93;
-            --line: #2c2c2e; --blue: #0a84ff; --red: #ff453a; --green: #30d158; --orange: #ff9f0a; --forest: #27ae60;
-            --shelter: #ffd60a; --kakao: #FAE100; --snow: #8be9fd;
+            /* 애플(iOS) 스타일 다크모드 색상표 */
+            --bg: #000000; 
+            --card: #1c1c1e; 
+            --card-elevated: #2c2c2e;
+            --text: #ffffff; 
+            --sub: #8e8e93;
+            --line: #38383a; 
+            --blue: #0a84ff; 
+            --red: #ff453a; 
+            --green: #30d158; 
+            --orange: #ff9f0a; 
+            --forest: #32d74b;
+            --shelter: #ffd60a; 
+            --kakao: #FAE100; 
+            --snow: #64d2ff;
         }
         body {
             background: var(--bg); color: var(--text);
-            font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Pretendard", sans-serif;
             margin: 0; padding: env(safe-area-inset-top) 20px 40px 20px;
             -webkit-tap-highlight-color: transparent; user-select: none;
+            letter-spacing: -0.3px;
         }
 
-        header { margin-bottom: 10px; }
+        header { margin-bottom: 20px; padding-top: 10px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .title-group { display: flex; align-items: center; gap: 10px; }
-        h1 { margin: 0; font-size: 20px; font-weight: 700; letter-spacing: -0.5px; }
+        h1 { margin: 0; font-size: 24px; font-weight: 800; letter-spacing: -0.5px; }
         
         .refresh-btn {
-            background: #333; border: 1px solid #444; color: white;
-            width: 32px; height: 32px; border-radius: 50%;
+            background: var(--card-elevated); color: var(--blue);
+            width: 36px; height: 36px; border-radius: 50%; border: none;
             display: flex; align-items: center; justify-content: center;
-            cursor: pointer; font-size: 14px;
+            cursor: pointer; font-size: 16px; transition: 0.2s;
         }
-        .refresh-btn:active { background: #555; transform: scale(0.95); }
+        .refresh-btn:active { background: #3a3a3c; transform: scale(0.9); }
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
         .accord-section {
-            background: #2c2c2e; border: 1px solid var(--line);
-            border-radius: 16px; overflow: hidden; margin-bottom: 15px;
-            transition: all 0.3s ease;
+            background: var(--card); border: none;
+            border-radius: 20px; overflow: hidden; margin-bottom: 16px;
         }
         
         .accord-header {
-            background: #3a3a3c; padding: 12px 15px;
-            display: flex; justify-content: space-between; align-items: center;
-            cursor: pointer; user-select: none;
+            padding: 18px 20px; display: flex; justify-content: space-between; align-items: center;
+            cursor: pointer; user-select: none; background: transparent; transition: background 0.2s;
         }
-        .accord-header:active { background: #444; }
+        .accord-header:active { background: #222; }
         
-        .ah-title { font-size: 14px; font-weight: 700; display: flex; align-items: center; gap: 8px; color: #fff; flex: 1; }
+        .ah-title { font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 10px; color: #fff; flex: 1; }
+        .ah-title i { font-size: 17px; width: 22px; text-align: center; } 
         .ah-toggle { color: var(--sub); transition: 0.3s; font-size: 14px; margin-left: 10px; }
         
-        .accord-content { display: none; padding: 15px; animation: slideDown 0.3s ease forwards; }
+        .accord-content { display: none; padding: 0 20px 20px 20px; animation: slideDown 0.3s ease forwards; }
         .accord-section.open .accord-content { display: block; }
         .accord-section.open .ah-toggle { transform: rotate(180deg); }
 
         .sejong-summary {
-            font-size: 13px; font-weight: 600; color: #ccc;
-            background: rgba(0,0,0,0.3); padding: 4px 10px; border-radius: 6px;
+            font-size: 13px; font-weight: 600; color: var(--text);
+            background: var(--card-elevated); padding: 5px 12px; border-radius: 12px;
             display: inline-block; margin-left: auto;
         }
-        .sejong-summary.safe { color: var(--green); }
-        .sejong-summary.warn { color: var(--red); animation: blink 2s infinite; }
+        .sejong-summary.warn { background: rgba(255, 69, 58, 0.2); color: var(--red); animation: blink 2s infinite; }
 
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes blink { 50% { opacity: 0.5; } }
+        @keyframes blink { 50% { opacity: 0.6; } }
 
         .info-group { margin-bottom: 12px; }
-        .info-label { font-size: 11px; color: var(--sub); font-weight: bold; display: block; margin-bottom: 4px; }
-        .info-val { font-size: 14px; font-weight: 500; line-height: 1.5; color: #fff; }
-        .info-val.time { color: var(--orange); font-family: monospace; }
+        .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
+        .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
+        .info-val.time { color: var(--orange); }
         .info-val.content { 
-            background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; 
-            border-left: 4px solid var(--red); white-space: pre-wrap; word-break: keep-all; 
-            font-size: 13px;
+            background: var(--card-elevated); padding: 14px; border-radius: 14px; 
+            white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
         .rain-grid {
-            display: grid; grid-template-columns: repeat(4, 1fr); 
-            gap: 1px; background: #444; border: 1px solid #444;
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
+            gap: 8px; background: transparent; border: none;
         }
-        .rain-cell { background: #1c1c1e; padding: 10px 2px; text-align: center; }
-        .rain-loc { font-size: 11px; color: #aaa; margin-bottom: 4px; }
-        .rain-val { font-size: 13px; font-weight: 700; color: white; }
+        .rain-cell { background: var(--card-elevated); padding: 12px 4px; text-align: center; border-radius: 12px; }
+        .rain-loc { font-size: 12px; color: var(--sub); margin-bottom: 6px; font-weight: 600; }
+        .rain-val { font-size: 15px; font-weight: 800; color: white; }
         .rain-val.wet { color: var(--blue); }
         .rain-val.snowing { color: var(--snow); }
-        .rain-avg-box { text-align: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid #444; }
-        .rain-avg-val { font-size: 24px; font-weight: 800; color: var(--blue); }
-        .snow-avg-val { font-size: 24px; font-weight: 800; color: var(--snow); }
+        
+        .rain-avg-box { text-align: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
+        .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
+        .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        .shelter-list { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; }
+        .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
-            background: #1c1c1e; border: 1px solid #333; padding: 8px 3px; 
-            border-radius: 8px; display: flex; flex-direction: column; 
-            justify-content: space-between; align-items: center; 
-            height: 105px; min-width: 0; overflow: hidden; box-sizing: border-box;
+            background: var(--card-elevated); padding: 12px 8px; 
+            border-radius: 14px; display: flex; flex-direction: column; 
+            align-items: center; justify-content: space-between; box-sizing: border-box;
+            min-height: 110px;
         }
         .shelter-name { 
-            font-size: 10px; font-weight: 700; color: #fff; width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; letter-spacing: -0.5px;
+            font-size: 11px; font-weight: 700; color: #fff; width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center;
         }
         .shelter-addr { 
-            font-size: 9px; color: #888; width: 100%;
-            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 2px;
+            font-size: 9px; color: var(--sub); width: 100%;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-align: center; margin-top: 4px;
         }
-        .shelter-cap { font-size: 9px; color: var(--shelter); font-weight: 600; margin-bottom: 4px; }
+        .shelter-cap { font-size: 10px; color: var(--shelter); font-weight: 700; margin: 6px 0; }
         
+        .shelter-btn-group { display: flex; flex-direction: column; gap: 4px; width: 100%; margin-top: auto; }
         .shelter-btn {
             background: var(--kakao); color: #3b1e1e;
-            text-align: center; padding: 5px 0; width: 100%;
-            border-radius: 4px; font-size: 10px; font-weight: 800; text-decoration: none;
-            display: block; margin-top: auto; border: none;
-            transition: all 0.2s; cursor: pointer; white-space: nowrap;
+            text-align: center; padding: 6px 0; width: 100%;
+            border-radius: 8px; font-size: 10px; font-weight: 700; text-decoration: none;
+            display: flex; align-items: center; justify-content: center; border: none;
+            transition: all 0.2s; cursor: pointer;
         }
-        .shelter-btn:active { transform: scale(0.95); opacity: 0.9; }
-        .shelter-btn i { font-size: 10px; margin-right: 2px; color: #3b1e1e; }
+        .shelter-btn.call { background: var(--green); color: white; }
+        .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
+        .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        .cctv-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; max-height: 400px; overflow-y: auto; padding-right: 5px; }
+        .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
-            background: #1c1c1e; padding: 10px; border-radius: 12px;
+            background: var(--card-elevated); padding: 12px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
-            border: 1px solid var(--line); min-height: 90px; cursor: pointer;
-            position: relative;
+            min-height: 100px; cursor: pointer; transition: 0.2s;
         }
-        .cctv-card:active { background: #333; }
+        .cctv-card:active { transform: scale(0.96); opacity: 0.8; }
         .cctv-icon { 
-            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
-            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
+            font-size: 26px; color: var(--blue); margin: 12px auto; display: block; text-align: center; 
         }
         .cctv-btn {
-            background: #333; color: #ccc; font-size: 11px; padding: 6px; 
-            text-align: center; border-radius: 6px; font-weight: bold; margin-top: auto;
+            background: rgba(10, 132, 255, 0.15); color: var(--blue); font-size: 11px; padding: 6px; 
+            text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        .list-container { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+        .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
-            background: #1c1c1e; padding: 8px; border-radius: 10px;
+            background: var(--card-elevated); padding: 10px; border-radius: 14px;
             display: flex; flex-direction: column; justify-content: space-between;
-            border: 1px solid var(--line); min-height: 80px; position: relative;
+            min-height: 90px; position: relative;
         }
-        .card-info { margin-bottom: 4px; }
-        .area-tag { font-size: 9px; color: var(--blue); background: rgba(10,132,255,0.15); padding: 1px 4px; border-radius: 4px; align-self: flex-start; margin-bottom: 4px; display: inline-block; }
-        .loc-name { font-size: 11px; font-weight: 600; line-height: 1.3; word-break: keep-all; letter-spacing: -0.5px; }
+        .card-info { margin-bottom: 6px; }
+        .area-tag { font-size: 10px; color: var(--sub); background: #1c1c1e; padding: 2px 6px; border-radius: 6px; align-self: flex-start; margin-bottom: 6px; display: inline-block; font-weight:600;}
+        .loc-name { font-size: 12px; font-weight: 700; line-height: 1.3; word-break: keep-all; }
         .status-btn { 
-            font-size: 10px; font-weight: 700; padding: 5px; border-radius: 6px; 
-            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer;
+            font-size: 11px; font-weight: 800; padding: 6px; border-radius: 8px; 
+            text-align: center; width: 100%; box-sizing: border-box; cursor: pointer; margin-top:4px;
         }
-        .st-ban { background: rgba(255, 69, 58, 0.2); color: var(--red); border: 1px solid var(--red); }
-        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); border: 1px solid var(--green); }
+        .st-ban { background: var(--red); color: white; }
+        .st-free { background: rgba(48, 209, 88, 0.15); color: var(--green); }
         
-        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 15px; }
-        .dash-item { background: #222; padding: 10px; border-radius: 10px; text-align: center; border: 1px solid #333; }
-        .dash-val { font-size: 18px; font-weight: 700; display: block; }
+        .dashboard { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 16px; }
+        .dash-item { background: var(--card-elevated); padding: 16px; border-radius: 16px; text-align: center; }
+        .dash-val { font-size: 24px; font-weight: 800; display: block; margin-bottom:4px;}
         .c-red { color: var(--red); } .c-green { color: var(--green); }
 
         .admin-btn {
-            background: #2c2c2e; color: #8e8e93; border: 1px solid #333;
-            padding: 8px 12px; border-radius: 20px; font-size: 13px; font-weight: 600;
-            cursor: pointer;
+            background: transparent; color: var(--sub); border: none;
+            font-size: 13px; font-weight: 600; cursor: pointer;
         }
-        .admin-btn.active { color: var(--red); border-color: var(--red); }
+        .admin-btn.active { color: var(--red); }
 
-        .filter-area { margin-bottom: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .filter-area { margin-bottom: 16px; display: flex; flex-direction: column; gap: 12px; }
         .search-row { display: flex; gap: 8px; }
-        .search-input { flex: 1; background: #1c1c1e; border: 1px solid #444; padding: 10px; border-radius: 8px; color: white; box-sizing: border-box; font-size: 13px; }
+        .search-input { 
+            flex: 1; background: var(--card-elevated); border: none; padding: 12px 16px; 
+            border-radius: 20px; color: white; box-sizing: border-box; font-size: 14px; 
+        }
+        .search-input:focus { outline: 2px solid var(--blue); }
         
         .add-loc-btn {
-            background: var(--blue); color: white; border: none; padding: 0 15px;
-            border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer;
+            background: var(--blue); color: white; border: none; padding: 0 16px;
+            border-radius: 20px; font-size: 13px; font-weight: 700; cursor: pointer;
             white-space: nowrap; display: none;
         }
 
-        .filter-group { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; }
-        .filter-btn { background: #1c1c1e; border: 1px solid #444; color: #888; padding: 5px 10px; border-radius: 15px; font-size: 11px; white-space: nowrap; }
-        .filter-btn.active { background: #eee; color: black; font-weight: 700; }
+        .filter-group { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 5px; scrollbar-width: none; }
+        .filter-group::-webkit-scrollbar { display: none; }
+        .filter-btn { 
+            background: var(--card-elevated); color: var(--sub); border: none; 
+            padding: 8px 14px; border-radius: 20px; font-size: 12px; white-space: nowrap; font-weight:600;
+        }
+        .filter-btn.active { background: var(--text); color: var(--bg); font-weight: 800; }
 
-        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
-        .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
+        .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+        /* 모달 팝업 */
         #cctv-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 2000; flex-direction: column;
         }
         .cctv-modal-header {
-            padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #444;
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
         }
-        .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; padding: 5px; }
+        .cctv-modal-title { color: white; font-weight: 800; font-size: 18px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cctv-modal-close { color: rgba(255,255,255,0.6); font-size: 28px; cursor: pointer; padding: 5px; }
         
-        .cctv-frame-container { flex: 1; position: relative; background: #000; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; }
         video { width: 100%; max-height: 100%; object-fit: contain; }
-        iframe { width: 100%; height: 100%; border: none; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; }
         
         .cctv-fallback {
-            position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%);
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
             text-align: center; width: 90%; z-index: 100;
         }
         .fallback-btn {
-            background: rgba(10, 132, 255, 0.9); color: white; padding: 12px 20px; border-radius: 8px;
-            text-decoration: none; font-weight: bold; display: inline-block;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.5); font-size: 13px; border: 1px solid #fff;
+            background: rgba(10, 132, 255, 0.9); color: white; padding: 14px 24px; border-radius: 20px;
+            text-decoration: none; font-weight: 700; display: inline-block; font-size: 14px; 
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
         }
         
         #sync-status {
-            position: fixed; bottom: 10px; right: 10px; 
-            font-size: 10px; color: #666; background: rgba(0,0,0,0.5);
-            padding: 2px 6px; border-radius: 4px; pointer-events: none;
+            position: fixed; bottom: 15px; right: 15px; 
+            font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.6);
+            padding: 4px 10px; border-radius: 14px; pointer-events: none; backdrop-filter: blur(5px);
         }
-        .live { color: #00ff00 !important; }
+        .live { color: var(--green) !important; }
 
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-status { font-size: 24px; font-weight: 800; color: white; display: flex; align-items: center; gap: 10px; }
-        .forest-link-btn { font-size: 12px; color: var(--forest); border: 1px solid var(--forest); padding: 4px 10px; border-radius: 12px; text-decoration: none; }
+        .forest-link-btn { font-size: 12px; font-weight:700; color: var(--forest); background: rgba(50, 215, 75, 0.15); padding: 6px 12px; border-radius: 14px; text-decoration: none; }
     </style>
 </head>
 <body>
@@ -227,34 +246,48 @@
 <header>
     <div class="top-nav">
         <div class="title-group">
-            <h1>세종북부서 재난상황실</h1>
-            <button class="refresh-btn" onclick="refreshAll()" title="수동 업데이트">
+            <h1>세종북부서 재난상황</h1>
+        </div>
+        <div style="display:flex; gap:12px; align-items:center;">
+            <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
+            <button class="refresh-btn" onclick="refreshAll()" title="새로고침">
                 <i id="refresh-icon" class="fas fa-rotate-right"></i>
             </button>
         </div>
-        <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">⚙️ 관리자</button>
     </div>
 </header>
 
 <div class="accord-section" id="sec-weather">
     <div class="accord-header" onclick="toggleSection('sec-weather')">
-        <div class="ah-title"><i class="fas fa-tower-broadcast"></i> 기상특보</div>
+        <div class="ah-title"><i class="fas fa-tower-broadcast" style="color:var(--orange)"></i> 기상특보</div>
         <div id="sejong-status" class="sejong-summary">확인중...</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content" id="monitor-content">
-        <div style="text-align:center; color:#888; padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
+        <div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 수신중...</div>
     </div>
 </div>
 
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
-        <div class="ah-title"><i class="fas fa-cloud-showers-heavy"></i> 지역별 실시간 강우량 및 기온</div>
+        <div class="ah-title">
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온
+            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
+        </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
+        <div id="rain-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
+            <div style="margin-bottom:6px;">
+                <span style="color:var(--orange); font-weight:bold;">호우주의보 :</span> 3시간 누적강우량이 60mm 이상 예상되거나 12시간 누적강우량이 110mm 이상 예상될 때
+            </div>
+            <div>
+                <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
+            </div>
+        </div>
+
         <div class="rain-avg-box">
-            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균 강수</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">7개 읍면 일평균 강수</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
         <div class="rain-grid" id="rain-grid"></div>
@@ -263,12 +296,29 @@
 
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
-        <div class="ah-title"><i class="fas fa-snowflake"></i> 지역별 예상 적설량</div>
+        <div class="ah-title">
+            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 실시간 적설량
+            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleSnowInfo(event)"></i>
+        </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
+        <div id="snow-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
+            <div style="margin-bottom:8px;">
+                <b style="color:#fff;">신 적 설 :</b> 금일 내린 적설 중 관측시점의 적설<br>
+                <b style="color:#fff;">최심신적설 :</b> 금일 내린 적설 중 가장 높은(깊은) 값<br>
+                <b style="color:#fff;">적 설 량 :</b> 현재 쌓여 있는 적설<br>
+                <b style="color:#fff;">최심적설량 :</b> 임의의 기간동안 쌓여 있는 적설 중 가장 높은 값
+            </div>
+            <div style="font-size:11px; margin-bottom:8px; color:#aaa;">* 금일 적설 = 신적설, 현재적설 = 적설</div>
+            <div>
+                <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
+                <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
+            </div>
+        </div>
+
         <div class="rain-avg-box">
-            <div style="font-size:11px; color:#aaa; margin-bottom:5px;">7개 읍면 일평균 적설</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 적설량</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -277,14 +327,14 @@
 
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
-        <div class="ah-title"><i class="fas fa-tree"></i> 읍면별 산불위험지수</div>
+        <div class="ah-title"><i class="fas fa-tree" style="color:var(--forest)"></i> 산불위험지수</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="forest-body" style="margin-bottom: 5px;">
+        <div class="forest-body" style="margin-bottom: 15px;">
             <div>
-                <div style="font-size:12px; color:#aaa; margin-bottom:2px;">공공데이터포털 (실시간 최대값)</div>
-                <div class="forest-status" id="forest-status-text" style="font-size:14px; color:#fff;">
+                <div style="font-size:11px; color:var(--sub); margin-bottom:4px; font-weight:600;">실시간 공공데이터포털 연동</div>
+                <div class="forest-status" id="forest-status-text" style="font-size:16px;">
                     <i class="fas fa-spinner fa-spin"></i> API 연결 중...
                 </div>
             </div>
@@ -294,66 +344,20 @@
     </div>
 </div>
 
-<div class="accord-section" id="sec-shelter">
-    <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter)"></i> 임시주거(대피) 시설 (69개소)</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-    </div>
-    <div class="accord-content">
-        <div class="filter-group" style="margin-bottom:10px;">
-            <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
-            <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
-            <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
-            <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
-            <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
-            <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
-            <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
-            <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
-        </div>
-        <div class="shelter-list" id="shelter-list"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; line-height:1.4;">
-             * 버튼 클릭 시 <b>카카오맵 네비게이션</b>이 실행됩니다.
-        </div>
-    </div>
-</div>
-
-<div class="accord-section open" id="sec-cctv">
-    <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 주요거점 CCTV (ITS 연동)</div>
-        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
-    </div>
-    <div class="accord-content">
-        <div class="filter-group" style="margin-bottom:10px;">
-            <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
-            <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
-            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
-            <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
-            <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
-            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
-            <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
-        </div>
-        <div class="cctv-container" id="cctv-list"></div>
-        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center; word-break:keep-all;">
-            * 국도망(its)은 현장 사정에 따라 <b>스트리밍</b> 또는 <b>정지사진(자동갱신)</b> 포맷이 섞여 제공될 수 있습니다.
-        </div>
-    </div>
-</div>
-
-<div class="accord-section open" id="sec-control">
+<div class="accord-section" id="sec-control">
     <div class="accord-header" onclick="toggleSection('sec-control')">
-        <div class="ah-title"><i class="fas fa-road"></i> 도로 통제 현황</div>
+        <div class="ah-title"><i class="fas fa-road" style="color:#ff375f"></i> 도로 통제 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
         <div class="dashboard">
             <div class="dash-item">
                 <span class="dash-val c-red" id="cnt-ban">0</span>
-                <span style="font-size:11px; color:#aaa;">통제중</span>
+                <span style="font-size:12px; color:var(--sub); font-weight:600;">통제구역</span>
             </div>
             <div class="dash-item">
                 <span class="dash-val" id="cnt-total">16</span>
-                <span style="font-size:11px; color:#aaa;">전체관리</span>
+                <span style="font-size:12px; color:var(--sub); font-weight:600;">전체관리</span>
             </div>
         </div>
 
@@ -376,13 +380,56 @@
     </div>
 </div>
 
-<div class="official-links">
-    <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
-    <a href="tel:112" class="link-btn"><i class="fas fa-phone"></i> 112 연결</a>
+<div class="accord-section" id="sec-shelter">
+    <div class="accord-header" onclick="toggleSection('sec-shelter')">
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황 (69개소)</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:15px;">
+            <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
+            <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
+            <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
+            <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
+            <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
+            <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
+            <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
+        </div>
+        <div class="shelter-list" id="shelter-list"></div>
+    </div>
 </div>
 
-<div style="height:30px; text-align:center; font-size:11px; color:#444;">
-    <button onclick="resetData()" style="background:none; border:none; color:#666; text-decoration:underline;">[관리자] 데이터 초기화</button>
+<div class="accord-section" id="sec-cctv">
+    <div class="accord-header" onclick="toggleSection('sec-cctv')">
+        <div class="ah-title"><i class="fas fa-video" style="color:#5e5ce6"></i> 실시간 CCTV 영상망</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:15px;">
+            <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
+            <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
+            <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
+            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
+            <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
+        </div>
+        <div class="cctv-container" id="cctv-list"></div>
+        <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
+            * 국도망(its)은 현장 사정에 따라 스트리밍 또는 자동갱신 사진으로 제공됩니다.
+        </div>
+    </div>
+</div>
+
+<div class="official-links">
+    <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
+    <a href="tel:112" class="link-btn"><i class="fas fa-phone" style="color:var(--blue)"></i> 112 연결</a>
+</div>
+
+<div style="height:30px; text-align:center; padding-bottom: 20px;">
+    <button onclick="resetData()" style="background:none; border:none; color:rgba(255,255,255,0.3); font-size:11px; text-decoration:underline;">[관리자] 데이터 초기화</button>
 </div>
 
 <div id="sync-status">● Live Sync</div>
@@ -390,14 +437,13 @@
 <div id="cctv-modal">
     <div class="cctv-modal-header">
         <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
-        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
+        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times-circle"></i></div>
     </div>
     <div class="cctv-frame-container">
         <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
         <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
-        
         <div class="cctv-fallback">
-            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 재생 (새 창 열기)</a>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 앱 외부에서 열기</a>
         </div>
     </div>
 </div>
@@ -423,25 +469,77 @@
     
     let isAdmin = false;
 
+    // 대피소 69개 100% 명단
     const shelterData = [
-        { area:'조치원', name:'복합커뮤니티센터', addr:'대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
-        { area:'조치원', name:'조치원읍사무소', addr:'새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
-        { area:'조치원', name:'교동초등학교', addr:'새내18길 21', cap:'417명', lat:36.6022, lng:127.3012 },
-        { area:'조치원', name:'대동초등학교', addr:'대동학교길 11', cap:'465명', lat:36.5968, lng:127.2965 },
-        { area:'조치원', name:'세종여고', addr:'봉산로 16', cap:'152명', lat:36.6012, lng:127.2835 },
-        { area:'조치원', name:'세종고', addr:'조치원중고길 10', cap:'411명', lat:36.6065, lng:127.2955 },
-        { area:'연동', name:'연동면 복컴', addr:'장욱로 7', cap:'195명', lat:36.5585, lng:127.3255 },
-        { area:'연동', name:'연동중학교', addr:'내판로 10-13', cap:'320명', lat:36.5595, lng:127.3245 },
-        { area:'부강', name:'부강면사무소', addr:'부강5길 38', cap:'91명', lat:36.5255, lng:127.3685 },
-        { area:'부강', name:'부강중학교', addr:'부강로 25-7', cap:'1152명', lat:36.5285, lng:127.3655 },
-        { area:'연서', name:'연서면사무소', addr:'대첩로 238', cap:'61명', lat:36.5655, lng:127.2785 },
-        { area:'연서', name:'도원초등학교', addr:'도원로 63', cap:'166명', lat:36.5855, lng:127.2855 },
-        { area:'전의', name:'전의면 복컴', addr:'운주산로 1276', cap:'223명', lat:36.6785, lng:127.2055 },
-        { area:'전의', name:'전의중학교', addr:'운주산로 1260-6', cap:'376명', lat:36.6765, lng:127.2045 },
-        { area:'전동', name:'전동면 복컴', addr:'운주산로 386', cap:'294명', lat:36.6355, lng:127.2655 },
-        { area:'전동', name:'전동초등학교', addr:'하노장3길 9', cap:'153명', lat:36.6385, lng:127.2685 },
-        { area:'소정', name:'소정면사무소', addr:'소정구길 204', cap:'50명', lat:36.7155, lng:127.1555 },
-        { area:'소정', name:'소정초등학교', addr:'학교말길 10', cap:'185명', lat:36.7185, lng:127.1535 }
+        { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
+        { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
+        { area:'조치원', name:'교동초등학교', addr:'조치원읍 새내18길 21', cap:'417명', tel:'044-902-4800', lat:36.6022, lng:127.3012 },
+        { area:'조치원', name:'대동초등학교', addr:'조치원읍 대동학교길 11', cap:'465명', tel:'044-862-4605', lat:36.5968, lng:127.2965 },
+        { area:'조치원', name:'명동초등학교', addr:'조치원읍 새내8길 115', cap:'177명', tel:'044-865-2245', lat:36.5925, lng:127.3031 },
+        { area:'조치원', name:'세종여자고등학교', addr:'조치원읍 봉산로 16', cap:'152명', tel:'044-862-1082', lat:36.6012, lng:127.2835 },
+        { area:'조치원', name:'신봉초등학교', addr:'조치원읍 서북부로 10', cap:'262명', tel:'044-902-1482', lat:36.6085, lng:127.2885 },
+        { area:'조치원', name:'번암1리 경로당', addr:'조치원읍 군청로 11', cap:'19명', tel:'044-301-5172', lat:36.5932, lng:127.3025 },
+        { area:'조치원', name:'서창2리 두진(아)경로당', addr:'조치원읍 모과나무길 31', cap:'23명', tel:'044-301-5172', lat:36.5955, lng:127.2955 },
+        { area:'조치원', name:'세종e편한세상아파트경로당', addr:'조치원읍 섭골길 59', cap:'66명', tel:'044-301-5172', lat:36.6155, lng:127.2845 },
+        { area:'조치원', name:'신안2리 경로당', addr:'조치원읍 안터길 83', cap:'19명', tel:'044-301-5172', lat:36.6185, lng:127.2925 },
+        { area:'조치원', name:'신흥e편한세상경로당', addr:'조치원읍 이화1로 15', cap:'19명', tel:'044-301-5172', lat:36.5942, lng:127.2885 },
+        { area:'조치원', name:'신흥주공아파트경로당', addr:'조치원읍 이화로 5', cap:'54명', tel:'044-301-5172', lat:36.5943, lng:127.2899 },
+        { area:'조치원', name:'신흥푸르지오경로당', addr:'조치원읍 도원1로 16', cap:'26명', tel:'044-301-5172', lat:36.5923, lng:127.2896 },
+        { area:'조치원', name:'자이아파트경로당', addr:'조치원읍 도원로 16', cap:'62명', tel:'044-301-5172', lat:36.5899, lng:127.2899 },
+        { area:'조치원', name:'조형아파트경로당', addr:'조치원읍 운주산로 60', cap:'13명', tel:'044-301-5172', lat:36.5995, lng:127.2855 },
+        { area:'조치원', name:'남리마을회관', addr:'조치원읍 장안로 37', cap:'26명', tel:'044-301-5172', lat:36.5985, lng:127.3015 },
+        { area:'조치원', name:'세종고등학교', addr:'조치원읍 조치원중고길 10', cap:'411명', tel:'044-320-6705', lat:36.6065, lng:127.2955 },
+        { area:'조치원', name:'세종중학교', addr:'조치원읍 새내로 160', cap:'231명', tel:'044-850-6682', lat:36.6055, lng:127.2965 },
+        { area:'연동', name:'연동면 복합커뮤니티센터', addr:'연동면 장욱로 7', cap:'195명', tel:'044-301-5344', lat:36.5585, lng:127.3255 },
+        { area:'연동', name:'연동중학교', addr:'연동면 내판로 10-13', cap:'320명', tel:'044-864-7021', lat:36.5595, lng:127.3245 },
+        { area:'연동', name:'연동초등학교', addr:'연동면 청연로 606-36', cap:'119명', tel:'044-864-9380', lat:36.5605, lng:127.3235 },
+        { area:'연동', name:'내판4리 마을회관', addr:'연동면 새말다복동길 31-9', cap:'27명', tel:'044-301-5344', lat:36.5555, lng:127.3285 },
+        { area:'연동', name:'명학2리 마을회관', addr:'연동면 태산로 88-12', cap:'15명', tel:'044-301-5344', lat:36.5485, lng:127.3355 },
+        { area:'연동', name:'문주리마을회관', addr:'연동면 간말길 6', cap:'30명', tel:'044-301-5344', lat:36.5655, lng:127.3155 },
+        { area:'연동', name:'예양2리 마을회관', addr:'연동면 강변길 119-1', cap:'30명', tel:'044-301-5344', lat:36.5455, lng:127.3155 },
+        { area:'연동', name:'응암2리마을회관', addr:'연동면 응암노곡길 2', cap:'28명', tel:'044-301-5344', lat:36.5755, lng:127.3255 },
+        { area:'부강', name:'부강면사무소', addr:'부강면 부강5길 38', cap:'91명', tel:'044-301-5442', lat:36.5255, lng:127.3685 },
+        { area:'부강', name:'부강중학교', addr:'부강면 부강로 25-7', cap:'1152명', tel:'044-275-4081', lat:36.5285, lng:127.3655 },
+        { area:'부강', name:'부강초등학교', addr:'부강면 부강로 15', cap:'326명', tel:'044-902-1672', lat:36.5275, lng:127.3665 },
+        { area:'부강', name:'세종미래고등학교', addr:'부강면 문곡달미길 6', cap:'308명', tel:'044-275-4092', lat:36.5355, lng:127.3755 },
+        { area:'부강', name:'등곡1리경로당', addr:'부강면 등곡1길 160-22', cap:'23명', tel:'044-301-5442', lat:36.5155, lng:127.3855 },
+        { area:'부강', name:'부강6리마을회관', addr:'부강면 부강4길 28', cap:'42명', tel:'044-301-5442', lat:36.5295, lng:127.3695 },
+        { area:'부강', name:'부강4,5리마을회관', addr:'부강면 부촌길12-1', cap:'42명', tel:'044-301-5442', lat:36.5245, lng:127.3645 },
+        { area:'부강', name:'부강3리마을회관', addr:'부강면 부강5길11', cap:'115명', tel:'044-301-5442', lat:36.5265, lng:127.3675 },
+        { area:'연서', name:'연서면사무소', addr:'연서면 대첩로 238', cap:'61명', tel:'044-301-5743', lat:36.5655, lng:127.2785 },
+        { area:'연서', name:'세종도원초등학교', addr:'연서면 도원로 63', cap:'166명', tel:'044-960-8607', lat:36.5855, lng:127.2855 },
+        { area:'연서', name:'쌍류초등학교', addr:'연서면 별말길 73', cap:'325명', tel:'044-863-1929', lat:36.5455, lng:127.2855 },
+        { area:'연서', name:'연봉초등학교', addr:'연서면 당산로 357-1', cap:'278명', tel:'044-867-7024', lat:36.5555, lng:127.2955 },
+        { area:'연서', name:'연서중학교', addr:'연서면 연서로 115', cap:'346명', tel:'044-902-0905', lat:36.5685, lng:127.2755 },
+        { area:'연서', name:'연서초등학교', addr:'연서면 연서로 148', cap:'227명', tel:'044-867-7024', lat:36.5695, lng:127.2745 },
+        { area:'연서', name:'고복1리마을회관', addr:'연서면 도신고복로 1061', cap:'18명', tel:'044-301-5743', lat:36.6055, lng:127.2455 },
+        { area:'연서', name:'국촌2리마을회관', addr:'연서면 함박로 130', cap:'18명', tel:'044-301-5743', lat:36.5755, lng:127.2655 },
+        { area:'연서', name:'부동리마을회관', addr:'연서면 용연로 853', cap:'32명', tel:'044-301-5743', lat:36.5855, lng:127.2555 },
+        { area:'연서', name:'쌍전리마을회관', addr:'연서면 큰창고개길 3-3', cap:'11명', tel:'044-301-5743', lat:36.5585, lng:127.2655 },
+        { area:'연서', name:'와촌1리마을회관', addr:'연서면 용연로 759', cap:'10명', tel:'044-301-5743', lat:36.5955, lng:127.2655 },
+        { area:'연서', name:'월하1리마을회관', addr:'연서면 대첩로 204', cap:'44명', tel:'044-301-5743', lat:36.5725, lng:127.2855 },
+        { area:'연서', name:'월하2리마을회관', addr:'연서면 작은창고개길 16-3', cap:'10명', tel:'044-301-5743', lat:36.5705, lng:127.2835 },
+        { area:'전의', name:'전의면 복합커뮤니티센터', addr:'전의면 운주산로 1276', cap:'223명', tel:'044-301-5844', lat:36.6785, lng:127.2055 },
+        { area:'전의', name:'전의중학교', addr:'전의면 운주산로 1260-6', cap:'376명', tel:'044-863-3201', lat:36.6765, lng:127.2045 },
+        { area:'전의', name:'전의초등학교', addr:'전의면 운주산로 1204-9', cap:'223명', tel:'044-863-1450', lat:36.6735, lng:127.2035 },
+        { area:'전의', name:'관정1리 군량골경로당', addr:'전의면 군량골길 48', cap:'25명', tel:'044-301-5844', lat:36.6655, lng:127.1955 },
+        { area:'전의', name:'달성학구 경로당', addr:'전의면 압실길 2', cap:'16명', tel:'044-301-5844', lat:36.6555, lng:127.2155 },
+        { area:'전의', name:'달전1리 경로당', addr:'전의면 윗다락골길 46', cap:'21명', tel:'044-301-5844', lat:36.6855, lng:127.1855 },
+        { area:'전의', name:'신흥리 경로당', addr:'전의면 사시리길 34', cap:'25명', tel:'044-301-5844', lat:36.6955, lng:127.2055 },
+        { area:'전의', name:'유천1리경로당', addr:'전의면 오류골길 112', cap:'23명', tel:'044-301-5844', lat:36.6825, lng:127.2155 },
+        { area:'전의', name:'읍내1리 할머니경로당', addr:'전의면 북양천길 5', cap:'21명', tel:'044-301-5844', lat:36.6795, lng:127.2025 },
+        { area:'전의', name:'전의면사무소', addr:'전의면 운주산로 1270', cap:'71명', tel:'044-301-5844', lat:36.6775, lng:127.2050 },
+        { area:'전동', name:'전동면 복합커뮤니티센터', addr:'전동면 운주산로 386', cap:'294명', tel:'044-301-5944', lat:36.6355, lng:127.2655 },
+        { area:'전동', name:'전동초등학교', addr:'전동면 하노장3길 9', cap:'153명', tel:'044-863-1209', lat:36.6385, lng:127.2685 },
+        { area:'전동', name:'전동분회 경로당', addr:'전동면 하노장1길 35', cap:'28명', tel:'044-301-5944', lat:36.6365, lng:127.2675 },
+        { area:'전동', name:'미곡1리 마을회관', addr:'전동면 운주산로 946-2', cap:'30명', tel:'044-301-5944', lat:36.6555, lng:127.2355 },
+        { area:'전동', name:'봉대리 마을회관', addr:'전동면 봉대2길 17', cap:'23명', tel:'044-301-5944', lat:36.6255, lng:127.2755 },
+        { area:'전동', name:'송성3리마을회관', addr:'전동면 성곡새말길 14-19', cap:'78명', tel:'044-301-5944', lat:36.6155, lng:127.2555 },
+        { area:'소정', name:'소정면사무소', addr:'소정면 소정구길 204', cap:'50명', tel:'044-301-6044', lat:36.7155, lng:127.1555 },
+        { area:'소정', name:'소정초등학교', addr:'소정면 학교말길 10', cap:'185명', tel:'044-566-6064', lat:36.7185, lng:127.1535 },
+        { area:'소정', name:'소정면 맹골경로당', addr:'소정면 맹골1길 13-4', cap:'23명', tel:'044-301-6044', lat:36.7055, lng:127.1655 },
+        { area:'소정', name:'소정면 소정1리 경로당', addr:'소정면 학교말길 1', cap:'29명', tel:'044-301-6044', lat:36.7175, lng:127.1545 },
+        { area:'소정', name:'소정면 운당2리 경로당', addr:'소정면 운당너머말길 29', cap:'25명', tel:'044-301-6044', lat:36.7255, lng:127.1455 }
     ];
 
     const defaultData = [
@@ -461,57 +559,7 @@
     let cctvFilter = 'all';
     let hlsInstance = null;
 
-    // 만약 보안망에서 통신이 100% 막힐 경우를 대비한 최후의 보루 (반장님이 주신 데이터)
-    const fallbackXML = `<?xml version="1.0" encoding="UTF-8"?>
-<response>
-<coordtype>1</coordtype><datacount>46</datacount>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4644/6hrQnHeMFJgIFMu/uHlVapFc2AGn2P/UZv5AeQ3QyCa0o7F38eNEt92H0jUX20tMUWyk9QqNVabK0LKebApgUjB8R0NjqKLQnSbqOCnIp5c=</cctvurl><cctvresolution/><coordy>36.62497</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 강내면</cctvname><coordx>127.36456</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4952/JkfLNS8R9/xfeaGajH4mYuOo6WRHMfkO1LE3yonRw2ksdyfMu7MFSCHCgJeTYUZdQLMGu8u2E58D48i/vQVfWVBBcciRm+gLHMgXT4XZQhA=</cctvurl><cctvresolution/><coordy>36.56013</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 43호선] 공주 중흥교차로</cctvname><coordx>127.18649</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4953/EvqjJmR4V1DqIcjWEwCt2dKZiamT9zMBmDn6Av7BA3vbjfnergjCjEarhToyOXdUGGQCOxowstDNmYT5FZMOZXmIHvrjuAqXXafRI0vWuf4=</cctvurl><cctvresolution/><coordy>36.58394785</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 도신2교</cctvname><coordx>127.175334</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4958/KuqXaZIckNKDrENQuCHnOx5nyNJPUpvTpMgzRJpbfH+qkZ6xy7UI2qJ6nW8amF3bv4UDOcPdZQSwSvKFZE9Qyum6+oqTIyK0LZWguz/yg1U=</cctvurl><cctvresolution/><coordy>36.57461</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 중흥쉼터</cctvname><coordx>127.17553</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73498/0G8GdVqX62NWDpbKQde1lcb1r6wQgnJ+oNQhITj1i+3CV0saj3U4EFBbIFYQwY31KcUE/jQyxH5nGmDnrOMWWi7vrfBwCbXk4t1VJMMWiBc=</cctvurl><cctvresolution/><coordy>36.65685</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 서촌교</cctvname><coordx>127.39571</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4543/xMTMocOJmp0UryNqDBldv5zxSFoOpDcwMhEuviPrLpIuZbyr1ZU16/wCM/NuLNKc5si0wt+TM0YHiyrVYquAaZfNee64YTTZ4qcqSxc47qw=</cctvurl><cctvresolution/><coordy>36.66328</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 청람교차로</cctvname><coordx>127.24312</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4546/P2Eie2QjRqEFoicvP/Zd/dllFv4kvwMF9tZQ/sByot7Cp0vY1AnF0AaE+ncyQhwZhF4krthTSL4YbW40SXcfguY7Q2tVgUfdY14AYGuMQXM=</cctvurl><cctvresolution/><coordy>36.62081</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 홍대입구삼거리</cctvname><coordx>127.29062</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4547/OIR070jscBFalNpy9wgiKbz3tlDPrVZgHPwcxCxqX6EpNAeBwDoXJKtdxG3Q9qLqZfJc8gQMGsifFc79209OXu6bpTSLrY3U0TO4TBYAIKs=</cctvurl><cctvresolution/><coordy>36.60281</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 상리사거리</cctvname><coordx>127.30517</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4549/rhVoMTAwGvhCn16SPJ9G7XSr8eRhzSp42lpR0kQtNAeqwnoiUHzF9xs9iP5fc6kHbCqmVqgjOz3iZ5D3oNM0uZKa09/M47lLqrRHsXsI3mw=</cctvurl><cctvresolution/><coordy>36.60928</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1호선] 세종 서창사거리</cctvname><coordx>127.29346</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4550/V35xYc7dvTJKDkvWd0J3HW7ldrwJkDtxUrpUdoduY0u1kLazVGn4X9eADFoSYKoUp3+mIghsq2xHKLfaOJrEvfaiGQKM3dqU9aN9uXsl+5k=</cctvurl><cctvresolution/><coordy>36.67942</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 전의교차로</cctvname><coordx>127.19425</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4551/rdqnfvbYIjOKPc2FDLMyYDOOfUEeGIFlQ9qF+px9DVhlooOyHUCLCSxj2Gh7MWF9lRNna0fJTV1X0FHjagAWaGX5zGEP1sSuIwiE+hxv22U=</cctvurl><cctvresolution/><coordy>36.64742</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 전동교차로</cctvname><coordx>127.27039</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4552/lcadf7Y6BHtW1gJQMJ5SdEqKeQbdMj3ObvV1Zl0PzXlDs5C+Ya0TNy1Ly9l1MQj+Fl73CvDVHVj9BOMEPuq5Apd7jNzGzIpOKGP81PQ/7fY=</cctvurl><cctvresolution/><coordy>36.6833</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 유천교차로</cctvname><coordx>127.17272</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4553/zRCt/MrT1uTPxi0CMW33hY5o2HkdBgQJa31LfjrSZUv/G7FSFxqiDjBu4GNMFxmZcSkIgiNMti4iWlhebhnlbuaWtFkBtYnchJbRY8mnfCk=</cctvurl><cctvresolution/><coordy>36.672</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 미곡리</cctvname><coordx>127.22285</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4555/s/zlGCBxGVFSMI3LFg+WDzaMeGrQoRhug0ggz61s95axXmLxaZJSU3nxklGybqf0gOwYtT3/vKitxDcZQSIz2cQmzq2fNH+nMtxjtYRsM98=</cctvurl><cctvresolution/><coordy>36.55564</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 연기사거리</cctvname><coordx>127.2796</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4656/AKDcLVFP4xXjDJarPnv07kq5YxnQdWAs0tmEyAUja/vdi2H1or1RICr22q8oL0ojDCNQbdbvWr/PJtjKG989nHNGbNXcpb3zDGz8boEHUlI=</cctvurl><cctvresolution/><coordy>36.61071</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 오송삼거리</cctvname><coordx>127.32742</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4722/3EiRyJ77fVpogxLo4RKMe/ejgwEOalc+lPWURF0bSzbRcwjzWLX8TQokoRwZqCAQWl8Ic1bHE1kOXd7Bj74qW41KAIZlEeJj30hJIp5qFX0=</cctvurl><cctvresolution/><coordy>36.582677</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 번암사거리</cctvname><coordx>127.293057</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4846/kv0xIu6QmgZBa5hU1T8YTFMISAYB0sMG3f3TxevVKJILxKa9gK3k8vrDLvzDnUcasTsnSMg8+0KZhxmLF3rdyny7fhVc6aoFGAwoPFQAqEk=</cctvurl><cctvresolution/><coordy>36.6729259</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천4교</cctvname><coordx>127.207375</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4847/+nVWqpP5mLug8IUhS/ADa64XZCib7NKY/FmJjA+JQ5Z4oH+N9/5Ki+8IES9HaloccSd5qfxCVFJyNWLEpxCOnXu1nwPamupeehLE0dtxMKE=</cctvurl><cctvresolution/><coordy>36.6754259</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평교(1/2)</cctvname><coordx>127.1516898</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4871/KGw/7zlRcqDYdVKCtpyHZOmclY+1OMZEMRk0qJnNkKothLHTDDDPDzVMcXm2kO1hc6f4v5Y27Eg4fAGEC79xQJNrI0Fdn7Z7qbOszXRmC3A=</cctvurl><cctvresolution/><coordy>36.70799</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 43호선] 세종 운당교차로</cctvname><coordx>127.1488</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/74109/FuzrEx2rDtv/gtx09PHMoB5oN07P8Y8xxEpPSXex+wRK9xDrDK5MnyVwj0Z3GlOOPWNmPc7QL76zM6iZ49RXBnS//+aLEHi0s8JK4Ke6sPk=</cctvurl><cctvresolution/><coordy>36.64219</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 학천과선교</cctvname><coordx>127.38624</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/77433/Q+QXlaUMii+3wtLgEn1WUUgC4DMNnwobiNzltubXzDjPEHSFI+bO0kUQeDjUg1+Q6udn1s3iUgvySyr3Q0pG+XQA8plloZboJFZzL2cuQhI=</cctvurl><cctvresolution/><coordy>36.68657</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 유정2교</cctvname><coordx>127.16312</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73939/wkwBbS+GH+PxW98uKfReDHGEd/jZK0erJMpQTPimhdR03NQHSYIDgZ6qSfoBQSb1qyPQ8y+35x4EbSSA1UCA6sjf9AljgUoaJvK0syFrOcc=</cctvurl><cctvresolution/><coordy>36.6765</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평교(2/2)</cctvname><coordx>127.1545</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70020/9qSWLXc88IHOUApOGYX+YMMWyDdWyRpBMenLGWKeZKDs1QLYLqJ33CEhbpzftV+jZ1R2zAch2JlFA6G0ruXf/M1iY0HJNAgoojNVx9Io5Hw=</cctvurl><cctvresolution/><coordy>36.6317929</coordy><cctvformat>HLS</cctvformat><cctvname>[국도25] 내거지하차도 상행</cctvname><coordx>127.3911899</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70021/D36GyPcoWVxrfiRYLdUz5+jiGWwtSQypU/ra2/8tfu2Kgjw00DDW2PGbgXTs10LAc/9TPAp9rwbicNDhFGG6G75dATPmcKyysIVcQGXuVl4=</cctvurl><cctvresolution/><coordy>36.6314033</coordy><cctvformat>HLS</cctvformat><cctvname>[국도25] 내거지하차도 하행</cctvname><coordx>127.3913029</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70036/P+yy7+xHqchobWtvRcQiB5EhBYN2Bh6XJxbMvIL3ngWow4nDZgnv174x/W6Y3mgazDOdwZv+l1ThMkTX0a/KkgBZXvssuKgyC3lqltoE/h8=</cctvurl><cctvresolution/><coordy>36.6812045</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도 상행</cctvname><coordx>127.1781976</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70037/R2JyJvqCB6zjlVxZpbHhWU67xhErBn6//lbsnItlNpEwEdtk2+UundWu3uLVOH9smbtcnLVvpTj1ddUrcgeCNkPyBgFHauidxFM4NPBq3fg=</cctvurl><cctvresolution/><coordy>36.6810187</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도 하행</cctvname><coordx>127.178768</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70038/Y1ZgWEYue0H25i0L7UKFqPdqKagSRu1I8JLxWMuDsifFBYuccGY0rFys3zaBaRZtqgHP6t6etcHVSXcCY865PJLQ/c80Xqf4dR1zztcMb14=</cctvurl><cctvresolution/><coordy>36.6808534</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도_천변</cctvname><coordx>127.1790829</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/8883/dGgdS0T4B5JH8IAxNiXAfI7Zv/RAzaI9qc2w5FItpizMMcNIsWnJsflLZeyShd+E+asngjlgZmMr3aCJW5YoaXocCuHLBbP1NX7fKZL6B94=</cctvurl><cctvresolution/><coordy>36.722064</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 곡교천삼거리</cctvname><coordx>127.153911</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/9035/rzhhZqJQLFBCgnFnxB5APA0B60kA1MXAh2yiJGGtu++tlgXdsTE/C7Dj66IaQv9gkc6sSYvqglAN1+TTHrqyXIedzRhyKjhvmJGuMWF+u9E=</cctvurl><cctvresolution/><coordy>36.6231893</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 월곡리</cctvname><coordx>127.3751228</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71779/Lme3RcrqGHGuQZgF0ZTJcpTjd7bOwrAwv79egv9Fhn0ZoxjAlnETzHfZNM95wzYRCQB6Cl/RIHaklUdZBis+KwY5uDTfnWa7BN44/s1ONZ4=</cctvurl><cctvresolution/><coordy>36.62347</coordy><cctvformat>HLS</cctvformat><cctvname>[국도36] 청주 미호강교동측</cctvname><coordx>127.354558</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71781/jGpOadNE3iw3VQsX1PGS3DWUW2njpM2EOVMaHQtJMwa9u/YRt5hXwJmzKmrHKuEC0/IKA5UbVmiVIlSN3A5ZHt8imV12xPRp1ihlwpClqY0=</cctvurl><cctvresolution/><coordy>36.695054</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 행정삼거리</cctvname><coordx>127.155018</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71833/1Rkpd1J7CLTUw3XSGXe04M/NUSv3XQEZrmhkMcI1ybrMEg3RZBoqHSIe8IDE1wKtgb+5T3DA6bgESE6A4vikTjUoYoVSgV259MdgJP/NFwQ=</cctvurl><cctvresolution/><coordy>36.634045</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 금의육교</cctvname><coordx>127.389908</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71856/x9flqHJwnSuGv+hXRZvaMxikZNfd4+gKgu709ZLvyoiy6/RA2UH0Iy1ETEOawJjHhQ/28pES5lwvQYqOfXgCpzn30hnThYofOwdDW2exLFI=</cctvurl><cctvresolution/><coordy>36.67759751</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평리</cctvname><coordx>127.1596999</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71857/piyY3wppd8iH+4O5WYvL7pPVbiN37OzKPl0D4d/1nZyzxM7kHcAPiPCN/FrTOrEYUkFlmJQpw3IVJ693naRjARpoW7WTUg/TzmRK/gUnpyI=</cctvurl><cctvresolution/><coordy>36.67865</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 세종 천안시경계</cctvname><coordx>127.16593</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71912/SIBEXWxCFtmcIksn77wI+h+hk/tZlC22EJ7pP+3WDrY7b85NJuQBi9WReRze/ToLvRwypAAUCdBdHHZzPC9tvT+nAC8BKOvHgNL3ehFvZqA=</cctvurl><cctvresolution/><coordy>36.56761</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 월계교</cctvname><coordx>127.17735</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71913/SPScysB0LUTmKozaqr7bzG7ruNZg/wZjt0UUlTXOk8K9rRP1ASfMVNhI851kLhl9Ujzvfpk7TET5JUzpFkzo9sRn4ovGVUEUaYEF3EoLa9A=</cctvurl><cctvresolution/><coordy>36.59285688</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 어물터널</cctvname><coordx>127.1636985</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71914/Ij0dqz8WzebuReKYp8lm3UGQSF8llbXbE9AcX2bmF7AoQ2rhm92ECx0g5QYSgVtl5K9LWYSU9SRrtJybkFtVJANjmJ/1UUZNUF3VbeJpZC4=</cctvurl><cctvresolution/><coordy>36.58814</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 덕학교차로</cctvname><coordx>127.17081</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71919/E1jZinyj8UHrBM238Yb+389qGMh4ZYD88XIQLiMEYjwdkSqTkgj9K17aj/aAlJh9anNAVNRc7lyeC7a/mC4ZvTmIzpJoaLrGa0dfjXvsI+o=</cctvurl><cctvresolution/><coordy>36.72722</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 소정육교삼거리</cctvname><coordx>127.16253</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71931/WrNjLyRcBv5E6SDOEL8ek6PpKxqVHIb8BmnvcY0OLLUzDfC9h5Qs5EXvEWy/X8hFNFnJWEGYkCnanrQ/kHfiAUd2G7wVZgTCI/icAcaFV4U=</cctvurl><cctvresolution/><coordy>36.67021041</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 이동검문소</cctvname><coordx>127.2292155</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71944/8GjBXrTaRCQosgcCrwKp7VSTH0NxgXUjaA0SQyKPvZjLa3uM6/+HlS7cZaNbsxX76YqEazvQsY0v6QOfZ3YHKautFcftWGSJyuOdpHGhwk0=</cctvurl><cctvresolution/><coordy>36.599882</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 욱일교차로</cctvname><coordx>127.290238</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71945/6F7tp9Dw+qMqUvn7K1GqZ5ZcvuvKiHNqAVLd/VPm0QvxFfRU+GvjBHXC7LKfbn9S+DpS3SO+LrmWrsbtKyRvyqlKT/IUbjjzO83Q6CpUTSc=</cctvurl><cctvresolution/><coordy>36.60528</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 세종여고교차로</cctvname><coordx>127.28942</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71946/vo0cVrnBN0EWNBK+eOVokXPTLlMUys0PItKbQxlxqG6XL86jJPufBeG2gcUMRtjS25zmVu0SZa2xLnQzko4M4F8IdXdZImXb/xEjZmKvuiE=</cctvurl><cctvresolution/><coordy>36.63390851</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천1교</cctvname><coordx>127.2873782</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71947/t2cPrpmz6q3V5xL2zDSTzkpqfCurx7+hSDIQNdVdtxNnotLceITRfErgoYT0nWRjLoalZ9eZEtQZmaY9akFA8gUpSUdHW5QM+MLV4yeiDOA=</cctvurl><cctvresolution/><coordy>36.65941026</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 석곡교</cctvname><coordx>127.2563303</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71948/TW0xsKX43tjKRmZauJKvHQHVJoLlKBMCebcgnXMsy/xl4z4IiqeV3p1yWB6JMY/1gcP9eHSQW7sp7eUfoA9R2rhs2VXSCAmazZ44OU8676k=</cctvurl><cctvresolution/><coordy>36.66501</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천3교</cctvname><coordx>127.23483</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71953/jeVKVH1clr2ykdNT9VFwKVKd4OMGsF1cVMStZcWRU9sKEBDtNh+0Uqteu4f40tXzqUHpZYFrHYOE2vETSijmwGRWWCfK/qUenQoTu3hSxwc=</cctvurl><cctvresolution/><coordy>36.619186</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 강상촌분기점</cctvname><coordx>127.3979</coordx></data>
-<data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73383/7DGxA7gR05W5gVBZnxNYuVC5ky5ug3x2x4lciBUizP7zTbUDi1PFGIQKDyiHpAeQKXFtzz/KPgu4MuevOQUR3MdlvQlD3d+X/sG3XVjnDZ4=</cctvurl><cctvresolution/><coordy>36.57087582</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 월암교</cctvname><coordx>127.2901355</coordx></data>
-</response>`;
+    const fallbackXML = `<?xml version="1.0" encoding="UTF-8"?><response><coordtype>1</coordtype><datacount>46</datacount><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4644/6hrQnHeMFJgIFMu/uHlVapFc2AGn2P/UZv5AeQ3QyCa0o7F38eNEt92H0jUX20tMUWyk9QqNVabK0LKebApgUjB8R0NjqKLQnSbqOCnIp5c=</cctvurl><cctvresolution/><coordy>36.62497</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 강내면</cctvname><coordx>127.36456</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4952/JkfLNS8R9/xfeaGajH4mYuOo6WRHMfkO1LE3yonRw2ksdyfMu7MFSCHCgJeTYUZdQLMGu8u2E58D48i/vQVfWVBBcciRm+gLHMgXT4XZQhA=</cctvurl><cctvresolution/><coordy>36.56013</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 43호선] 공주 중흥교차로</cctvname><coordx>127.18649</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4953/EvqjJmR4V1DqIcjWEwCt2dKZiamT9zMBmDn6Av7BA3vbjfnergjCjEarhToyOXdUGGQCOxowstDNmYT5FZMOZXmIHvrjuAqXXafRI0vWuf4=</cctvurl><cctvresolution/><coordy>36.58394785</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 도신2교</cctvname><coordx>127.175334</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4958/KuqXaZIckNKDrENQuCHnOx5nyNJPUpvTpMgzRJpbfH+qkZ6xy7UI2qJ6nW8amF3bv4UDOcPdZQSwSvKFZE9Qyum6+oqTIyK0LZWguz/yg1U=</cctvurl><cctvresolution/><coordy>36.57461</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 중흥쉼터</cctvname><coordx>127.17553</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73498/0G8GdVqX62NWDpbKQde1lcb1r6wQgnJ+oNQhITj1i+3CV0saj3U4EFBbIFYQwY31KcUE/jQyxH5nGmDnrOMWWi7vrfBwCbXk4t1VJMMWiBc=</cctvurl><cctvresolution/><coordy>36.65685</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 서촌교</cctvname><coordx>127.39571</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4543/xMTMocOJmp0UryNqDBldv5zxSFoOpDcwMhEuviPrLpIuZbyr1ZU16/wCM/NuLNKc5si0wt+TM0YHiyrVYquAaZfNee64YTTZ4qcqSxc47qw=</cctvurl><cctvresolution/><coordy>36.66328</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 청람교차로</cctvname><coordx>127.24312</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4546/P2Eie2QjRqEFoicvP/Zd/dllFv4kvwMF9tZQ/sByot7Cp0vY1AnF0AaE+ncyQhwZhF4krthTSL4YbW40SXcfguY7Q2tVgUfdY14AYGuMQXM=</cctvurl><cctvresolution/><coordy>36.62081</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 홍대입구삼거리</cctvname><coordx>127.29062</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4547/OIR070jscBFalNpy9wgiKbz3tlDPrVZgHPwcxCxqX6EpNAeBwDoXJKtdxG3Q9qLqZfJc8gQMGsifFc79209OXu6bpTSLrY3U0TO4TBYAIKs=</cctvurl><cctvresolution/><coordy>36.60281</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 상리사거리</cctvname><coordx>127.30517</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4549/rhVoMTAwGvhCn16SPJ9G7XSr8eRhzSp42lpR0kQtNAeqwnoiUHzF9xs9iP5fc6kHbCqmVqgjOz3iZ5D3oNM0uZKa09/M47lLqrRHsXsI3mw=</cctvurl><cctvresolution/><coordy>36.60928</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1호선] 세종 서창사거리</cctvname><coordx>127.29346</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4550/V35xYc7dvTJKDkvWd0J3HW7ldrwJkDtxUrpUdoduY0u1kLazVGn4X9eADFoSYKoUp3+mIghsq2xHKLfaOJrEvfaiGQKM3dqU9aN9uXsl+5k=</cctvurl><cctvresolution/><coordy>36.67942</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 전의교차로</cctvname><coordx>127.19425</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4551/rdqnfvbYIjOKPc2FDLMyYDOOfUEeGIFlQ9qF+px9DVhlooOyHUCLCSxj2Gh7MWF9lRNna0fJTV1X0FHjagAWaGX5zGEP1sSuIwiE+hxv22U=</cctvurl><cctvresolution/><coordy>36.64742</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 전동교차로</cctvname><coordx>127.27039</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4552/lcadf7Y6BHtW1gJQMJ5SdEqKeQbdMj3ObvV1Zl0PzXlDs5C+Ya0TNy1Ly9l1MQj+Fl73CvDVHVj9BOMEPuq5Apd7jNzGzIpOKGP81PQ/7fY=</cctvurl><cctvresolution/><coordy>36.6833</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 유천교차로</cctvname><coordx>127.17272</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4553/zRCt/MrT1uTPxi0CMW33hY5o2HkdBgQJa31LfjrSZUv/G7FSFxqiDjBu4GNMFxmZcSkIgiNMti4iWlhebhnlbuaWtFkBtYnchJbRY8mnfCk=</cctvurl><cctvresolution/><coordy>36.672</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 미곡리</cctvname><coordx>127.22285</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4555/s/zlGCBxGVFSMI3LFg+WDzaMeGrQoRhug0ggz61s95axXmLxaZJSU3nxklGybqf0gOwYtT3/vKitxDcZQSIz2cQmzq2fNH+nMtxjtYRsM98=</cctvurl><cctvresolution/><coordy>36.55564</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 연기사거리</cctvname><coordx>127.2796</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4656/AKDcLVFP4xXjDJarPnv07kq5YxnQdWAs0tmEyAUja/vdi2H1or1RICr22q8oL0ojDCNQbdbvWr/PJtjKG989nHNGbNXcpb3zDGz8boEHUlI=</cctvurl><cctvresolution/><coordy>36.61071</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 오송삼거리</cctvname><coordx>127.32742</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4722/3EiRyJ77fVpogxLo4RKMe/ejgwEOalc+lPWURF0bSzbRcwjzWLX8TQokoRwZqCAQWl8Ic1bHE1kOXd7Bj74qW41KAIZlEeJj30hJIp5qFX0=</cctvurl><cctvresolution/><coordy>36.582677</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 번암사거리</cctvname><coordx>127.293057</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4846/kv0xIu6QmgZBa5hU1T8YTFMISAYB0sMG3f3TxevVKJILxKa9gK3k8vrDLvzDnUcasTsnSMg8+0KZhxmLF3rdyny7fhVc6aoFGAwoPFQAqEk=</cctvurl><cctvresolution/><coordy>36.6729259</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천4교</cctvname><coordx>127.207375</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4847/+nVWqpP5mLug8IUhS/ADa64XZCib7NKY/FmJjA+JQ5Z4oH+N9/5Ki+8IES9HaloccSd5qfxCVFJyNWLEpxCOnXu1nwPamupeehLE0dtxMKE=</cctvurl><cctvresolution/><coordy>36.6754259</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평교(1/2)</cctvname><coordx>127.1516898</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/4871/KGw/7zlRcqDYdVKCtpyHZOmclY+1OMZEMRk0qJnNkKothLHTDDDPDzVMcXm2kO1hc6f4v5Y27Eg4fAGEC79xQJNrI0Fdn7Z7qbOszXRmC3A=</cctvurl><cctvresolution/><coordy>36.70799</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 43호선] 세종 운당교차로</cctvname><coordx>127.1488</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/74109/FuzrEx2rDtv/gtx09PHMoB5oN07P8Y8xxEpPSXex+wRK9xDrDK5MnyVwj0Z3GlOOPWNmPc7QL76zM6iZ49RXBnS//+aLEHi0s8JK4Ke6sPk=</cctvurl><cctvresolution/><coordy>36.64219</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 학천과선교</cctvname><coordx>127.38624</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/77433/Q+QXlaUMii+3wtLgEn1WUUgC4DMNnwobiNzltubXzDjPEHSFI+bO0kUQeDjUg1+Q6udn1s3iUgvySyr3Q0pG+XQA8plloZboJFZzL2cuQhI=</cctvurl><cctvresolution/><coordy>36.68657</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 유정2교</cctvname><coordx>127.16312</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73939/wkwBbS+GH+PxW98uKfReDHGEd/jZK0erJMpQTPimhdR03NQHSYIDgZ6qSfoBQSb1qyPQ8y+35x4EbSSA1UCA6sjf9AljgUoaJvK0syFrOcc=</cctvurl><cctvresolution/><coordy>36.6765</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평교(2/2)</cctvname><coordx>127.1545</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70020/9qSWLXc88IHOUApOGYX+YMMWyDdWyRpBMenLGWKeZKDs1QLYLqJ33CEhbpzftV+jZ1R2zAch2JlFA6G0ruXf/M1iY0HJNAgoojNVx9Io5Hw=</cctvurl><cctvresolution/><coordy>36.6317929</coordy><cctvformat>HLS</cctvformat><cctvname>[국도25] 내거지하차도 상행</cctvname><coordx>127.3911899</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70021/D36GyPcoWVxrfiRYLdUz5+jiGWwtSQypU/ra2/8tfu2Kgjw00DDW2PGbgXTs10LAc/9TPAp9rwbicNDhFGG6G75dATPmcKyysIVcQGXuVl4=</cctvurl><cctvresolution/><coordy>36.6314033</coordy><cctvformat>HLS</cctvformat><cctvname>[국도25] 내거지하차도 하행</cctvname><coordx>127.3913029</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70036/P+yy7+xHqchobWtvRcQiB5EhBYN2Bh6XJxbMvIL3ngWow4nDZgnv174x/W6Y3mgazDOdwZv+l1ThMkTX0a/KkgBZXvssuKgyC3lqltoE/h8=</cctvurl><cctvresolution/><coordy>36.6812045</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도 상행</cctvname><coordx>127.1781976</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70037/R2JyJvqCB6zjlVxZpbHhWU67xhErBn6//lbsnItlNpEwEdtk2+UundWu3uLVOH9smbtcnLVvpTj1ddUrcgeCNkPyBgFHauidxFM4NPBq3fg=</cctvurl><cctvresolution/><coordy>36.6810187</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도 하행</cctvname><coordx>127.178768</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/70038/Y1ZgWEYue0H25i0L7UKFqPdqKagSRu1I8JLxWMuDsifFBYuccGY0rFys3zaBaRZtqgHP6t6etcHVSXcCY865PJLQ/c80Xqf4dR1zztcMb14=</cctvurl><cctvresolution/><coordy>36.6808534</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 양안지하차도_천변</cctvname><coordx>127.1790829</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/8883/dGgdS0T4B5JH8IAxNiXAfI7Zv/RAzaI9qc2w5FItpizMMcNIsWnJsflLZeyShd+E+asngjlgZmMr3aCJW5YoaXocCuHLBbP1NX7fKZL6B94=</cctvurl><cctvresolution/><coordy>36.722064</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 1호선] 세종 곡교천삼거리</cctvname><coordx>127.153911</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/9035/rzhhZqJQLFBCgnFnxB5APA0B60kA1MXAh2yiJGGtu++tlgXdsTE/C7Dj66IaQv9gkc6sSYvqglAN1+TTHrqyXIedzRhyKjhvmJGuMWF+u9E=</cctvurl><cctvresolution/><coordy>36.6231893</coordy><cctvformat>HLS</cctvformat><cctvname>[국도 36호선] 청주 월곡리</cctvname><coordx>127.3751228</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71779/Lme3RcrqGHGuQZgF0ZTJcpTjd7bOwrAwv79egv9Fhn0ZoxjAlnETzHfZNM95wzYRCQB6Cl/RIHaklUdZBis+KwY5uDTfnWa7BN44/s1ONZ4=</cctvurl><cctvresolution/><coordy>36.62347</coordy><cctvformat>HLS</cctvformat><cctvname>[국도36] 청주 미호강교동측</cctvname><coordx>127.354558</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71781/jGpOadNE3iw3VQsX1PGS3DWUW2njpM2EOVMaHQtJMwa9u/YRt5hXwJmzKmrHKuEC0/IKA5UbVmiVIlSN3A5ZHt8imV12xPRp1ihlwpClqY0=</cctvurl><cctvresolution/><coordy>36.695054</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 행정삼거리</cctvname><coordx>127.155018</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71833/1Rkpd1J7CLTUw3XSGXe04M/NUSv3XQEZrmhkMcI1ybrMEg3RZBoqHSIe8IDE1wKtgb+5T3DA6bgESE6A4vikTjUoYoVSgV259MdgJP/NFwQ=</cctvurl><cctvresolution/><coordy>36.634045</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 금의육교</cctvname><coordx>127.389908</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71856/x9flqHJwnSuGv+hXRZvaMxikZNfd4+gKgu709ZLvyoiy6/RA2UH0Iy1ETEOawJjHhQ/28pES5lwvQYqOfXgCpzn30hnThYofOwdDW2exLFI=</cctvurl><cctvresolution/><coordy>36.67759751</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 천안 대평리</cctvname><coordx>127.1596999</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71857/piyY3wppd8iH+4O5WYvL7pPVbiN37OzKPl0D4d/1nZyzxM7kHcAPiPCN/FrTOrEYUkFlmJQpw3IVJ693naRjARpoW7WTUg/TzmRK/gUnpyI=</cctvurl><cctvresolution/><coordy>36.67865</coordy><cctvformat>HLS</cctvformat><cctvname>[국도23] 세종 천안시경계</cctvname><coordx>127.16593</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71912/SIBEXWxCFtmcIksn77wI+h+hk/tZlC22EJ7pP+3WDrY7b85NJuQBi9WReRze/ToLvRwypAAUCdBdHHZzPC9tvT+nAC8BKOvHgNL3ehFvZqA=</cctvurl><cctvresolution/><coordy>36.56761</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 월계교</cctvname><coordx>127.17735</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71913/SPScysB0LUTmKozaqr7bzG7ruNZg/wZjt0UUlTXOk8K9rRP1ASfMVNhI851kLhl9Ujzvfpk7TET5JUzpFkzo9sRn4ovGVUEUaYEF3EoLa9A=</cctvurl><cctvresolution/><coordy>36.59285688</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 어물터널</cctvname><coordx>127.1636985</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71914/Ij0dqz8WzebuReKYp8lm3UGQSF8llbXbE9AcX2bmF7AoQ2rhm92ECx0g5QYSgVtl5K9LWYSU9SRrtJybkFtVJANjmJ/1UUZNUF3VbeJpZC4=</cctvurl><cctvresolution/><coordy>36.58814</coordy><cctvformat>HLS</cctvformat><cctvname>[국도43] 공주 덕학교차로</cctvname><coordx>127.17081</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71919/E1jZinyj8UHrBM238Yb+389qGMh4ZYD88XIQLiMEYjwdkSqTkgj9K17aj/aAlJh9anNAVNRc7lyeC7a/mC4ZvTmIzpJoaLrGa0dfjXvsI+o=</cctvurl><cctvresolution/><coordy>36.72722</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 소정육교삼거리</cctvname><coordx>127.16253</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71931/WrNjLyRcBv5E6SDOEL8ek6PpKxqVHIb8BmnvcY0OLLUzDfC9h5Qs5EXvEWy/X8hFNFnJWEGYkCnanrQ/kHfiAUd2G7wVZgTCI/icAcaFV4U=</cctvurl><cctvresolution/><coordy>36.67021041</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 이동검문소</cctvname><coordx>127.2292155</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71944/8GjBXrTaRCQosgcCrwKp7VSTH0NxgXUjaA0SQyKPvZjLa3uM6/+HlS7cZaNbsxX76YqEazvQsY0v6QOfZ3YHKautFcftWGSJyuOdpHGhwk0=</cctvurl><cctvresolution/><coordy>36.599882</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 욱일교차로</cctvname><coordx>127.290238</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71945/6F7tp9Dw+qMqUvn7K1GqZ5ZcvuvKiHNqAVLd/VPm0QvxFfRU+GvjBHXC7LKfbn9S+DpS3SO+LrmWrsbtKyRvyqlKT/IUbjjzO83Q6CpUTSc=</cctvurl><cctvresolution/><coordy>36.60528</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 세종여고교차로</cctvname><coordx>127.28942</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71946/vo0cVrnBN0EWNBK+eOVokXPTLlMUys0PItKbQxlxqG6XL86jJPufBeG2gcUMRtjS25zmVu0SZa2xLnQzko4M4F8IdXdZImXb/xEjZmKvuiE=</cctvurl><cctvresolution/><coordy>36.63390851</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천1교</cctvname><coordx>127.2873782</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71947/t2cPrpmz6q3V5xL2zDSTzkpqfCurx7+hSDIQNdVdtxNnotLceITRfErgoYT0nWRjLoalZ9eZEtQZmaY9akFA8gUpSUdHW5QM+MLV4yeiDOA=</cctvurl><cctvresolution/><coordy>36.65941026</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 석곡교</cctvname><coordx>127.2563303</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71948/TW0xsKX43tjKRmZauJKvHQHVJoLlKBMCebcgnXMsy/xl4z4IiqeV3p1yWB6JMY/1gcP9eHSQW7sp7eUfoA9R2rhs2VXSCAmazZ44OU8676k=</cctvurl><cctvresolution/><coordy>36.66501</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 조천3교</cctvname><coordx>127.23483</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/71953/jeVKVH1clr2ykdNT9VFwKVKd4OMGsF1cVMStZcWRU9sKEBDtNh+0Uqteu4f40tXzqUHpZYFrHYOE2vETSijmwGRWWCfK/qUenQoTu3hSxwc=</cctvurl><cctvresolution/><coordy>36.619186</coordy><cctvformat>HLS</cctvformat><cctvname>[국도17] 청주 강상촌분기점</cctvname><coordx>127.3979</coordx></data><data><roadsectionid/><filecreatetime/><cctvtype>1</cctvtype><cctvurl>http://cctvsec.ktict.co.kr/73383/7DGxA7gR05W5gVBZnxNYuVC5ky5ug3x2x4lciBUizP7zTbUDi1PFGIQKDyiHpAeQKXFtzz/KPgu4MuevOQUR3MdlvQlD3d+X/sG3XVjnDZ4=</cctvurl><cctvresolution/><coordy>36.57087582</coordy><cctvformat>HLS</cctvformat><cctvname>[국도1] 세종 월암교</cctvname><coordx>127.2901355</coordx></data></response>`;
 
     window.onload = () => { 
         refreshAll();
@@ -522,7 +570,22 @@
         });
     };
 
-    function toggleSection(id) { document.getElementById(id).classList.toggle('open'); }
+    function toggleSection(id) { 
+        const el = document.getElementById(id);
+        el.classList.toggle('open'); 
+    }
+
+    function toggleRainInfo(e) {
+        e.stopPropagation(); 
+        const box = document.getElementById('rain-info-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
+    function toggleSnowInfo(e) {
+        e.stopPropagation(); 
+        const box = document.getElementById('snow-info-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
 
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
@@ -531,26 +594,22 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- [반장님이 올려주신 정확한 파라미터 적용 및 스마트폰 LTE 통신방어 우회망] ---
+    // --- CCTV 원상복구 (가장 안정적인 순차 접속) ---
     async function autoFetchCCTV() {
         const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#aaa; font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 접속 중...</div>`;
+        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 국토부 영상망 탐색 중...</div>`;
 
-        // 반장님이 요청하신 주소 원문 그대로 구성
         const targetUrl = "https://openapi.its.go.kr:9443/cctvInfo?apiKey=56934196b0354a48ab5a1d020262c673&type=its&cctvType=1&minX=127.140004294763&maxX=127.40809957074&minY=36.5529282846312&maxY=36.7324183697358&getType=xml";
 
-        // 스마트폰 LTE에서 가장 잘 뚫리는 3중 우회망 투입
         const proxies = [
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`
         ];
 
         let rawText = "";
 
-        // LTE 보안망을 뚫을 때까지 순차적으로 찔러봄
-        for (let i = 0; i < proxies.length; i++) {
-            try {
+        try {
+            for (let i = 0; i < proxies.length; i++) {
                 const res = await fetch(proxies[i]);
                 if (res.ok) {
                     const text = await res.text();
@@ -559,13 +618,11 @@
                         break; 
                     }
                 }
-            } catch (err) {}
-        }
-
-        // LTE 통신이 아예 차단되었을 때 최후의 보루 (반장님이 주신 데이터로 화면 표시)
-        if (!rawText) {
-            console.log("통신 차단됨. 보조 데이터(캐시)로 화면을 로드합니다.");
-            rawText = fallbackXML; 
+            }
+            if (!rawText) throw new Error("통신 차단");
+        } catch(e) {
+            console.log("우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
+            rawText = fallbackXML;
         }
 
         const parser = new DOMParser();
@@ -573,7 +630,7 @@
 
         const resultMsg = xmlDoc.querySelector("message, resultMsg, error");
         if (resultMsg && !xmlDoc.querySelector("data")) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:#ff9800; font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:15px; color:var(--orange); font-size:11px;">[서버 거절] ${resultMsg.textContent}</div>`;
             return;
         }
 
@@ -585,15 +642,12 @@
                 let area = null;
                 const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : '';
 
-                // --- 조치원 4대 거점 필터링 (서창, 욱일, 홍대, 상리) ---
                 if (name.includes('서창') || name.includes('욱일') || name.includes('홍대') || name.includes('상리')) {
                     area = '조치원';
                 } 
-                // 위 4개가 아닌 조치원 내 카메라는 철저히 배제
                 else if (name.includes('조치원') || name.includes('번암') || name.includes('신안')) {
                     area = null;
                 }
-                // 나머지 지역 분류
                 else if (name.includes('연서') || name.includes('봉암') || name.includes('월하') || name.includes('쌍류')) area = '연서';
                 else if (name.includes('전의') || name.includes('유천')) area = '전의';
                 else if (name.includes('전동') || name.includes('심중') || name.includes('청송') || name.includes('석곡') || name.includes('미곡')) area = '전동';
@@ -601,7 +655,6 @@
                 else if (name.includes('부강')) area = '부강';
                 else if (name.includes('연동') || name.includes('명학') || name.includes('내판')) area = '연동';
 
-                // 구역이 확정된 핵심 카메라만 추가 (혼합콘텐츠 차단방지를 위해 https로 강제변환)
                 if (area) {
                     let rawUrl = node.querySelector("cctvurl") ? node.querySelector("cctvurl").textContent : '';
                     let secureUrl = rawUrl.replace('http://', 'https://');
@@ -614,10 +667,10 @@
             if(dynamicCCTVData.length > 0) {
                 renderCCTV();
             } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
+                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">선별된 4대 거점 및 관내 CCTV가 없습니다.</div>`;
             }
         } else {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#ff9800; font-size:12px;">국토부 영상 송출 데이터가 0건입니다.</div>`;
+            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">국토부 영상 송출 데이터가 0건입니다.</div>`;
         }
     }
 
@@ -645,11 +698,10 @@
             container.appendChild(div);
         });
         if(container.innerHTML === '') {
-            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">해당 지역에 노출할 CCTV가 없습니다.</div>`;
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">해당 지역에 등록된 영상이 없습니다.</div>`;
         }
     }
 
-    // 비디오 플레이어 기능 복구 (앱 외부 재생 버튼 포함)
     function openCCTV(name, url) {
         document.getElementById('cctv-title').innerText = name;
         document.getElementById('cctv-link-btn').href = url; 
@@ -703,7 +755,6 @@
         ifr.src = "";
     }
 
-    // --- 다른 기능들은 1%도 건드리지 않고 그대로 유지 ---
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
@@ -749,11 +800,11 @@
                 const currentTemp = tempResults[idx]?.current?.temperature_2m ?? '-';
                 totalRain += todayRain; count++;
                 const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
-                const rainColorStyle = todayRain > 0 ? '' : 'color: #888;';
+                const rainColorStyle = todayRain > 0 ? '' : 'color: var(--sub);';
                 
-                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div><div style="font-size:10px; color:#888; margin-top:2px;">${currentTemp}℃</div></div>`;
+                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${currentTemp}℃</div></div>`;
             });
-            html += `<div class="rain-cell" style="background:#222;"><div class="rain-loc" style="color:#fff;">출처</div><div class="rain-val" style="font-size:11px; color:#ccc;">세종시망</div><div style="font-size:10px; color:#888; margin-top:2px;">실시간</div></div>`;
+            html += `<div class="rain-cell" style="background:var(--card);"><div class="rain-loc" style="color:#fff;">출처</div><div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div><div style="font-size:10px; color:var(--green); margin-top:4px;">Live</div></div>`;
             
             gridEl.innerHTML = html;
             avgRainEl.innerText = `${count > 0 ? (totalRain/count).toFixed(1) : '-'} mm`;
@@ -763,35 +814,110 @@
         }
     }
 
+    // --- [적설량: 세로형 표 파싱 + 적설량 메인 + 9곳 노출 완벽본] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
-        const locs = [
-            { name: '조치원', lat: 36.601, lon: 127.301 }, { name: '연서면', lat: 36.560, lon: 127.270 },
-            { name: '전의면', lat: 36.670, lon: 127.200 }, { name: '전동면', lat: 36.630, lon: 127.260 },
-            { name: '소정면', lat: 36.720, lon: 127.150 }, { name: '부강면', lat: 36.520, lon: 127.370 }, { name: '연동면', lat: 36.560, lon: 127.320 }
+        const timeMin = Math.floor(Date.now() / 60000);
+        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
+        
+        // 데이터 로딩 딜레이 방지를 위해 우회망 3개 동시 투입
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
-        const lats = locs.map(l => l.lat).join(',');
-        const lons = locs.map(l => l.lon).join(',');
+
+        // 1~6생활권 제외, 9개소 지정
+        const locs = [
+            {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
+            {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
+        ];
         
         try {
-            const url = `https://api.open-meteo.com/v1/forecast?latitude=${lats}&longitude=${lons}&daily=snowfall_sum&timezone=Asia%2FTokyo`;
-            const res = await fetch(url);
-            const data = await res.json();
-            const results = Array.isArray(data) ? data : [data];
+            let htmlText = "";
+            const fetchPromises = proxies.map(proxy => 
+                fetch(proxy).then(res => res.text()).then(text => {
+                    if (text && text.includes('조치원')) return text;
+                    throw new Error("Invalid Format");
+                })
+            );
+            htmlText = await Promise.any(fetchPromises);
+
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, 'text/html');
             
-            let totalSnow = 0; let html = '';
-            results.forEach((r, idx) => {
-                const todaySnow = r.daily.snowfall_sum[0] || 0;
-                totalSnow += todaySnow;
-                const valClass = todaySnow > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = todaySnow > 0 ? '' : 'color: #888;';
-                html += `<div class="rain-cell"><div class="rain-loc">${locs[idx].name.replace('면','')}</div><div class="${valClass}" style="${colorStyle}">${todaySnow}<small>cm</small></div></div>`;
+            let sejongSnow = {};
+            let avgSnow = 0;
+
+            // 세로형 표 행(tr)별로 분석하여 데이터 추출
+            doc.querySelectorAll('table tr').forEach(tr => {
+                const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
+                if (cells.length < 3) return; // 데이터가 없는 빈 줄은 무시
+
+                // 첫 번째 칸(인덱스 0)은 무조건 지역명(또는 구분)
+                const rowTitle = cells[0];
+                
+                // 숫자만 걸러내는 헬퍼 함수 (빈칸이나 문자가 섞여있어도 숫자만 추출)
+                const extractNum = (str) => {
+                    if (!str) return 0;
+                    const match = str.match(/-?\d+(\.\d+)?/);
+                    return match ? parseFloat(match[0]) : 0;
+                };
+
+                // '평균' 데이터 찾기
+                if (rowTitle.includes('평균')) {
+                    avgSnow = extractNum(cells[4] || cells[cells.length - 1]); // 적설량을 메인으로
+                } 
+                // 관할 지역명 데이터 찾기
+                else {
+                    const matchedLoc = locs.find(l => rowTitle.includes(l.name));
+                    if (matchedLoc) {
+                        // 세종시 공식 세로형 표 순서: [0]지역명, [1]신적설, [2]최심신적설, [3]전일최심, [4]적설량, [5]최심적설량(3일)
+                        const sinVal = extractNum(cells[1]); // 신적설
+                        const choeVal = extractNum(cells[2]); // 최심신적설
+                        const jukVal = extractNum(cells[4]); // 적설량
+
+                        sejongSnow[matchedLoc.name] = { sin: sinVal, choe: choeVal, juk: jukVal };
+                    }
+                }
             });
-            html += `<div class="rain-cell" style="background:#222;"><div class="rain-loc" style="color:#fff;">기준</div><div class="rain-val" style="font-size:11px; color:#ccc;">일누적</div></div>`;
+
+            // 화면 그리기 (적설량을 메인 큰 글씨로, 신적설/최심을 밑에 작은 글씨로)
+            let html = ''; 
+            locs.forEach(loc => {
+                // 파싱된 데이터 매칭
+                const data = sejongSnow[loc.name] || {sin: 0, choe: 0, juk: 0};
+                
+                const valClass = data.juk > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = data.juk > 0 ? '' : 'color: var(--sub);';
+                
+                // 지역명 깔끔하게 포맷팅
+                let displayName = loc.name;
+                if(displayName === '조치원') displayName = '조치원읍';
+                else displayName += '면';
+
+                html += `<div class="rain-cell">
+                    <div class="rain-loc">${displayName}</div>
+                    <div class="${valClass}" style="${colorStyle}">${data.juk.toFixed(1)}<small>cm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">신적설: ${data.sin.toFixed(1)}</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${data.choe.toFixed(1)}</div>
+                </div>`;
+            });
+            
+            html += `<div class="rain-cell" style="background:var(--card);">
+                <div class="rain-loc" style="color:#fff;">출처</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">Live</div>
+            </div>`;
+            
             gridEl.innerHTML = html;
-            avgSnowEl.innerText = `${(totalSnow / locs.length).toFixed(1)} cm`;
-        } catch(e) { avgSnowEl.innerText = "오류"; }
+            avgSnowEl.innerText = `${avgSnow.toFixed(1)} cm`;
+
+        } catch(e) { 
+            avgSnowEl.innerText = "오류"; 
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px;">데이터 수신 지연 / 표 양식 변경됨</div>`;
+        }
     }
 
     async function autoFetchForest() {
@@ -804,7 +930,7 @@
         try {
             const res = await fetch(url);
             const text = await res.text();
-            if (text.startsWith('<')) { statusEl.innerHTML = "<span style='color:#ff9800; font-size:12px;'>API 승인 대기중</span>"; return; }
+            if (text.startsWith('<')) { statusEl.innerHTML = "<span style='color:var(--orange); font-size:12px;'>API 승인 대기중</span>"; return; }
             const data = JSON.parse(text);
             const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
             const results = {};
@@ -818,31 +944,31 @@
                 let html = ''; let totalMax = 0; let validCount = 0;
                 targetNames.forEach(name => {
                     const val = results[name];
-                    let levelStr = '-'; let color = '#aaa'; let displayVal = '-';
+                    let levelStr = '-'; let color = 'var(--sub)'; let displayVal = '-';
                     if (val !== null && !isNaN(val)) {
                         displayVal = Math.round(val); totalMax += val; validCount++;
-                        if (displayVal <= 50) { levelStr = '낮음'; color = '#4caf50'; }
-                        else if (displayVal <= 65) { levelStr = '보통'; color = '#ff9800'; }
-                        else if (displayVal <= 85) { levelStr = '높음'; color = '#f44336'; }
-                        else { levelStr = '매우높음'; color = '#b71c1c'; }
+                        if (displayVal <= 50) { levelStr = '낮음'; color = 'var(--forest)'; }
+                        else if (displayVal <= 65) { levelStr = '보통'; color = 'var(--orange)'; }
+                        else if (displayVal <= 85) { levelStr = '높음'; color = 'var(--red)'; }
+                        else { levelStr = '매우높음'; color = '#ff375f'; }
                     }
                     const shortName = name.replace('읍', '').replace('면', '');
-                    html += `<div class="rain-cell"><div class="rain-loc">${shortName}</div><div class="rain-val" style="color:${color}; font-size:12px;">${levelStr}</div><div style="font-size:10px; color:#888; margin-top:2px;">${displayVal}</div></div>`;
+                    html += `<div class="rain-cell"><div class="rain-loc">${shortName}</div><div class="rain-val" style="color:${color}; font-size:12px;">${levelStr}</div><div style="font-size:10px; color:var(--sub); margin-top:2px;">${displayVal}</div></div>`;
                 });
                 
-                let avgStr = '-'; let avgColor = '#aaa'; let avgVal = '-';
+                let avgStr = '-'; let avgColor = 'var(--sub)'; let avgVal = '-';
                 if (validCount > 0) {
                     avgVal = Math.round(totalMax / validCount);
-                    if (avgVal <= 50) { avgStr = '낮음'; avgColor = '#4caf50'; }
-                    else if (avgVal <= 65) { avgStr = '보통'; avgColor = '#ff9800'; }
-                    else if (avgVal <= 85) { avgStr = '높음'; avgColor = '#f44336'; }
-                    else { avgStr = '매우높음'; avgColor = '#b71c1c'; }
+                    if (avgVal <= 50) { avgStr = '낮음'; avgColor = 'var(--forest)'; }
+                    else if (avgVal <= 65) { avgStr = '보통'; avgColor = 'var(--orange)'; }
+                    else if (avgVal <= 85) { avgStr = '높음'; avgColor = 'var(--red)'; }
+                    else { avgStr = '매우높음'; avgColor = '#ff375f'; }
                 }
-                html += `<div class="rain-cell" style="background:#222;"><div class="rain-loc" style="color:#fff;">7개 평균</div><div class="rain-val" style="color:${avgColor}; font-size:12px;">${avgStr}</div><div style="font-size:10px; color:#ccc; margin-top:2px;">${avgVal}</div></div>`;
+                html += `<div class="rain-cell" style="background:var(--card);"><div class="rain-loc" style="color:#fff;">7개 평균</div><div class="rain-val" style="color:${avgColor}; font-size:12px;">${avgStr}</div><div style="font-size:10px; color:var(--sub); margin-top:2px;">${avgVal}</div></div>`;
                 gridEl.innerHTML = html;
-                statusEl.innerHTML = "<span style='color:var(--blue); font-size:12px;'>API 정상 수신됨</span>";
-            } else { statusEl.innerHTML = `<span style='color:#aaa; font-size:12px;'>API 상태: 오류</span>`; }
-        } catch (e) { statusEl.innerHTML = "<span style='color:#ff453a; font-size:12px;'>API 연결 실패 (새로고침)</span>"; }
+                statusEl.innerHTML = "<span style='color:var(--green); font-size:12px;'>API 정상 수신됨</span>";
+            } else { statusEl.innerHTML = `<span style='color:var(--sub); font-size:12px;'>API 상태: 오류</span>`; }
+        } catch (e) { statusEl.innerHTML = "<span style='color:var(--red); font-size:12px;'>API 연결 실패</span>"; }
     }
 
     async function autoFetchSpecial() {
@@ -870,11 +996,11 @@
                 if (trimmed.startsWith('o') && (trimmed.includes('주의보') || trimmed.includes('경보'))) uniqueSet.add(trimmed);
             });
             if (uniqueSet.size > 0) { contentStr = Array.from(uniqueSet).map(w => w.replace(/^o\s*/, "🚨 ")).join("<br>"); } 
-            else if (bodyText.includes("없습니다")) { contentStr = "<i class='fas fa-check-circle' style='color:#4caf50'></i> 특보 없음"; } 
+            else if (bodyText.includes("없습니다")) { contentStr = "<i class='fas fa-check-circle' style='color:var(--green)'></i> 전국 특보 없음"; } 
             else { contentStr = "특보 데이터 없음"; }
             
             contentEl.innerHTML = `<div class="info-group"><span class="info-label">발효시각</span><div class="info-val time">${timeStr}</div></div><div class="info-group"><span class="info-label">전국 특보 내용</span><div class="info-val content">${contentStr}</div></div>`;
-        } catch (e) { contentEl.innerHTML = `<div style="text-align:center; color:#666;">대기중...</div>`; headerStatusEl.innerText = "연결 실패"; }
+        } catch (e) { contentEl.innerHTML = `<div style="text-align:center; color:var(--sub);">대기중...</div>`; headerStatusEl.innerText = "연결 실패"; }
     }
 
     function renderShelters() {
@@ -886,7 +1012,15 @@
         filteredData.forEach(item => {
             const div = document.createElement('div');
             div.className = 'shelter-card';
-            div.innerHTML = `<div class="shelter-name">${item.name}</div><div class="shelter-addr">${item.addr}</div><div class="shelter-cap">수용: ${item.cap}</div><button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')">길찾기</button>`;
+            div.innerHTML = `
+                <div class="shelter-name">${item.name}</div>
+                <div class="shelter-addr">${item.addr}</div>
+                <div class="shelter-cap">수용: ${item.cap}</div>
+                <div class="shelter-btn-group">
+                    <a href="tel:${item.tel}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
+                    <button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                </div>
+            `;
             container.appendChild(div);
         });
     }
