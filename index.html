@@ -276,10 +276,22 @@
 
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
-        <div class="ah-title"><i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온</div>
+        <div class="ah-title">
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온
+            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
+        </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
+        <div id="rain-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
+            <div style="margin-bottom:6px;">
+                <span style="color:var(--orange); font-weight:bold;">호우주의보 :</span> 3시간 누적강우량이 60mm 이상 예상되거나 12시간 누적강우량이 110mm 이상 예상될 때
+            </div>
+            <div>
+                <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
+            </div>
+        </div>
+
         <div class="rain-avg-box">
             <div style="font-size:12px; color:var(--sub); font-weight:600;">7개 읍면 일평균 강수</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
@@ -312,7 +324,7 @@
         </div>
 
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 신적설</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 적설량</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -463,7 +475,7 @@
     
     let isAdmin = false;
 
-    // 대피소 69개소 전체 명단
+    // 대피소 69개 100% 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -569,6 +581,12 @@
         el.classList.toggle('open'); 
     }
 
+    function toggleRainInfo(e) {
+        e.stopPropagation(); 
+        const box = document.getElementById('rain-info-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
     function toggleSnowInfo(e) {
         e.stopPropagation(); 
         const box = document.getElementById('snow-info-box');
@@ -605,6 +623,7 @@
             );
             rawText = await Promise.any(fetchPromises);
         } catch (error) {
+            console.log("모든 우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
             rawText = fallbackXML;
         }
 
@@ -743,16 +762,30 @@
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+        
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+        ];
+        
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
-            const [rainRes, tempRes] = await Promise.all([
-                fetch(proxyUrl),
+            let htmlText = "";
+            const fetchPromises = proxies.map(proxy => 
+                fetch(proxy).then(res => res.text()).then(text => {
+                    if (text && text.includes('조치원')) return text;
+                    throw new Error("Invalid Format");
+                })
+            );
+            
+            const [fetchedHtml, tempRes] = await Promise.all([
+                Promise.any(fetchPromises),
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m&timezone=Asia%2FTokyo`)
             ]);
             
-            const htmlText = await rainRes.text();
+            htmlText = fetchedHtml;
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
             const sejongRain = {};
@@ -797,33 +830,35 @@
         }
     }
 
-    // --- [적설량 세로형 표 파싱 100% 매칭 알고리즘] ---
+    // --- [적설량 전면 교체: 세로형 표 구조 완벽 매칭 (숫자 추출 알고리즘 적용 완료)] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
         
+        // 데이터 로딩 딜레이 방지를 위해 우회망 3개 동시 투입
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
-        // 노출할 관내 지역 9곳 지정 (생활권 제외)
+        // 1,2,3,6생활권 제외한 관내 및 인접 9개소
         const locs = [
             {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
             {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
         ];
         
         try {
+            let htmlText = "";
             const fetchPromises = proxies.map(proxy => 
                 fetch(proxy).then(res => res.text()).then(text => {
                     if (text && text.includes('조치원')) return text;
                     throw new Error("Invalid Format");
                 })
             );
-            const htmlText = await Promise.any(fetchPromises);
+            htmlText = await Promise.any(fetchPromises);
 
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
@@ -848,13 +883,16 @@
 
                 // '평균' 데이터 행
                 if (regionName.includes('평균')) {
-                    avgSnow = extractNum(cells[1]);
+                    // 보통 1번 인덱스가 신적설, 4번이 적설량
+                    // 적설량을 메인으로 쓰기로 했으므로 4번 인덱스 추출. 만약 칸이 모자라면 마지막 숫자를 씀.
+                    const aVal = extractNum(cells[4] || cells[cells.length - 1]);
+                    avgSnow = aVal;
                 } 
                 // 그 외 '조치원읍', '연동면' 등 지역 데이터 행
                 else {
                     const matchedLoc = locs.find(l => regionName.includes(l.name));
                     if (matchedLoc) {
-                        // 세종시망 순서: [지역명, 신적설, 최심신적설, 전일최심, 적설량, 최심적설량(3일)]
+                        // 세종시 표 기준: 1번칸=신적설, 2번칸=최심신적설, 4번칸=적설량
                         const sVal = extractNum(cells[1]); // 신적설
                         const cVal = extractNum(cells[2]); // 최심신적설
                         const jVal = extractNum(cells[4]); // 적설량
@@ -864,12 +902,13 @@
                 }
             });
 
-            // 화면 그리기
+            // 화면 그리기 (적설량을 가장 큰 글씨로)
             let html = ''; 
             locs.forEach(loc => {
                 const data = sejongSnow[loc.name] || {sin: 0, choe: 0, juk: 0};
-                const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
+                
+                const valClass = data.juk > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = data.juk > 0 ? '' : 'color: var(--sub);';
                 
                 let displayName = loc.name;
                 if(displayName === '조치원') displayName = '조치원읍';
@@ -877,9 +916,9 @@
 
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${displayName}</div>
-                    <div class="${valClass}" style="${colorStyle}">${data.sin.toFixed(1)}<small>cm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">최심: ${data.choe.toFixed(1)}</div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">적설: ${data.juk.toFixed(1)}</div>
+                    <div class="${valClass}" style="${colorStyle}">${data.juk.toFixed(1)}<small>cm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">신적설: ${data.sin.toFixed(1)}</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${data.choe.toFixed(1)}</div>
                 </div>`;
             });
             
