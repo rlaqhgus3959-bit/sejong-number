@@ -16,6 +16,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
+            /* 애플(iOS) 스타일 다크모드 색상표 */
             --bg: #000000; 
             --card: #1c1c1e; 
             --card-elevated: #2c2c2e;
@@ -54,6 +55,7 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
+        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -83,6 +85,7 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
+        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -92,6 +95,7 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
+        /* 격자형 데이터 자동 채움 반응형 적용 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
@@ -106,6 +110,7 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
+        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
             background: var(--card-elevated); padding: 12px 8px; 
@@ -135,6 +140,7 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
+        /* CCTV 가로 늘어남 방지 */
         .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
             background: var(--card-elevated); padding: 12px; border-radius: 16px;
@@ -150,6 +156,7 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
+        /* 도로 통제 현황 가로 늘어남 방지 */
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
@@ -283,12 +290,29 @@
 
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
-        <div class="ah-title"><i class="fas fa-snowflake" style="color:var(--snow)"></i> 관할 7개 읍면 적설량</div>
+        <div class="ah-title">
+            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 실시간 적설량
+            <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleSnowInfo(event)"></i>
+        </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
+        <div id="snow-info-box" style="display:none; background:var(--card-elevated); padding:14px; border-radius:12px; margin-bottom:16px; font-size:12px; color:var(--sub); line-height:1.6; word-break:keep-all;">
+            <div style="margin-bottom:8px;">
+                <b style="color:#fff;">신 적 설 :</b> 금일 내린 적설 중 관측시점의 적설<br>
+                <b style="color:#fff;">최심신적설 :</b> 금일 내린 적설 중 가장 높은(깊은) 값<br>
+                <b style="color:#fff;">적 설 량 :</b> 현재 쌓여 있는 적설<br>
+                <b style="color:#fff;">최심적설량 :</b> 임의의 기간동안 쌓여 있는 적설 중 가장 높은 값
+            </div>
+            <div style="font-size:11px; margin-bottom:8px; color:#aaa;">* 금일 적설 = 신적설, 현재적설 = 적설</div>
+            <div>
+                <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
+                <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
+            </div>
+        </div>
+
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">관할 7곳 평균 신적설</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 신적설</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -545,6 +569,12 @@
         el.classList.toggle('open'); 
     }
 
+    function toggleSnowInfo(e) {
+        e.stopPropagation(); 
+        const box = document.getElementById('snow-info-box');
+        box.style.display = box.style.display === 'none' ? 'block' : 'none';
+    }
+
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
@@ -575,7 +605,6 @@
             );
             rawText = await Promise.any(fetchPromises);
         } catch (error) {
-            console.log("모든 우회망 차단됨. 보조 캐시 데이터를 로드합니다.");
             rawText = fallbackXML;
         }
 
@@ -768,25 +797,23 @@
         }
     }
 
-    // --- [적설량 전면 교체: 세로형 표 구조 완벽 매칭 (숫자 추출 알고리즘)] ---
+    // --- [적설량 세로형 표 파싱 100% 매칭 알고리즘] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
         
-        // 데이터 고속 로딩을 위한 3중 우회망 레이싱
         const proxies = [
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
-        // 사진에 나온 전체 13개 관측소 모두 노출
+        // 노출할 관내 지역 9곳 지정 (생활권 제외)
         const locs = [
             {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
-            {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},
-            {name:'1생'},{name:'2생'},{name:'3생'},{name:'6생'}
+            {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
         ];
         
         try {
@@ -804,52 +831,55 @@
             let sejongSnow = {};
             let avgSnow = 0;
 
-            // 표의 각 줄(tr)을 순회하며 지역이름이 행(row)의 시작인 것을 파악하여 매칭
+            // 세로형 표 행(tr)별로 분석하여 데이터 추출
             doc.querySelectorAll('table tr').forEach(tr => {
-                // 한 줄의 모든 텍스트를 가져와서 공백 제거
                 const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
-                if (cells.length < 3) return; // 데이터가 부족한 줄은 패스
+                if (cells.length < 2) return;
 
+                // 1열(구분)의 값
                 const regionName = cells[0];
+                
+                // 숫자 추출 함수
+                const extractNum = (str) => {
+                    if (!str) return 0;
+                    const match = str.match(/-?\d+(\.\d+)?/);
+                    return match ? parseFloat(match[0]) : 0;
+                };
 
-                // 평균 줄 찾기
+                // '평균' 데이터 행
                 if (regionName.includes('평균')) {
-                    // 보통 1번 인덱스가 신적설
-                    const aVal = parseFloat(cells[1].replace(/[^0-9.-]/g, ''));
-                    if (!isNaN(aVal)) avgSnow = aVal;
-                }
+                    avgSnow = extractNum(cells[1]);
+                } 
+                // 그 외 '조치원읍', '연동면' 등 지역 데이터 행
+                else {
+                    const matchedLoc = locs.find(l => regionName.includes(l.name));
+                    if (matchedLoc) {
+                        // 세종시망 순서: [지역명, 신적설, 최심신적설, 전일최심, 적설량, 최심적설량(3일)]
+                        const sVal = extractNum(cells[1]); // 신적설
+                        const cVal = extractNum(cells[2]); // 최심신적설
+                        const jVal = extractNum(cells[4]); // 적설량
 
-                // 지역명 줄 찾기
-                const matchedLoc = locs.find(l => regionName.includes(l.name));
-                if (matchedLoc) {
-                    // 세종시 표 기준: 1번칸=신적설, 2번칸=최심신적설
-                    let sVal = parseFloat(cells[1].replace(/[^0-9.-]/g, ''));
-                    let cVal = parseFloat(cells[2].replace(/[^0-9.-]/g, ''));
-                    
-                    if (isNaN(sVal)) sVal = 0;
-                    if (isNaN(cVal)) cVal = 0;
-
-                    sejongSnow[matchedLoc.name] = { sin: sVal, choe: cVal };
+                        sejongSnow[matchedLoc.name] = { sin: sVal, choe: cVal, juk: jVal };
+                    }
                 }
             });
 
             // 화면 그리기
             let html = ''; 
             locs.forEach(loc => {
-                const data = sejongSnow[loc.name] || {sin: 0, choe: 0};
-                
+                const data = sejongSnow[loc.name] || {sin: 0, choe: 0, juk: 0};
                 const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
                 const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
                 
-                // 표출되는 지역명 깔끔하게 정리 (조치원->조치원읍, 연서->연서면 등)
                 let displayName = loc.name;
                 if(displayName === '조치원') displayName = '조치원읍';
-                else if(!displayName.includes('생')) displayName += '면';
+                else displayName += '면';
 
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${displayName}</div>
                     <div class="${valClass}" style="${colorStyle}">${data.sin.toFixed(1)}<small>cm</small></div>
                     <div style="font-size:10px; color:var(--sub); margin-top:4px;">최심: ${data.choe.toFixed(1)}</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">적설: ${data.juk.toFixed(1)}</div>
                 </div>`;
             });
             
