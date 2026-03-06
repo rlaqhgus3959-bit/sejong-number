@@ -447,7 +447,7 @@
     
     let isAdmin = false;
 
-    // 대피소 69개소 전체 명단 
+    // 대피소 69개 100% (전화번호 포함)
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -722,16 +722,31 @@
         const avgRainEl = document.getElementById('avg-rain-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+        
+        // 강우량도 우회망 3개 적용
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+        ];
+        
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
-            const [rainRes, tempRes] = await Promise.all([
-                fetch(proxyUrl),
+            let htmlText = "";
+            const fetchPromises = proxies.map(proxy => 
+                fetch(proxy).then(res => res.text()).then(text => {
+                    if (text && text.includes('조치원')) return text;
+                    throw new Error("Invalid Format");
+                })
+            );
+            
+            const [fetchedHtml, tempRes] = await Promise.all([
+                Promise.any(fetchPromises),
                 fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m&timezone=Asia%2FTokyo`)
             ]);
             
-            const htmlText = await rainRes.text();
+            htmlText = fetchedHtml;
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
             const sejongRain = {};
@@ -776,80 +791,98 @@
         }
     }
 
-    // --- [세종시청 공식 신적설/최심신적설 완벽 1:1 매칭 파싱 적용 완료] ---
+    // --- [세종시청 적설량 파싱 엔진 전면 교체 완료] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const timeMin = Math.floor(Date.now() / 60000);
         const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do?_=' + timeMin;
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
+        
+        // 데이터 로딩 딜레이 방지를 위해 우회망 3개 동시 투입
+        const proxies = [
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+        ];
+
         const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
         
         try {
-            const res = await fetch(proxyUrl);
-            const htmlText = await res.text();
+            let htmlText = "";
+            const fetchPromises = proxies.map(proxy => 
+                fetch(proxy).then(res => res.text()).then(text => {
+                    if (text && text.includes('조치원')) return text;
+                    throw new Error("Invalid Format");
+                })
+            );
+            htmlText = await Promise.any(fetchPromises);
+
             const parser = new DOMParser();
             const doc = parser.parseFromString(htmlText, 'text/html');
             
             let headers = [];
-            let sinNumbers = [];
-            let choeNumbers = [];
+            let sinRow = [];
+            let choeRow = [];
 
-            // 테이블 전체 행을 스캔하여 숫자값만 정확히 추출
+            // 1. 테이블의 모든 줄을 스캔하여 각각 배열로 저장
             doc.querySelectorAll('table tr').forEach(tr => {
-                const text = tr.textContent.replace(/\s+/g, '');
+                const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
+                const joined = cells.join('');
                 
-                // 1. 헤더 (지역명) 추출
-                if (text.includes('조치원') && text.includes('전의')) {
-                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
-                        const cText = cell.textContent.replace(/\s+/g, '');
-                        if (cText && cText !== '구분' && cText !== '구분') {
-                            headers.push(cText);
-                        }
-                    });
+                // 헤더 (지역명)
+                if (joined.includes('조치원') && joined.includes('전의')) {
+                    headers = cells.filter(c => c !== '');
                 } 
-                // 2. 신적설 추출
-                else if (text.includes('신적설') && !text.includes('최심')) {
-                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
-                        const num = parseFloat(cell.textContent.trim());
-                        if (!isNaN(num)) sinNumbers.push(num);
-                    });
+                // 신적설 데이터
+                else if (joined.includes('신적설') && !joined.includes('최심')) {
+                    sinRow = cells.filter(c => c !== '');
                 } 
-                // 3. 최심신적설 추출
-                else if (text.includes('최심')) {
-                    Array.from(tr.querySelectorAll('th, td')).forEach(cell => {
-                        const num = parseFloat(cell.textContent.trim());
-                        if (!isNaN(num)) choeNumbers.push(num);
-                    });
+                // 최심신적설 데이터
+                else if (joined.includes('최심')) {
+                    choeRow = cells.filter(c => c !== '');
                 }
             });
 
-            // 만약 한쪽 데이터만 갱신된 경우 보정
-            if (sinNumbers.length === 0 && choeNumbers.length > 0) sinNumbers = [...choeNumbers];
-            if (choeNumbers.length === 0 && sinNumbers.length > 0) choeNumbers = [...sinNumbers];
-
+            // 2. 글자는 버리고 "숫자"만 배열로 축출 (표 구조 엇갈림 원천 봉쇄)
+            const parseNumbers = (arr) => arr.map(c => {
+                const match = c.match(/-?\d+(\.\d+)?/);
+                return match ? parseFloat(match[0]) : NaN;
+            }).filter(n => !isNaN(n));
+            
+            let sinNums = parseNumbers(sinRow);
+            let choeNums = parseNumbers(choeRow);
+            
+            // 만약 표의 한 줄이 비어있을 경우를 대비
+            if (sinNums.length === 0) sinNums = [...choeNums];
+            if (choeNums.length === 0) choeNums = [...sinNums];
+            
             let sejongSnow = {};
             let avgSnow = 0;
-
-            // 헤더의 순서(인덱스)와 숫자의 순서(인덱스)를 1:1로 매칭
-            headers.forEach((h, idx) => {
-                let sVal = sinNumbers[idx] !== undefined ? sinNumbers[idx] : 0;
-                let cVal = choeNumbers[idx] !== undefined ? choeNumbers[idx] : sVal;
-
+            let numIdx = 0;
+            
+            // 3. 숫자가 있는 헤더들(지역명, 평균)과 숫자 배열을 1:1로 정밀하게 매칭
+            headers.forEach(h => {
                 if (h.includes('평균')) {
-                    avgSnow = sVal;
-                } else {
-                    const cleanName = h.replace('읍', '').replace('면', '');
-                    sejongSnow[cleanName] = { sin: sVal, choe: cVal };
+                    avgSnow = sinNums[numIdx] !== undefined ? sinNums[numIdx] : 0;
+                    numIdx++;
+                } 
+                // 조치원, 연서면, 1생활권 등 실제 숫자가 들어가는 컬럼일 때만 매칭 인덱스 증가
+                else if (h.includes('조치원') || h.includes('면') || h.includes('생')) {
+                    const sVal = sinNums[numIdx] !== undefined ? sinNums[numIdx] : 0;
+                    const cVal = choeNums[numIdx] !== undefined ? choeNums[numIdx] : sVal;
+                    
+                    const locObj = locs.find(l => h.includes(l.name.replace('면','')));
+                    if (locObj) {
+                        sejongSnow[locObj.name] = { sin: sVal, choe: cVal };
+                    }
+                    numIdx++;
                 }
             });
 
+            // 4. 화면에 그리기
             let html = ''; let totalSnow = 0; let count = 0;
             locs.forEach(loc => {
-                // 각 지역 이름으로 매칭된 값 찾기
-                const matchKey = Object.keys(sejongSnow).find(k => k.includes(loc.name.replace('면', '')));
-                const data = matchKey ? sejongSnow[matchKey] : { sin: 0, choe: 0 };
-                
+                const data = sejongSnow[loc.name] || {sin: 0, choe: 0};
                 totalSnow += data.sin; count++;
                 const valClass = data.sin > 0 ? 'rain-val snowing' : 'rain-val';
                 const colorStyle = data.sin > 0 ? '' : 'color: var(--sub);';
