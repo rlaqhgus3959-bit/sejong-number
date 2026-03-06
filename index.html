@@ -11,11 +11,11 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            /* 애플(iOS) 스타일 다크모드 색상표 */
             --bg: #000000; 
             --card: #1c1c1e; 
             --card-elevated: #2c2c2e;
@@ -54,7 +54,6 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -84,7 +83,6 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
-        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -94,7 +92,6 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
-        /* 격자형 데이터 자동 채움 반응형 적용 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
@@ -109,7 +106,6 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
             background: var(--card-elevated); padding: 12px 8px; 
@@ -139,7 +135,6 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 가로 늘어남 방지 */
         .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
             background: var(--card-elevated); padding: 12px; border-radius: 16px;
@@ -155,7 +150,6 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        /* 도로 통제 현황 가로 늘어남 방지 */
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
@@ -213,21 +207,25 @@
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             z-index: 2000; flex-direction: column;
-            justify-content: center; align-items: center;
         }
-        .cctv-modal-content {
-            background: var(--card); border-radius: 20px; padding: 24px;
-            width: 80%; max-width: 320px; text-align: center;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+        .cctv-modal-header {
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
         }
-        .cctv-modal-title { color: white; font-weight: 800; font-size: 18px; margin-bottom: 16px; }
+        .cctv-modal-title { color: white; font-weight: 800; font-size: 18px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cctv-modal-close { color: rgba(255,255,255,0.6); font-size: 28px; cursor: pointer; padding: 5px; }
+        
+        .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        video { width: 100%; max-height: 100%; object-fit: contain; }
+        iframe { width: 100%; height: 100%; border: none; background: #000; }
+        
+        .cctv-fallback {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            text-align: center; width: 90%; z-index: 100;
+        }
         .fallback-btn {
-            background: var(--kakao); color: #3b1e1e; padding: 14px 24px; border-radius: 12px;
-            text-decoration: none; font-weight: 800; display: inline-block; font-size: 14px; width: 100%; box-sizing: border-box; margin-bottom: 12px;
-        }
-        .cctv-modal-close {
-            background: #333; color: white; padding: 12px; border-radius: 12px;
-            font-weight: bold; cursor: pointer; width: 100%; box-sizing: border-box; border: none;
+            background: var(--kakao); color: #3b1e1e; padding: 14px 24px; border-radius: 20px;
+            text-decoration: none; font-weight: 800; display: inline-block; font-size: 14px; 
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
         }
         
         #sync-status {
@@ -407,9 +405,15 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="cctv-container" id="cctv-list"></div>
+        <div class="cctv-container" id="cctv-list">
+            <div class="cctv-card" onclick="openHongdaeCCTV()">
+                <div><span class="area-tag">조치원</span><div class="loc-name">세종 홍대입구삼거리</div></div>
+                <div class="cctv-icon"><i class="fas fa-video"></i></div>
+                <div class="cctv-btn">영상보기</div>
+            </div>
+        </div>
         <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
-            * 카카오맵 기반 CCTV 링크가 새 창으로 제공됩니다.
+            * 클릭 시 팝업창을 통해 즉시 라이브 영상이 출력됩니다.
         </div>
     </div>
 </div>
@@ -426,11 +430,15 @@
 <div id="sync-status">● Live Sync</div>
 
 <div id="cctv-modal">
-    <div class="cctv-modal-content">
+    <div class="cctv-modal-header">
         <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
-        <div style="font-size:12px; color:var(--sub); margin-bottom:20px; word-break:keep-all;">해당 영상은 카카오맵에서 제공합니다. 아래 버튼을 눌러 카카오맵을 실행해주세요.</div>
-        <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-map-marked-alt"></i> 카카오맵 열기</a>
-        <button class="cctv-modal-close" onclick="closeCCTV()">닫기</button>
+        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times-circle"></i></div>
+    </div>
+    <div class="cctv-frame-container">
+        <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
+        <div class="cctv-fallback" id="cctv-fallback" style="display:none;">
+            <a href="https://kko.to/l209pNTubv" target="_blank" class="fallback-btn"><i class="fas fa-map-marked-alt"></i> 카카오맵 열기</a>
+        </div>
     </div>
 </div>
 
@@ -455,7 +463,7 @@
     
     let isAdmin = false;
 
-    // 대피소 69개 100% 명단
+    // 대피소 69개소 100% 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -539,16 +547,10 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // 반장님이 요청하신 고정 단일 링크 (카카오맵 홍대입구삼거리)
-    let dynamicCCTVData = [{
-        area: '조치원',
-        name: '세종 홍대입구삼거리',
-        url: 'https://kko.to/l209pNTubv'
-    }]; 
-    
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
-    
+    let hlsInstance = null;
+
     window.onload = () => { 
         refreshAll();
         db.ref('trafficData').on('value', (snapshot) => {
@@ -579,37 +581,79 @@
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
         
-        renderCCTV();
-
         await Promise.all([ render(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // API 통신 다 삭제, 단일 고정 카드로 즉시 렌더링
-    function renderCCTV() {
-        const container = document.getElementById('cctv-list');
-        container.innerHTML = '';
-        dynamicCCTVData.forEach(item => {
-            const div = document.createElement('div');
-            div.className = 'cctv-card';
-            div.onclick = () => openCCTV(item.name, item.url);
-            div.innerHTML = `
-                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
-                <div class="cctv-icon"><i class="fas fa-video"></i></div>
-                <div class="cctv-btn">카카오맵 열기</div>
-            `;
-            container.appendChild(div);
-        });
-    }
-
-    function openCCTV(name, url) {
-        document.getElementById('cctv-title').innerText = name;
-        document.getElementById('cctv-link-btn').href = url; 
+    // --- CCTV: API 모두 삭제하고 홍대입구삼거리 단일 링크 즉시 호출 ---
+    function openHongdaeCCTV() {
+        document.getElementById('cctv-title').innerText = "세종 홍대입구삼거리 (연결 중...)";
         document.getElementById('cctv-modal').style.display = 'flex';
+        
+        const vid = document.getElementById('cctv-video');
+        const fallbackBtn = document.getElementById('cctv-fallback');
+        
+        vid.style.display = 'none';
+        fallbackBtn.style.display = 'none';
+        
+        if (hlsInstance) { hlsInstance.destroy(); hlsInstance = null; }
+        
+        // 아주 좁은 구역(홍대삼거리 반경)만 지정하여 0.1초만에 원본 스트리밍 주소 가져오기
+        const targetUrl = "https://openapi.its.go.kr:9443/cctvInfo?apiKey=56934196b0354a48ab5a1d020262c673&type=its&cctvType=1&minX=127.28&maxX=127.30&minY=36.61&maxY=36.63&getType=xml";
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`;
+        
+        fetch(proxyUrl)
+        .then(res => res.text())
+        .then(text => {
+            const parser = new DOMParser();
+            const xmlDoc = parser.parseFromString(text, "text/xml");
+            const nodes = xmlDoc.querySelectorAll("data");
+            let streamUrl = "";
+            
+            for(let node of nodes) {
+                let name = node.querySelector("cctvname").textContent;
+                // 홍대입구삼거리 (ITS ID: 4546)
+                if(name.includes('홍대')) {
+                    streamUrl = node.querySelector("cctvurl").textContent;
+                    break;
+                }
+            }
+            
+            if(streamUrl) {
+                // 안전한 HTTPS 로 강제 전환하여 브라우저 차단 방지
+                streamUrl = streamUrl.replace('http://', 'https://');
+                document.getElementById('cctv-title').innerText = "세종 홍대입구삼거리";
+                vid.style.display = 'block';
+                if (Hls.isSupported()) {
+                    hlsInstance = new Hls();
+                    hlsInstance.loadSource(streamUrl);
+                    hlsInstance.attachMedia(vid);
+                    hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() { vid.play(); });
+                } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
+                    vid.src = streamUrl; vid.play();
+                }
+            } else {
+                // 스트리밍 주소를 못 가져왔을 때 (장애 대비 카카오맵 원본 링크 띄우기)
+                document.getElementById('cctv-title').innerText = "연결 실패 (카카오맵으로 전환)";
+                fallbackBtn.style.display = 'block';
+            }
+        })
+        .catch(e => {
+            document.getElementById('cctv-title').innerText = "통신 지연 (앱 외부 열기 이용)";
+            fallbackBtn.style.display = 'block';
+        });
     }
 
     function closeCCTV() {
         document.getElementById('cctv-modal').style.display = 'none';
+        const vid = document.getElementById('cctv-video');
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
     }
 
     async function fetchDetailRain() {
@@ -671,7 +715,6 @@
         }
     }
 
-    // --- [적설량: 세로형 표 행(row) 기반 정밀 파싱 완전판] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -684,7 +727,6 @@
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
-        // 1~6생활권 제외, 9개소 지정
         const locs = [
             {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
             {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
@@ -708,7 +750,7 @@
 
             doc.querySelectorAll('table tr').forEach(tr => {
                 const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
-                if (cells.length < 3) return; 
+                if (cells.length < 3) return;
 
                 const rowTitle = cells[0];
                 
