@@ -222,7 +222,7 @@
         .cctv-modal-close { color: rgba(255,255,255,0.6); font-size: 28px; cursor: pointer; padding: 5px; }
         
         .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; }
-        video { width: 100%; max-height: 100%; object-fit: contain; display: none; }
+        video { width: 100%; max-height: 100%; object-fit: contain; }
         iframe { width: 100%; height: 100%; border: none; background: #fff; }
         
         .cctv-fallback {
@@ -414,17 +414,11 @@
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:15px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
-            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
-            <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
-            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
-            <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
-            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
-            <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
-            * UTIC 영상망은 현장 사정에 따라 자동갱신됩니다.
+            * 국도망(its)은 현장 사정에 따라 스트리밍 또는 자동갱신 사진으로 제공됩니다.
         </div>
     </div>
 </div>
@@ -558,7 +552,13 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    let dynamicCCTVData = []; 
+    // 반장님이 요청하신 고정 단일 링크 (세종 미곡리 UTIC 링크)
+    let dynamicCCTVData = [{
+        area: '전동',
+        name: '[국도1] 세종 미곡리',
+        url: 'http://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901315&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EB%25AF%25B8%25EA%25B3%25A1%25EB%25A6%25AC&kind=Z3&cctvip=4553&cctvch=undefined&id=4553/PUhl4l5eV+sIa1ZOsK46waO7MDjTaxp5TiB5sc4YgueKuAh1ZQhM6kDHbeFChX6dJYq75XTlAV87dloC3ubVIRMmuYoCUZyO9ZEKsmOxz6c=&cctvpasswd=undefined&cctvport=undefined'
+    }]; 
+    
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
     let cctvFilter = 'all';
@@ -593,68 +593,12 @@
     async function refreshAll() {
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
-        await Promise.all([ render(), autoFetchCCTV(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
+        
+        // CCTV는 외부에서 안 불러오고 바로 렌더링
+        renderCCTV();
+
+        await Promise.all([ render(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
-    }
-
-    // --- CCTV 원상복구 (UTIC API 파싱 - 5906번~5921번까지 호출) ---
-    async function autoFetchCCTV() {
-        const cctvContainer = document.getElementById('cctv-list');
-        cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> UTIC 영상망 고속 접속 중...</div>`;
-
-        const targetUrl = "https://www.utic.go.kr/guide/cctvOpenData.do?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0";
-        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
-
-        try {
-            const res = await fetch(proxyUrl);
-            if (!res.ok) throw new Error("Proxy Error");
-            const text = await res.text();
-
-            const parser = new DOMParser();
-            const xmlDoc = parser.parseFromString(text, "text/xml");
-
-            const cctvNodes = Array.from(xmlDoc.querySelectorAll("data"));
-            
-            // 5906번 ~ 5921번 추출 (배열 인덱스 5905 ~ 5920)
-            const targetNodes = cctvNodes.slice(5905, 5921); 
-
-            let filteredData = [];
-            
-            targetNodes.forEach(node => {
-                const name = node.querySelector("cctvname") ? node.querySelector("cctvname").textContent : 'CCTV';
-                const cctvid = node.querySelector("cctvid") ? node.querySelector("cctvid").textContent : '';
-                const cctvip = node.querySelector("cctvip") ? node.querySelector("cctvip").textContent : '';
-                const cctvch = node.querySelector("cctvch") ? node.querySelector("cctvch").textContent : '';
-                const streamId = node.querySelector("id") ? node.querySelector("id").textContent : '';
-                const cctvpasswd = node.querySelector("cctvpasswd") ? node.querySelector("cctvpasswd").textContent : '';
-                const cctvport = node.querySelector("cctvport") ? node.querySelector("cctvport").textContent : '';
-                
-                // UTIC HTTPS iframe용 URL 조합
-                const iframeUrl = `https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=${cctvid}&cctvName=${encodeURIComponent(name)}&kind=Z3&cctvip=${cctvip}&cctvch=${cctvch}&id=${streamId}&cctvpasswd=${cctvpasswd}&cctvport=${cctvport}`;
-
-                // 지역명 자동 분류
-                let area = '관내전체';
-                if (name.includes('조치원') || name.includes('서창') || name.includes('욱일') || name.includes('상리')) area = '조치원';
-                else if (name.includes('연서') || name.includes('봉암')) area = '연서';
-                else if (name.includes('전의')) area = '전의';
-                else if (name.includes('전동') || name.includes('미곡')) area = '전동';
-                else if (name.includes('소정') || name.includes('운당')) area = '소정';
-                else if (name.includes('부강')) area = '부강';
-                else if (name.includes('연동')) area = '연동';
-
-                filteredData.push({ area: area, name: name, url: iframeUrl });
-            });
-
-            dynamicCCTVData = filteredData;
-            
-            if(dynamicCCTVData.length > 0) {
-                renderCCTV();
-            } else {
-                cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">지정된 번호의 CCTV 데이터가 없습니다.</div>`;
-            }
-        } catch (error) {
-            cctvContainer.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">CCTV 데이터 로딩에 실패했습니다.</div>`;
-        }
     }
 
     function setCCTVFilter(type, btn) {
@@ -701,9 +645,11 @@
         vid.load();
         vid.style.display = 'none';
 
-        // iframe으로 무조건 출력하여 즉시 재생되도록 설정
+        // UTIC 주소는 iframe으로 바로 송출
         ifr.style.display = 'block';
-        ifr.src = url;
+        // 보안망 차단 방지를 위해 https로 변환
+        let safeUrl = url.replace('http://', 'https://');
+        ifr.src = safeUrl;
 
         document.getElementById('cctv-modal').style.display = 'flex';
     }
@@ -781,7 +727,7 @@
         }
     }
 
-    // --- [적설량 전면 교체: 세로형 표 구조 완벽 매칭] ---
+    // --- [적설량: 세로형 표 행(row) 기반 정밀 파싱 완전판] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
