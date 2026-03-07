@@ -16,7 +16,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
-            /* 애플(iOS) 스타일 다크모드 색상표 */
             --bg: #000000; 
             --card: #1c1c1e; 
             --card-elevated: #2c2c2e;
@@ -55,7 +54,6 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
-        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -85,7 +83,6 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
-        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -95,7 +92,6 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
-        /* 격자형 데이터 자동 채움 반응형 적용 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
@@ -110,7 +106,6 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
-        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
             background: var(--card-elevated); padding: 12px 8px; 
@@ -140,7 +135,7 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 단일 카드 */
+        /* CCTV 단일 카드 디자인 */
         .cctv-card {
             background: var(--card-elevated); padding: 16px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -156,7 +151,6 @@
             text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
-        /* 도로 통제 현황 가로 늘어남 방지 */
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
@@ -209,7 +203,7 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        /* 모달 팝업 (영상 꽉차게 출력) */
+        /* CCTV 스마트폰 모달 팝업 (꽉 차는 영상) */
         #cctv-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
@@ -223,16 +217,6 @@
         
         .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; }
         video { width: 100%; max-height: 100%; object-fit: contain; }
-        
-        .cctv-fallback {
-            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
-            text-align: center; width: 90%; z-index: 100; display: none;
-        }
-        .fallback-btn {
-            background: var(--kakao); color: #3b1e1e; padding: 14px 24px; border-radius: 20px;
-            text-decoration: none; font-weight: 800; display: inline-block; font-size: 14px; 
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
-        }
         
         #sync-status {
             position: fixed; bottom: 15px; right: 15px; 
@@ -276,7 +260,7 @@
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 강우량, 기온 및 풍속
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -417,7 +401,7 @@
             <div class="cctv-btn">영상 바로보기</div>
         </div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4;">
-            * 클릭 시 상황실 화면에서 즉시 라이브 영상이 재생됩니다. (API 로딩 대기 없음)
+            * 스마트폰 환경에 맞게 화면 안에서 즉시 재생됩니다. (데이터 통신 불필요)
         </div>
     </div>
 </div>
@@ -440,10 +424,6 @@
     </div>
     <div class="cctv-frame-container">
         <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
-        
-        <div id="cctv-fallback">
-            <a href="https://kko.to/l209pNTubv" target="_blank" class="fallback-btn"><i class="fas fa-map-marked-alt"></i> 카카오맵 외부 연결</a>
-        </div>
     </div>
 </div>
 
@@ -467,8 +447,9 @@
     const db = firebase.database();
     
     let isAdmin = false;
+    let hlsInstance = null;
 
-    // 대피소 69개 100% 명단
+    // 대피소 69개소 100% 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -554,7 +535,6 @@
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
-    let hlsInstance = null;
 
     window.onload = () => { 
         refreshAll();
@@ -590,31 +570,32 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- CCTV: API 모두 삭제, 원본 다이렉트 고정 삽입 ---
+    // --- CCTV: 복잡한 API 모두 삭제, 원본 라이브 스트리밍 즉시 재생 ---
     function openHongdaeCCTV() {
         document.getElementById('cctv-modal').style.display = 'flex';
         
         const vid = document.getElementById('cctv-video');
-        const fallback = document.getElementById('cctv-fallback');
-        
         vid.style.display = 'block';
-        fallback.style.display = 'block'; // 혹시 재생 실패하면 누를 수 있게 하단에 작게 표시
         
         if (hlsInstance) {
             hlsInstance.destroy();
             hlsInstance = null;
         }
 
-        // 국토부 홍대입구삼거리 (4546번) 원본 HLS 스트리밍 강제 주입
+        // 국토부 홍대입구삼거리 (4546번) 원본 라이브 스트리밍 강제 주입 (통신 0초)
         const streamUrl = "https://cctvsec.ktict.co.kr/4546/P2Eie2QjRqEFoicvP/Zd/dllFv4kvwMF9tZQ/sByot7Cp0vY1AnF0AaE+ncyQhwZhF4krthTSL4YbW40SXcfguY7Q2tVgUfdY14AYGuMQXM=";
         
         if (Hls.isSupported()) {
             hlsInstance = new Hls();
             hlsInstance.loadSource(streamUrl);
             hlsInstance.attachMedia(vid);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() { vid.play(); });
+            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() { 
+                vid.play().catch(e => console.log('브라우저 자동재생 차단됨')); 
+            });
         } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-            vid.src = streamUrl; vid.play();
+            // 아이폰 등 사파리 네이티브 지원의 경우
+            vid.src = streamUrl; 
+            vid.play().catch(e => console.log('브라우저 자동재생 차단됨'));
         }
     }
 
@@ -725,7 +706,7 @@
 
             doc.querySelectorAll('table tr').forEach(tr => {
                 const cells = Array.from(tr.querySelectorAll('th, td')).map(c => c.textContent.trim().replace(/\s+/g, ''));
-                if (cells.length < 3) return; 
+                if (cells.length < 3) return;
 
                 const rowTitle = cells[0];
                 
