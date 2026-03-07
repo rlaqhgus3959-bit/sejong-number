@@ -11,7 +11,6 @@
     
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -140,15 +139,15 @@
             background: var(--card-elevated); padding: 16px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
             min-height: 120px; cursor: pointer; transition: 0.2s;
-            width: 100%; max-width: 250px; margin: 0 auto;
+            width: 100%; max-width: 250px; margin: 0 auto; text-decoration: none;
         }
         .cctv-card:active { transform: scale(0.96); opacity: 0.8; }
         .cctv-icon { 
-            font-size: 32px; color: var(--blue); margin: 16px auto; display: block; text-align: center; 
+            font-size: 36px; color: var(--kakao); margin: 16px auto; display: block; text-align: center; 
         }
         .cctv-btn {
-            background: rgba(10, 132, 255, 0.15); color: var(--blue); font-size: 13px; padding: 10px; 
-            text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
+            background: var(--kakao); color: #3b1e1e; font-size: 13px; padding: 10px; 
+            text-align: center; border-radius: 8px; font-weight: 800; margin-top: auto;
         }
 
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
@@ -203,21 +202,6 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        /* CCTV 스마트폰 모달 팝업 (꽉 차는 영상) */
-        #cctv-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.95); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
-            z-index: 2000; flex-direction: column;
-        }
-        .cctv-modal-header {
-            padding: 20px; display: flex; justify-content: space-between; align-items: center;
-        }
-        .cctv-modal-title { color: white; font-weight: 800; font-size: 18px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cctv-modal-close { color: rgba(255,255,255,0.6); font-size: 28px; cursor: pointer; padding: 5px; }
-        
-        .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; background:#000; }
-        video { width: 100%; max-height: 100%; object-fit: contain; }
-        
         #sync-status {
             position: fixed; bottom: 15px; right: 15px; 
             font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.6);
@@ -395,13 +379,13 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content" style="text-align:center;">
-        <div class="cctv-card" onclick="openHongdaeCCTV()">
-            <div><span class="area-tag">조치원</span><div class="loc-name" style="font-size:14px;">세종 홍대입구삼거리</div></div>
-            <div class="cctv-icon"><i class="fas fa-play-circle" style="font-size:40px;"></i></div>
-            <div class="cctv-btn">영상 바로보기</div>
-        </div>
+        <a href="https://kko.to/l209pNTubv" target="_blank" class="cctv-card">
+            <div><span class="area-tag">조치원</span><div class="loc-name" style="font-size:14px; color:#fff;">세종 홍대입구삼거리</div></div>
+            <div class="cctv-icon"><i class="fas fa-map-marked-alt" style="font-size:40px;"></i></div>
+            <div class="cctv-btn">카카오맵 바로 열기</div>
+        </a>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4;">
-            * 스마트폰 환경에 맞게 화면 안에서 즉시 재생됩니다. (데이터 통신 불필요)
+            * 보안망 정책에 의해 즉시 카카오맵(새 창)으로 연결되어 로딩 지연 없이 안전하게 100% 재생됩니다.
         </div>
     </div>
 </div>
@@ -416,16 +400,6 @@
 </div>
 
 <div id="sync-status">● Live Sync</div>
-
-<div id="cctv-modal">
-    <div class="cctv-modal-header">
-        <div class="cctv-modal-title" id="cctv-title">세종 홍대입구삼거리</div>
-        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times-circle"></i></div>
-    </div>
-    <div class="cctv-frame-container">
-        <video id="cctv-video" controls autoplay playsinline muted style="display:none;"></video>
-    </div>
-</div>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -447,9 +421,8 @@
     const db = firebase.database();
     
     let isAdmin = false;
-    let hlsInstance = null;
 
-    // 대피소 69개소 100% 명단
+    // 대피소 69개 100% 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -566,49 +539,14 @@
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
         
+        // 데이터 요청 즉시 동시 실행
         await Promise.all([ render(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- CCTV: 복잡한 API 모두 삭제, 원본 라이브 스트리밍 즉시 재생 ---
+    // --- CCTV: API 모두 삭제, 즉시 새창 열기 (무한로딩 및 보안망 차단 원천 제거) ---
     function openHongdaeCCTV() {
-        document.getElementById('cctv-modal').style.display = 'flex';
-        
-        const vid = document.getElementById('cctv-video');
-        vid.style.display = 'block';
-        
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
-
-        // 국토부 홍대입구삼거리 (4546번) 원본 라이브 스트리밍 강제 주입 (통신 0초)
-        const streamUrl = "https://cctvsec.ktict.co.kr/4546/P2Eie2QjRqEFoicvP/Zd/dllFv4kvwMF9tZQ/sByot7Cp0vY1AnF0AaE+ncyQhwZhF4krthTSL4YbW40SXcfguY7Q2tVgUfdY14AYGuMQXM=";
-        
-        if (Hls.isSupported()) {
-            hlsInstance = new Hls();
-            hlsInstance.loadSource(streamUrl);
-            hlsInstance.attachMedia(vid);
-            hlsInstance.on(Hls.Events.MANIFEST_PARSED, function() { 
-                vid.play().catch(e => console.log('브라우저 자동재생 차단됨')); 
-            });
-        } else if (vid.canPlayType('application/vnd.apple.mpegurl')) {
-            // 아이폰 등 사파리 네이티브 지원의 경우
-            vid.src = streamUrl; 
-            vid.play().catch(e => console.log('브라우저 자동재생 차단됨'));
-        }
-    }
-
-    function closeCCTV() {
-        document.getElementById('cctv-modal').style.display = 'none';
-        const vid = document.getElementById('cctv-video');
-        if (hlsInstance) {
-            hlsInstance.destroy();
-            hlsInstance = null;
-        }
-        vid.pause();
-        vid.removeAttribute('src');
-        vid.load();
+        window.open('https://kko.to/l209pNTubv', '_blank');
     }
 
     async function fetchDetailRain() {
