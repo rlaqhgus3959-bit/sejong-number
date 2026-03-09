@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         :root {
+            /* 애플(iOS) 스타일 다크모드 색상표 */
             --bg: #000000; 
             --card: #1c1c1e; 
             --card-elevated: #2c2c2e;
@@ -53,6 +54,7 @@
         .spin { animation: spin 1s linear infinite; }
         @keyframes spin { 100% { transform: rotate(360deg); } }
 
+        /* 애플 스타일 카드 섹션 */
         .accord-section {
             background: var(--card); border: none;
             border-radius: 20px; overflow: hidden; margin-bottom: 16px;
@@ -82,6 +84,7 @@
         @keyframes slideDown { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
         @keyframes blink { 50% { opacity: 0.6; } }
 
+        /* 기상특보 텍스트 영역 */
         .info-group { margin-bottom: 12px; }
         .info-label { font-size: 12px; color: var(--sub); font-weight: 600; display: block; margin-bottom: 6px; }
         .info-val { font-size: 15px; font-weight: 500; line-height: 1.5; color: #fff; }
@@ -91,6 +94,7 @@
             white-space: pre-wrap; word-break: keep-all; font-size: 14px;
         }
 
+        /* 격자형 데이터 자동 채움 반응형 적용 */
         .rain-grid {
             display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); 
             gap: 8px; background: transparent; border: none;
@@ -105,6 +109,7 @@
         .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
         .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
 
+        /* 대피소 카드 가로 늘어남 방지 및 최적화 */
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
             background: var(--card-elevated); padding: 12px 8px; 
@@ -134,22 +139,23 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 단일 카드 디자인 */
+        /* CCTV 가로 늘어남 방지 */
+        .cctv-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; max-height: 450px; overflow-y: auto; padding-right: 4px; }
         .cctv-card {
-            background: var(--card-elevated); padding: 16px; border-radius: 16px;
+            background: var(--card-elevated); padding: 12px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
-            min-height: 120px; cursor: pointer; transition: 0.2s;
-            width: 100%; max-width: 250px; margin: 0 auto; text-decoration: none;
+            min-height: 100px; cursor: pointer; transition: 0.2s;
         }
         .cctv-card:active { transform: scale(0.96); opacity: 0.8; }
         .cctv-icon { 
-            font-size: 36px; color: var(--kakao); margin: 16px auto; display: block; text-align: center; 
+            font-size: 26px; color: var(--blue); margin: 12px auto; display: block; text-align: center; 
         }
         .cctv-btn {
-            background: var(--kakao); color: #3b1e1e; font-size: 13px; padding: 10px; 
-            text-align: center; border-radius: 8px; font-weight: 800; margin-top: auto;
+            background: rgba(10, 132, 255, 0.15); color: var(--blue); font-size: 11px; padding: 6px; 
+            text-align: center; border-radius: 8px; font-weight: 700; margin-top: auto;
         }
 
+        /* 도로 통제 현황 가로 늘어남 방지 */
         .list-container { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .traffic-card {
             background: var(--card-elevated); padding: 10px; border-radius: 14px;
@@ -202,6 +208,31 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: var(--card); padding: 16px; border-radius: 16px; text-decoration: none; color: white; font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+        /* 모달 팝업 */
+        #cctv-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            z-index: 2000; flex-direction: column;
+        }
+        .cctv-modal-header {
+            padding: 20px; display: flex; justify-content: space-between; align-items: center;
+        }
+        .cctv-modal-title { color: white; font-weight: 800; font-size: 18px; width:80%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cctv-modal-close { color: rgba(255,255,255,0.6); font-size: 28px; cursor: pointer; padding: 5px; }
+        
+        .cctv-frame-container { flex: 1; position: relative; display:flex; flex-direction:column; justify-content:center; align-items:center; }
+        iframe { width: 100%; height: 100%; border: none; background: #fff; }
+        
+        .cctv-fallback {
+            position: absolute; bottom: 40px; left: 50%; transform: translateX(-50%);
+            text-align: center; width: 90%; z-index: 100;
+        }
+        .fallback-btn {
+            background: rgba(10, 132, 255, 0.9); color: white; padding: 14px 24px; border-radius: 20px;
+            text-decoration: none; font-weight: 700; display: inline-block; font-size: 14px; 
+            backdrop-filter: blur(5px); -webkit-backdrop-filter: blur(5px);
+        }
+        
         #sync-status {
             position: fixed; bottom: 15px; right: 15px; 
             font-size: 11px; font-weight: 700; color: rgba(255,255,255,0.5); background: rgba(0,0,0,0.6);
@@ -244,7 +275,7 @@
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 강우량, 기온 및 풍속
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 지역별 강우량 및 기온
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -378,14 +409,20 @@
         <div class="ah-title"><i class="fas fa-video" style="color:#5e5ce6"></i> 실시간 CCTV 영상망</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
-    <div class="accord-content" style="text-align:center;">
-        <a href="https://kko.to/l209pNTubv" target="_blank" class="cctv-card">
-            <div><span class="area-tag">조치원</span><div class="loc-name" style="font-size:14px; color:#fff;">세종 홍대입구삼거리</div></div>
-            <div class="cctv-icon"><i class="fas fa-map-marked-alt" style="font-size:40px;"></i></div>
-            <div class="cctv-btn">카카오맵 바로 열기</div>
-        </a>
-        <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4;">
-            * 보안망 정책에 의해 즉시 카카오맵(새 창)으로 연결되어 로딩 지연 없이 안전하게 100% 재생됩니다.
+    <div class="accord-content">
+        <div class="filter-group" style="margin-bottom:15px;">
+            <button class="filter-btn active" onclick="setCCTVFilter('all', this)">관내전체</button>
+            <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원(거점)</button>
+            <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
+            <button class="filter-btn" onclick="setCCTVFilter('전동', this)">전동</button>
+            <button class="filter-btn" onclick="setCCTVFilter('소정', this)">소정</button>
+            <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
+            <button class="filter-btn" onclick="setCCTVFilter('연동', this)">연동</button>
+        </div>
+        <div class="cctv-container" id="cctv-list"></div>
+        <div style="font-size:11px; color:var(--sub); margin-top:10px; text-align:center; line-height:1.4;">
+            * 경찰청(UTIC) 영상망은 보안정책에 따라 팝업으로 제공됩니다.
         </div>
     </div>
 </div>
@@ -400,6 +437,19 @@
 </div>
 
 <div id="sync-status">● Live Sync</div>
+
+<div id="cctv-modal">
+    <div class="cctv-modal-header">
+        <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
+        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times-circle"></i></div>
+    </div>
+    <div class="cctv-frame-container">
+        <iframe id="cctv-frame" src="" allowfullscreen style="display:none;"></iframe>
+        <div class="cctv-fallback">
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn"><i class="fas fa-external-link-alt"></i> 창이 안 뜨면 여기를 누르세요</a>
+        </div>
+    </div>
+</div>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -506,8 +556,37 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
+    // 관내 및 인접 7개 읍면을 모두 커버하는 UTIC 기반 고정 CCTV 데이터셋 (API 호출 안함)
+    let dynamicCCTVData = [
+        // 조치원
+        { area: '조치원', name: '[국도1] 세종 상리사거리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901300&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2583%2581%25EB%25A6%25AC%25EC%2582%25AC%25EA%25B1%25B0%25EB%25A6%25AC&kind=Z3&cctvip=4547&cctvch=undefined&id=4547/OIR070jscBFalNpy9wgiKbz3tlDPrVZgHPwcxCxqX6EpNAeBwDoXJKtdxG3Q9qLqZfJc8gQMGsifFc79209OXu6bpTSLrY3U0TO4TBYAIKs=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '조치원', name: '[국도1] 세종 서창사거리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901302&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2584%259C%25EC%25B0%25BD%25EC%2582%25AC%25EA%25B1%25B0%25EB%25A6%25AC&kind=Z3&cctvip=4549&cctvch=undefined&id=4549/rhVoMTAwGvhCn16SPJ9G7XSr8eRhzSp42lpR0kQtNAeqwnoiUHzF9xs9iP5fc6kHbCqmVqgjOz3iZ5D3oNM0uZKa09/M47lLqrRHsXsI3mw=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '조치원', name: '[국도1] 세종 번암사거리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901476&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EB%25B2%2588%25EC%2595%2594%25EC%2582%25AC%25EA%25B1%25B0%25EB%25A6%25AC&kind=Z3&cctvip=4722&cctvch=undefined&id=4722/3EiRyJ77fVpogxLo4RKMe/ejgwEOalc+lPWURF0bSzbRcwjzWLX8TQokoRwZqCAQWl8Ic1bHE1kOXd7Bj74qW41KAIZlEeJj30hJIp5qFX0=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '조치원', name: '[국도1] 세종 욱일교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902534&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%259A%25B1%25EC%259D%25BC%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=71944&cctvch=undefined&id=71944/8GjBXrTaRCQosgcCrwKp7VSTH0NxgXUjaA0SQyKPvZjLa3uM6/+HlS7cZaNbsxX76YqEazvQsY0v6QOfZ3YHKautFcftWGSJyuOdpHGhwk0=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '조치원', name: '[국도1] 세종 세종여고교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902535&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2584%25B8%25EC%25A2%2585%25EC%2597%25AC%25EA%25B3%25A0%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=71945&cctvch=undefined&id=71945/6F7tp9Dw+qMqUvn7K1GqZ5ZcvuvKiHNqAVLd/VPm0QvxFfRU+GvjBHXC7LKfbn9S+DpS3SO+LrmWrsbtKyRvyqlKT/IUbjjzO83Q6CpUTSc=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '조치원', name: '[국도1] 세종 조천1교', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902536&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%25A1%25B0%25EC%25B2%259C1%25EA%25B5%2590&kind=Z3&cctvip=71946&cctvch=undefined&id=71946/vo0cVrnBN0EWNBK+eOVokXPTLlMUys0PItKbQxlxqG6XL86jJPufBeG2gcUMRtjS25zmVu0SZa2xLnQzko4M4F8IdXdZImXb/xEjZmKvuiE=&cctvpasswd=undefined&cctvport=undefined' },
+        // 연서면
+        { area: '연서', name: '[국도1] 세종 연기사거리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901308&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2597%25B0%25EA%25B8%25B0%25EC%2582%25AC%25EA%25B1%25B0%25EB%25A6%25AC&kind=Z3&cctvip=4555&cctvch=undefined&id=4555/s/zlGCBxGVFSMI3LFg+WDzaMeGrQoRhug0ggz61s95axXmLxaZJSU3nxklGybqf0gOwYtT3/vKitxDcZQSIz2cQmzq2fNH+nMtxjtYRsM98=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '연서', name: '[국도1] 세종 월암교', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902540&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%259B%2594%25EC%2595%2594%25EA%25B5%2590&kind=Z3&cctvip=73383&cctvch=undefined&id=73383/7DGxA7gR05W5gVBZnxNYuVC5ky5ug3x2x4lciBUizP7zTbUDi1PFGIQKDyiHpAeQKXFtzz/KPgu4MuevOQUR3MdlvQlD3d+X/sG3XVjnDZ4=&cctvpasswd=undefined&cctvport=undefined' },
+        // 전의면
+        { area: '전의', name: '[국도1] 세종 전의교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901303&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%25A0%2584%25EC%259D%2598%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=4550&cctvch=undefined&id=4550/V35xYc7dvTJKDkvWd0J3HW7ldrwJkDtxUrpUdoduY0u1kLazVGn4X9eADFoSYKoUp3+mIghsq2xHKLfaOJrEvfaiGQKM3dqU9aN9uXsl+5k=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전의', name: '[국도1] 세종 유천교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901305&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%259C%25A0%25EC%25B2%259C%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=4552&cctvch=undefined&id=4552/lcadf7Y6BHtW1gJQMJ5SdEqKeQbdMj3ObvV1Zl0PzXlDs5C+Ya0TNy1Ly9l1MQj+Fl73CvDVHVj9BOMEPuq5Apd7jNzGzIpOKGP81PQ/7fY=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전의', name: '[국도1] 양안지하차도 상행', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902526&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2596%2591%25EC%2595%2588%25EC%25A7%2580%25ED%2595%2598%25EC%25B0%25A8%25EB%258F%2584%25EC%2583%2581%25ED%2596%2589&kind=Z3&cctvip=70036&cctvch=undefined&id=70036/P+yy7+xHqchobWtvRcQiB5EhBYN2Bh6XJxbMvIL3ngWow4nDZgnv174x/W6Y3mgazDOdwZv+l1ThMkTX0a/KkgBZXvssuKgyC3lqltoE/h8=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전의', name: '[국도1] 양안지하차도 하행', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902527&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2596%2591%25EC%2595%2588%25EC%25A7%2580%25ED%2595%2598%25EC%25B0%25A8%25EB%258F%2584%25ED%2595%2598%25ED%2596%2589&kind=Z3&cctvip=70037&cctvch=undefined&id=70037/R2JyJvqCB6zjlVxZpbHhWU67xhErBn6//lbsnItlNpEwEdtk2+UundWu3uLVOH9smbtcnLVvpTj1ddUrcgeCNkPyBgFHauidxFM4NPBq3fg=&cctvpasswd=undefined&cctvport=undefined' },
+        // 전동면
+        { area: '전동', name: '[국도1] 세종 전동교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901304&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%25A0%2584%25EB%258F%2599%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=4551&cctvch=undefined&id=4551/rdqnfvbYIjOKPc2FDLMyYDOOfUEeGIFlQ9qF+px9DVhlooOyHUCLCSxj2Gh7MWF9lRNna0fJTV1X0FHjagAWaGX5zGEP1sSuIwiE+hxv22U=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전동', name: '[국도1] 세종 청람교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901296&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%25B2%25AD%25EB%259E%258C%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=4543&cctvch=undefined&id=4543/xMTMocOJmp0UryNqDBldv5zxSFoOpDcwMhEuviPrLpIuZbyr1ZU16/wCM/NuLNKc5si0wt+TM0YHiyrVYquAaZfNee64YTTZ4qcqSxc47qw=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전동', name: '[국도1] 세종 석곡교', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902537&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2584%259D%25EA%25B3%25A1%25EA%25B5%2590&kind=Z3&cctvip=71947&cctvch=undefined&id=71947/t2cPrpmz6q3V5xL2zDSTzkpqfCurx7+hSDIQNdVdtxNnotLceITRfErgoYT0nWRjLoalZ9eZEtQZmaY9akFA8gUpSUdHW5QM+MLV4yeiDOA=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '전동', name: '[국도1] 세종 미곡리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901306&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EB%25AF%25B8%25EA%25B3%25A1%25EB%25A6%25AC&kind=Z3&cctvip=4553&cctvch=undefined&id=4553/zRCt/MrT1uTPxi0CMW33hY5o2HkdBgQJa31LfjrSZUv/G7FSFxqiDjBu4GNMFxmZcSkIgiNMti4iWlhebhnlbuaWtFkBtYnchJbRY8mnfCk=&cctvpasswd=undefined&cctvport=undefined' },
+        // 소정면
+        { area: '소정', name: '[국도43] 세종 운당교차로', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E901633&cctvName=%255B%25EA%25B5%25AD%25EB%258F%258443%25ED%2598%25B8%25EC%2584%25A0%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%259A%25B4%25EB%258B%25B9%25EA%25B5%2590%25EC%25B0%25A8%25EB%25A1%259C&kind=Z3&cctvip=4871&cctvch=undefined&id=4871/KGw/7zlRcqDYdVKCtpyHZOmclY+1OMZEMRk0qJnNkKothLHTDDDPDzVMcXm2kO1hc6f4v5Y27Eg4fAGEC79xQJNrI0Fdn7Z7qbOszXRmC3A=&cctvpasswd=undefined&cctvport=undefined' },
+        { area: '소정', name: '[국도1] 세종 소정육교삼거리', url: 'https://www.utic.go.kr/jsp/map/openDataCctvStream.jsp?key=DVfa4Th5aYAKqNwz7O9f50dglqo7Fik94pimJosRN0&cctvid=E902531&cctvName=%255B%25EA%25B5%25AD%25EB%258F%25841%255D%25EC%2584%25B8%25EC%25A2%2585%25EC%2586%258C%25EC%25A0%2595%25EC%259C%25A1%25EA%25B5%2590%25EC%2582%25BC%25EA%25B1%25B0%25EB%25A6%25AC&kind=Z3&cctvip=71919&cctvch=undefined&id=71919/E1jZinyj8UHrBM238Yb+389qGMh4ZYD88XIQLiMEYjwdkSqTkgj9K17aj/aAlJh9anNAVNRc7lyeC7a/mC4ZvTmIzpJoaLrGa0dfjXvsI+o=&cctvpasswd=undefined&cctvport=undefined' }
+    ]; 
+    
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
+    let cctvFilter = 'all';
+    let hlsInstance = null;
 
     window.onload = () => { 
         refreshAll();
@@ -539,14 +618,78 @@
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
         
-        // 데이터 요청 즉시 동시 실행
+        // CCTV는 외부에서 안 불러오고 바로 렌더링
+        renderCCTV();
+
         await Promise.all([ render(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- CCTV: API 모두 삭제, 즉시 새창 열기 (무한로딩 및 보안망 차단 원천 제거) ---
-    function openHongdaeCCTV() {
-        window.open('https://kko.to/l209pNTubv', '_blank');
+    function setCCTVFilter(type, btn) {
+        cctvFilter = type;
+        const group = btn.parentElement;
+        group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        renderCCTV();
+    }
+
+    function renderCCTV() {
+        const container = document.getElementById('cctv-list');
+        container.innerHTML = '';
+        dynamicCCTVData.forEach(item => {
+            if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
+            const div = document.createElement('div');
+            div.className = 'cctv-card';
+            div.onclick = () => openCCTV(item.name, item.url);
+            div.innerHTML = `
+                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
+                <div class="cctv-icon"><i class="fas fa-video"></i></div>
+                <div class="cctv-btn">영상보기</div>
+            `;
+            container.appendChild(div);
+        });
+        if(container.innerHTML === '') {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">해당 지역에 등록된 영상이 없습니다.</div>`;
+        }
+    }
+
+    function openCCTV(name, url) {
+        document.getElementById('cctv-title').innerText = name;
+        document.getElementById('cctv-link-btn').href = url; 
+        
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        vid.style.display = 'none';
+
+        // UTIC 주소는 iframe으로 바로 송출
+        ifr.style.display = 'block';
+        // 혼합콘텐츠(http) 방어 회피를 위한 https 치환
+        let safeUrl = url.replace('http://', 'https://');
+        ifr.src = safeUrl;
+
+        document.getElementById('cctv-modal').style.display = 'flex';
+    }
+
+    function closeCCTV() {
+        document.getElementById('cctv-modal').style.display = 'none';
+        const vid = document.getElementById('cctv-video');
+        const ifr = document.getElementById('cctv-frame');
+        if (hlsInstance) {
+            hlsInstance.destroy();
+            hlsInstance = null;
+        }
+        vid.pause();
+        vid.removeAttribute('src');
+        vid.load();
+        ifr.src = "";
     }
 
     async function fetchDetailRain() {
@@ -560,7 +703,7 @@
         try {
             const [rainRes, tempRes] = await Promise.all([
                 fetch(proxyUrl),
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m,wind_speed_10m&timezone=Asia%2FTokyo`)
+                fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m&timezone=Asia%2FTokyo`)
             ]);
             
             const htmlText = await rainRes.text();
@@ -592,12 +735,11 @@
             locs.forEach((loc, idx) => {
                 const todayRain = sejongRain[loc.name] !== undefined ? sejongRain[loc.name] : 0;
                 const currentTemp = tempResults[idx]?.current?.temperature_2m ?? '-';
-                const currentWind = tempResults[idx]?.current?.wind_speed_10m ?? '-';
                 totalRain += todayRain; count++;
                 const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
                 const rainColorStyle = todayRain > 0 ? '' : 'color: var(--sub);';
                 
-                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${currentTemp}℃ | 풍속 ${currentWind}m/s</div></div>`;
+                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${currentTemp}℃</div></div>`;
             });
             html += `<div class="rain-cell" style="background:var(--card);"><div class="rain-loc" style="color:#fff;">출처</div><div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div><div style="font-size:10px; color:var(--green); margin-top:4px;">Live</div></div>`;
             
@@ -609,6 +751,7 @@
         }
     }
 
+    // --- [적설량: 세로형 표 파싱 + 적설량 메인 + 9곳 노출 완벽본] ---
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
@@ -621,6 +764,7 @@
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
         ];
 
+        // 1~6생활권 제외, 9개소 지정
         const locs = [
             {name:'조치원'},{name:'연동'},{name:'부강'},{name:'금남'},{name:'장군'},
             {name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'}
@@ -655,15 +799,14 @@
                 };
 
                 if (rowTitle.includes('평균')) {
-                    avgSnow = extractNum(cells[4] || cells[cells.length - 1]); 
+                    avgSnow = extractNum(cells[4] || cells[cells.length - 1]);
                 } 
                 else {
                     const matchedLoc = locs.find(l => rowTitle.includes(l.name));
                     if (matchedLoc) {
-                        const sinVal = extractNum(cells[1]); 
-                        const choeVal = extractNum(cells[2]); 
-                        const jukVal = extractNum(cells[4]); 
-
+                        const sinVal = extractNum(cells[1]);
+                        const choeVal = extractNum(cells[2]);
+                        const jukVal = extractNum(cells[4]);
                         sejongSnow[matchedLoc.name] = { sin: sinVal, choe: choeVal, juk: jukVal };
                     }
                 }
