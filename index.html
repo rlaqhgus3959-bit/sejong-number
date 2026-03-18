@@ -395,23 +395,39 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video" style="color:#5e5ce6"></i> 실시간 CCTV 영상망</div>
+        <div class="ah-title"><i class="fas fa-video" style="color:#5e5ce6"></i> 실시간 CCTV 영상망 (카카오맵 직통)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
-    <div class="accord-content" style="text-align:center;">
-        <div class="cctv-card" onclick="openHongdaeCCTV()">
-            <div><span class="area-tag">조치원</span><div class="loc-name" style="font-size:14px;">세종 홍대입구삼거리</div></div>
-            <div class="cctv-icon"><i class="fas fa-play-circle" style="font-size:40px;"></i></div>
-            <div class="cctv-btn">영상 바로보기</div>
+    <div class="accord-content">
+        <div class="list-container">
+            <a href="https://kko.to/y9KF6aN0xS" target="_blank" class="traffic-card" style="text-decoration:none;">
+                <div class="card-info"><span class="area-tag">조치원</span><div class="loc-name" style="color:#fff; font-size:13px; margin-top:4px;">상리사거리</div></div>
+                <div class="status-btn" style="background:var(--kakao); color:#3b1e1e;"><i class="fas fa-play"></i> 즉시 재생</div>
+            </a>
+            <a href="https://kko.to/l209pNTubv" target="_blank" class="traffic-card" style="text-decoration:none;">
+                <div class="card-info"><span class="area-tag">조치원</span><div class="loc-name" style="color:#fff; font-size:13px; margin-top:4px;">홍대입구삼거리</div></div>
+                <div class="status-btn" style="background:var(--kakao); color:#3b1e1e;"><i class="fas fa-play"></i> 즉시 재생</div>
+            </a>
+            
+            <a href="#" onclick="alert('카카오맵에서 CCTV 공유 링크(kko.to)를 복사해 제게 남겨주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
+                <div class="card-info"><span class="area-tag" style="background:#333;">조치원</span><div class="loc-name" style="color:#ccc; font-size:13px; margin-top:4px;">번암사거리</div></div>
+                <div class="status-btn" style="background:#444; color:#aaa;"><i class="fas fa-link"></i> 링크 대기중</div>
+            </a>
+            <a href="#" onclick="alert('카카오맵에서 CCTV 공유 링크(kko.to)를 복사해 제게 남겨주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
+                <div class="card-info"><span class="area-tag" style="background:#333;">조치원</span><div class="loc-name" style="color:#ccc; font-size:13px; margin-top:4px;">조치원역</div></div>
+                <div class="status-btn" style="background:#444; color:#aaa;"><i class="fas fa-link"></i> 링크 대기중</div>
+            </a>
+            <a href="#" onclick="alert('카카오맵에서 CCTV 공유 링크(kko.to)를 복사해 제게 남겨주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
+                <div class="card-info"><span class="area-tag" style="background:#333;">조치원</span><div class="loc-name" style="color:#ccc; font-size:13px; margin-top:4px;">욱일지하차도</div></div>
+                <div class="status-btn" style="background:#444; color:#aaa;"><i class="fas fa-link"></i> 링크 대기중</div>
+            </a>
+            <a href="#" onclick="alert('카카오맵에서 CCTV 공유 링크(kko.to)를 복사해 제게 남겨주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
+                <div class="card-info"><span class="area-tag" style="background:#333;">조치원</span><div class="loc-name" style="color:#ccc; font-size:13px; margin-top:4px;">신안사거리</div></div>
+                <div class="status-btn" style="background:#444; color:#aaa;"><i class="fas fa-link"></i> 링크 대기중</div>
+            </a>
         </div>
-        <a href="https://kko.to/l209pNTubv" target="_blank" class="cctv-card">
-            <div><span class="area-tag">조치원</span><div class="loc-name" style="font-size:14px; color:#fff;">세종 홍대입구삼거리</div></div>
-            <div class="cctv-icon"><i class="fas fa-map-marked-alt" style="font-size:40px;"></i></div>
-            <div class="cctv-btn">카카오맵 바로 열기</div>
-        </a>
-        <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4;">
-            * 스마트폰 환경에 맞게 화면 안에서 즉시 재생됩니다. (데이터 통신 불필요)
-            * 보안망 정책에 의해 즉시 카카오맵(새 창)으로 연결되어 로딩 지연 없이 안전하게 100% 재생됩니다.
+        <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
+            * 버튼 클릭 시 로딩 없이 카카오맵 CCTV 실시간 영상으로 즉시 연결됩니다.
         </div>
     </div>
 </div>
@@ -460,7 +476,6 @@
     let hlsInstance = null;
 
     // 대피소 69개소 100% 명단
-    // 대피소 69개 100% 명단
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', tel:'044-301-5067', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', tel:'044-301-5172', lat:36.6015, lng:127.3005 },
@@ -582,7 +597,6 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    // --- CCTV: 복잡한 API 모두 삭제, 원본 라이브 스트리밍 즉시 재생 ---
     // --- CCTV: API 모두 삭제, 즉시 새창 열기 (무한로딩 및 보안망 차단 원천 제거) ---
     function openHongdaeCCTV() {
         document.getElementById('cctv-modal').style.display = 'flex';
@@ -681,7 +695,7 @@
             avgRainEl.innerText = `${count > 0 ? (totalRain/count).toFixed(1) : '-'} mm`;
         } catch (e) {
             avgRainEl.innerText = "지연";
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px;">데이터 수신 지연</div>`;
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px;">데이터 수 수신 지연</div>`;
         }
     }
 
