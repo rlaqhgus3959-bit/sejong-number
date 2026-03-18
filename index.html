@@ -131,8 +131,8 @@
         }
         .cctv-card:active { background: #333; }
         .cctv-icon { 
-            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
-            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
+            font-size: 24px; color: #3b1e1e; margin: 10px auto; display: block; text-align: center; 
+            background: var(--kakao); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
         }
         .cctv-btn {
             background: #333; color: #ccc; font-size: 11px; padding: 6px; 
@@ -184,28 +184,6 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
-        #cctv-modal {
-            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
-        }
-        .cctv-modal-header {
-            padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;
-            border-bottom: 1px solid #444;
-        }
-        .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; }
-        .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; }
-        .cctv-frame-container { flex: 1; position: relative; background: #000; }
-        iframe { width: 100%; height: 100%; border: none; }
-        
-        .cctv-fallback {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            text-align: center; width: 80%;
-        }
-        .fallback-btn {
-            background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px;
-            text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
-        }
-        
         #sync-status {
             position: fixed; bottom: 10px; right: 10px; 
             font-size: 10px; color: #666; background: rgba(0,0,0,0.5);
@@ -313,7 +291,7 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 지역별 실시간 CCTV</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 세종북부서 관내 CCTV (카카오맵 연동)</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -326,7 +304,8 @@
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#aaa; margin-top:10px; text-align:center; line-height:1.4;">
-            * 버튼 클릭 시 영상이 <b>새 창(팝업)</b>으로 즉시 재생됩니다.
+            * 버튼 클릭 시 카카오맵이 바로 열립니다.<br>
+            <b style="color:var(--kakao);">열린 지도 화면에 있는 📷CCTV 아이콘을 누르시면 시청 가능합니다.</b>
         </div>
     </div>
 </div>
@@ -377,20 +356,6 @@
 </div>
 
 <div id="sync-status">● Live Sync</div>
-
-<div id="cctv-modal">
-    <div class="cctv-modal-header">
-        <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
-        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
-    </div>
-    <div class="cctv-frame-container">
-        <iframe id="cctv-frame" src=""></iframe>
-        <div class="cctv-fallback">
-            <div style="color:white; margin-bottom:10px; font-size:14px;">화면이 보이지 않나요?</div>
-            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">새창으로 열기</a>
-        </div>
-    </div>
-</div>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -498,13 +463,14 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
+    // [전면 교체] 모달창이 아닌 카카오맵 링크 연동으로 교체 
     const cctvData = [
-        { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' },
-        { area: '조치원', name: '번암삼거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.2980,36.5925&level=3' },
-        { area: '조치원', name: '신안리교차로', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.2917,36.6133&level=3' },
-        { area: '연서', name: '월하오거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.2840,36.5780&level=3' },
-        { area: '전의', name: '전의교차로', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.2020,36.6780&level=3' },
-        { area: '부강', name: '부강교차로', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3680,36.5280&level=3' }
+        { area: '조치원', name: '상리사거리', url: 'https://map.kakao.com/link/map/상리사거리,36.6024,127.3031' },
+        { area: '조치원', name: '번암삼거리', url: 'https://map.kakao.com/link/map/번암삼거리,36.5925,127.2980' },
+        { area: '조치원', name: '신안리교차로', url: 'https://map.kakao.com/link/map/신안리교차로,36.6133,127.2917' },
+        { area: '연서', name: '월하오거리', url: 'https://map.kakao.com/link/map/월하오거리,36.5780,127.2840' },
+        { area: '전의', name: '전의교차로', url: 'https://map.kakao.com/link/map/전의교차로,36.6780,127.2020' },
+        { area: '부강', name: '부강교차로', url: 'https://map.kakao.com/link/map/부강교차로,36.5280,127.3680' }
     ];
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
@@ -897,7 +863,7 @@
         }
     }
 
-    // --- CCTV 관련 스크립트 모달(팝업) 방식으로 100% 원상복구 ---
+    // --- [결론] CCTV 버튼 클릭 시 동작 ---
     function setCCTVFilter(type, btn) {
         cctvFilter = type;
         const group = btn.parentElement;
@@ -913,30 +879,17 @@
             if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            // 버튼 클릭 시 팝업창(새창)이 아닌, 기존 내부 iframe 모달창 실행!
-            div.onclick = () => openCCTV(item.name, item.url);
+            // 클릭 시 카카오맵 웹페이지 팝업
+            div.onclick = () => window.open(item.url, '_blank');
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
-                <div class="cctv-btn">영상보기</div>
+                <div class="cctv-btn">영상 팝업열기</div>
             `;
             container.appendChild(div);
         });
         if(container.innerHTML === '') container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
     }
-
-    function openCCTV(name, url) {
-        document.getElementById('cctv-title').innerText = name + " CCTV";
-        document.getElementById('cctv-frame').src = url;
-        document.getElementById('cctv-link-btn').href = url;
-        document.getElementById('cctv-modal').style.display = 'flex';
-    }
-
-    function closeCCTV() {
-        document.getElementById('cctv-modal').style.display = 'none';
-        document.getElementById('cctv-frame').src = "";
-    }
-    // --------------------------------------------------------
 
     function toggleAdmin() {
         if (!isAdmin) {
