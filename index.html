@@ -131,8 +131,8 @@
         }
         .cctv-card:active { background: #333; }
         .cctv-icon { 
-            font-size: 24px; color: #3b1e1e; margin: 10px auto; display: block; text-align: center; 
-            background: var(--kakao); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
+            font-size: 24px; color: #fff; margin: 10px auto; display: block; text-align: center; 
+            background: rgba(255,255,255,0.1); width: 40px; height: 40px; line-height: 40px; border-radius: 50%;
         }
         .cctv-btn {
             background: #333; color: #ccc; font-size: 11px; padding: 6px; 
@@ -184,6 +184,28 @@
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 30px; margin-bottom: 20px; }
         .link-btn { background: #2c2c2e; padding: 12px; border-radius: 12px; text-decoration: none; color: white; font-size: 13px; display: flex; align-items: center; justify-content: center; gap: 8px; }
 
+        #cctv-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 2000; flex-direction: column;
+        }
+        .cctv-modal-header {
+            padding: 15px; background: #222; display: flex; justify-content: space-between; align-items: center;
+            border-bottom: 1px solid #444;
+        }
+        .cctv-modal-title { color: white; font-weight: bold; font-size: 16px; }
+        .cctv-modal-close { color: #aaa; font-size: 24px; cursor: pointer; }
+        .cctv-frame-container { flex: 1; position: relative; background: #000; }
+        iframe { width: 100%; height: 100%; border: none; }
+        
+        .cctv-fallback {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            text-align: center; width: 80%;
+        }
+        .fallback-btn {
+            background: var(--blue); color: white; padding: 12px 20px; border-radius: 8px;
+            text-decoration: none; font-weight: bold; display: inline-block; margin-top: 10px;
+        }
+        
         #sync-status {
             position: fixed; bottom: 10px; right: 10px; 
             font-size: 10px; color: #666; background: rgba(0,0,0,0.5);
@@ -291,21 +313,19 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 세종북부서 관내 CCTV (카카오맵 연동)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
         <div class="filter-group" style="margin-bottom:10px;">
             <button class="filter-btn active" onclick="setCCTVFilter('all', this)">전체</button>
             <button class="filter-btn" onclick="setCCTVFilter('조치원', this)">조치원</button>
-            <button class="filter-btn" onclick="setCCTVFilter('연서', this)">연서</button>
             <button class="filter-btn" onclick="setCCTVFilter('전의', this)">전의</button>
             <button class="filter-btn" onclick="setCCTVFilter('부강', this)">부강</button>
         </div>
         <div class="cctv-container" id="cctv-list"></div>
-        <div style="font-size:11px; color:#aaa; margin-top:10px; text-align:center; line-height:1.4;">
-            * 버튼 클릭 시 카카오맵이 바로 열립니다.<br>
-            <b style="color:var(--kakao);">열린 지도 화면에 있는 📷CCTV 아이콘을 누르시면 시청 가능합니다.</b>
+        <div style="font-size:11px; color:#666; margin-top:10px; text-align:center;">
+            * 버튼 클릭시 팝업으로 영상이 재생됩니다.
         </div>
     </div>
 </div>
@@ -357,13 +377,29 @@
 
 <div id="sync-status">● Live Sync</div>
 
+<div id="cctv-modal">
+    <div class="cctv-modal-header">
+        <div class="cctv-modal-title" id="cctv-title">CCTV 영상</div>
+        <div class="cctv-modal-close" onclick="closeCCTV()"><i class="fas fa-times"></i></div>
+    </div>
+    <div class="cctv-frame-container">
+        <iframe id="cctv-frame" src=""></iframe>
+        <div class="cctv-fallback">
+            <div style="color:white; margin-bottom:10px; font-size:14px;">화면이 보이지 않나요?</div>
+            <a id="cctv-link-btn" href="#" target="_blank" class="fallback-btn">새창으로 열기</a>
+        </div>
+    </div>
+</div>
+
 <script>
+    // 서비스 워커 강제 삭제 (캐시 문제 해결)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.getRegistrations().then(function(registrations) {
             for(let registration of registrations) { registration.unregister(); }
         });
     }
 
+    // 파이어베이스 설정
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
         authDomain: "shut-down-80255.firebaseapp.com",
@@ -380,6 +416,7 @@
     
     let isAdmin = false;
 
+    // --- 대피소 데이터 ---
     const shelterData = [
         { area:'조치원', name:'조치원읍복합커뮤니티센터', addr:'조치원읍 대첩로 76', cap:'162명', lat:36.6053, lng:127.2977 },
         { area:'조치원', name:'조치원읍사무소', addr:'조치원읍 새내16길 17', cap:'63명', lat:36.6015, lng:127.3005 },
@@ -463,14 +500,8 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // [전면 교체] 모달창이 아닌 카카오맵 링크 연동으로 교체 
     const cctvData = [
-        { area: '조치원', name: '상리사거리', url: 'https://map.kakao.com/link/map/상리사거리,36.6024,127.3031' },
-        { area: '조치원', name: '번암삼거리', url: 'https://map.kakao.com/link/map/번암삼거리,36.5925,127.2980' },
-        { area: '조치원', name: '신안리교차로', url: 'https://map.kakao.com/link/map/신안리교차로,36.6133,127.2917' },
-        { area: '연서', name: '월하오거리', url: 'https://map.kakao.com/link/map/월하오거리,36.5780,127.2840' },
-        { area: '전의', name: '전의교차로', url: 'https://map.kakao.com/link/map/전의교차로,36.6780,127.2020' },
-        { area: '부강', name: '부강교차로', url: 'https://map.kakao.com/link/map/부강교차로,36.5280,127.3680' }
+        { area: '조치원', name: '상리사거리', url: 'https://m.its.go.kr/cctv/cctvMap?center=127.3031,36.6024&level=3' },
     ];
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
@@ -478,10 +509,12 @@
     let cctvFilter = 'all';
 
     window.onload = () => { 
+        // 1. 내부 데이터 먼저 즉시 로딩 (아이폰 로딩 지연 방지)
         render(); 
         renderCCTV();
         renderShelters();
         
+        // 2. 외부 데이터(날씨 등)는 0.1초 뒤에 병렬로 수신 시작
         setTimeout(refreshAll, 100);
         
         const dbRef = db.ref('trafficData');
@@ -501,6 +534,7 @@
         document.getElementById(id).classList.toggle('open');
     }
 
+    // 매우 빠르고 안정적인 무료 프록시 서버 적용
     async function fetchWithProxy(url) {
         const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
         const response = await fetch(proxyUrl);
@@ -517,6 +551,7 @@
         renderCCTV();
         renderShelters();
 
+        // Promise.allSettled 가 없는 구형 사파리를 위해 Promise.all 로 예외처리 감싸서 실행
         try {
             await Promise.all([
                 fetchSejongRain().catch(e => console.log(e)),
@@ -533,6 +568,7 @@
         }, 500);
     }
 
+    // --- [스마트 파싱] 세종시청 지역별 일 강우량 수신 ---
     async function fetchSejongRain() {
         const gridEl = document.getElementById('sejong-rain-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
@@ -546,6 +582,7 @@
             const results = {};
             targetNames.forEach(n => results[n] = 0);
             
+            // 1. 표의 컬럼(지역명) 위치를 정확히 파악
             const trs = doc.querySelectorAll('tr');
             let headerRow = null;
             for(let i=0; i<trs.length; i++) {
@@ -567,6 +604,7 @@
                     });
                 }
 
+                // 2. '합계', '누계' 등을 건너뛰고 '당일/오늘'에 해당하는 진짜 데이터 줄 찾기
                 let tbody = headerRow.closest('table').querySelector('tbody');
                 let dataRow = null;
 
@@ -588,6 +626,7 @@
                         }
                     }
 
+                    // 당일 글자가 없으면 '합계/누계'가 아닌 첫 번째 줄을 선택
                     if(!dataRow) {
                         for(let tr of rows) {
                             let firstCellText = tr.children[0] ? tr.children[0].innerText.trim() : "";
@@ -599,6 +638,7 @@
                     }
                 }
 
+                // 3. 찾은 줄에서 숫자만 뽑아내기
                 if(dataRow) {
                     let dataCells = dataRow.children;
                     targetNames.forEach(name => {
@@ -640,6 +680,7 @@
         }
     }
 
+    // --- [스마트 파싱] 세종시청 지역별 일 적설량 수신 ---
     async function fetchSejongSnow() {
         const gridEl = document.getElementById('sejong-snow-grid');
         const url = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallList.do';
@@ -747,6 +788,7 @@
         }
     }
 
+    // --- [공공데이터포털] 산불위험지수 시군구 단위(세종시 전체) 수신 ---
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
@@ -861,34 +903,6 @@
             contentEl.innerHTML = `<div style="text-align:center; color:#666;">기상청 통신 지연 (재접속 요망)</div>`;
             headerStatusEl.innerText = "연결 실패";
         }
-    }
-
-    // --- [결론] CCTV 버튼 클릭 시 동작 ---
-    function setCCTVFilter(type, btn) {
-        cctvFilter = type;
-        const group = btn.parentElement;
-        group.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        renderCCTV();
-    }
-
-    function renderCCTV() {
-        const container = document.getElementById('cctv-list');
-        container.innerHTML = '';
-        cctvData.forEach(item => {
-            if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
-            const div = document.createElement('div');
-            div.className = 'cctv-card';
-            // 클릭 시 카카오맵 웹페이지 팝업
-            div.onclick = () => window.open(item.url, '_blank');
-            div.innerHTML = `
-                <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
-                <div class="cctv-icon"><i class="fas fa-video"></i></div>
-                <div class="cctv-btn">영상 팝업열기</div>
-            `;
-            container.appendChild(div);
-        });
-        if(container.innerHTML === '') container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:#666; font-size:12px;">등록된 CCTV가 없습니다.</div>`;
     }
 
     function toggleAdmin() {
