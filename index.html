@@ -206,7 +206,8 @@
         .filter-btn.active { background: var(--text); color: var(--card); font-weight: 800; }
 
         .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
-        .link-btn { background: var(--card); box-shadow: var(--shadow); padding: 16px; border-radius: 16px; text-decoration: none; color: var(--text); font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .link-btn { background: var(--card); box-shadow: var(--shadow); padding: 16px; border-radius: 16px; border:none; text-decoration: none; color: var(--text); font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; width:100%; box-sizing:border-box;}
+        .link-btn:active { transform: scale(0.97); opacity:0.8; }
 
         #sync-status {
             position: fixed; bottom: 15px; right: 15px; 
@@ -219,6 +220,42 @@
         .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
         .forest-status { font-size: 24px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
         .forest-link-btn { font-size: 12px; font-weight:700; color: var(--forest); background: rgba(52, 199, 89, 0.15); padding: 6px 12px; border-radius: 14px; text-decoration: none; }
+
+        /* 비상연락망 모달 (iOS Bottom Sheet 스타일) */
+        #contact-modal {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg); z-index: 2000; flex-direction: column;
+            animation: slideUpModal 0.3s cubic-bezier(0.25, 0.8, 0.25, 1) forwards;
+        }
+        @keyframes slideUpModal { from { transform: translateY(100%); } to { transform: translateY(0); } }
+        
+        .cm-header {
+            padding: 20px; padding-top: calc(20px + env(safe-area-inset-top));
+            display: flex; justify-content: space-between; align-items: center;
+            background: var(--card); border-bottom: 1px solid var(--line);
+        }
+        .cm-title { font-size: 18px; font-weight: 800; color: var(--text); }
+        .cm-close { color: var(--blue); font-size: 16px; font-weight: 600; cursor: pointer; border:none; background:none; padding:5px 0;}
+        
+        .cm-body { flex: 1; overflow-y: auto; padding: 20px; }
+        .cm-list-container { background: var(--card); border-radius: 16px; overflow: hidden; box-shadow: var(--shadow); }
+        .cm-item {
+            display: flex; justify-content: space-between; align-items: center;
+            padding: 14px 16px; border-bottom: 1px solid var(--line);
+        }
+        .cm-item:last-child { border-bottom: none; }
+        .cm-info { display: flex; flex-direction: column; gap: 4px; flex:1; padding-right:10px;}
+        .cm-agency { font-size: 15px; font-weight: 700; color: var(--text); }
+        .cm-dept { font-size: 12px; color: var(--sub); }
+        .cm-actions { display: flex; gap: 6px; }
+        .cm-call-btn {
+            background: rgba(52, 199, 89, 0.15); color: var(--green);
+            padding: 8px 14px; border-radius: 12px; font-size: 13px; font-weight: 700;
+            text-decoration: none; display: flex; align-items: center; gap: 6px;
+        }
+        .cm-call-btn:active { transform:scale(0.95); opacity:0.8; }
+        .cm-call-btn.dual { padding: 6px 10px; font-size: 11px; }
+
     </style>
 </head>
 <body>
@@ -421,7 +458,7 @@
 </div>
 
 <div class="official-links">
-    <a href="https://www.sejong.go.kr/safety/sub01_07.do" target="_blank" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</a>
+    <button onclick="openContacts()" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</button>
     <a href="tel:112" class="link-btn"><i class="fas fa-phone" style="color:var(--blue)"></i> 112 연결</a>
 </div>
 
@@ -430,6 +467,17 @@
 </div>
 
 <div id="sync-status">● Live Sync</div>
+
+<div id="contact-modal">
+    <div class="cm-header">
+        <div class="cm-title">재난안전 비상연락망</div>
+        <button class="cm-close" onclick="closeContacts()">닫기</button>
+    </div>
+    <div class="cm-body">
+        <div class="cm-list-container" id="contact-list-body">
+            </div>
+    </div>
+</div>
 
 <script>
     if ('serviceWorker' in navigator) {
@@ -451,6 +499,67 @@
     const db = firebase.database();
 
     let isAdmin = false;
+
+    // --- 비상연락망 23개 기관 데이터 ---
+    const emergencyContacts = [
+        { agency: '세종특별자치시', dept: '재난안전상황실', tel: ['044-300-5119'] },
+        { agency: '세종특별자치시', dept: '당직실', tel: ['044-300-8888'] },
+        { agency: '세종특별자치시', dept: '재난안전대책본부', tel: ['044-300-3670'] },
+        { agency: '세종소방본부', dept: '119종합상황실', tel: ['044-300-8152'] },
+        { agency: '세종경찰청', dept: '공공안전과 대테러계', tel: ['044-559-2561'] },
+        { agency: '국립중앙의료원', dept: '세종응급의료지원센터', tel: ['044-715-5471'] },
+        { agency: '세종충남대학교병원', dept: '응급의료센터', tel: ['044-995-3010'] },
+        { agency: '엔케이세종병원', dept: '응급실', tel: ['044-850-7704'] },
+        { agency: '세종시경비단', dept: '작전과장', tel: ['044-862-2972'] },
+        { agency: '32사단', dept: '지휘통제실', tel: ['042-829-0301', '042-829-0600'], labels: ['주간', '야간'] },
+        { agency: '한국전력공사 세종지사', dept: '전력공급부', tel: ['044-861-4061'] },
+        { agency: '한국전기안전공사 대전세종충남지역본부', dept: '고객지원부', tel: ['042-388-5621', '063-716-2119'], labels: ['주간', '야간'] },
+        { agency: '한국가스공사', dept: '대전충청지역본부', tel: ['042-229-3587', '042-229-3500'], labels: ['주간', '야간'] },
+        { agency: '한국가스안전공사', dept: '대전광역본부', tel: ['042-719-3034'] },
+        { agency: '세종시보건소', dept: '보건의료과', tel: ['044-301-2815'] },
+        { agency: '중부지방산림청', dept: '산림재난안전과', tel: ['041-850-4023'] },
+        { agency: '금강홍수통제소', dept: '예보통제과', tel: ['041-851-0553'] },
+        { agency: '금강유역환경청', dept: '상수원관리과', tel: ['042-865-0784'] },
+        { agency: '부여국유림관리소', dept: '보호산사태대응팀', tel: ['041-830-5024'] },
+        { agency: '육군 2작사 제1신속기동대대', dept: '정보작전과장', tel: ['044-865-2197'] },
+        { agency: 'LH세종특별본부', dept: '안전관리단', tel: ['044-860-7996'] },
+        { agency: '세종도시교통공사', dept: '-', tel: ['044-850-0195'] },
+        { agency: '세종시설관리공단', dept: '-', tel: ['044-850-1154'] }
+    ];
+
+    function renderContacts() {
+        const container = document.getElementById('contact-list-body');
+        let html = '';
+        emergencyContacts.forEach(c => {
+            html += `<div class="cm-item">
+                <div class="cm-info">
+                    <div class="cm-agency">${c.agency}</div>
+                    <div class="cm-dept">${c.dept}</div>
+                </div>
+                <div class="cm-actions">`;
+            
+            if (c.tel.length === 1) {
+                html += `<a href="tel:${c.tel[0].replace(/[^0-9]/g, '')}" class="cm-call-btn"><i class="fas fa-phone"></i> 연결</a>`;
+            } else {
+                html += `<div style="display:flex; gap:6px; flex-direction:column; align-items:flex-end;">`;
+                html += `<a href="tel:${c.tel[0].replace(/[^0-9]/g, '')}" class="cm-call-btn dual"><i class="fas fa-phone" style="font-size:9px;"></i> ${c.labels[0]}</a>`;
+                html += `<a href="tel:${c.tel[1].replace(/[^0-9]/g, '')}" class="cm-call-btn dual"><i class="fas fa-phone" style="font-size:9px;"></i> ${c.labels[1]}</a>`;
+                html += `</div>`;
+            }
+            html += `</div></div>`;
+        });
+        container.innerHTML = html;
+    }
+
+    function openContacts() {
+        document.getElementById('contact-modal').style.display = 'flex';
+        renderContacts();
+    }
+    
+    function closeContacts() {
+        document.getElementById('contact-modal').style.display = 'none';
+    }
+
 
     // 대피소 69개소 명단
     const shelterData = [
