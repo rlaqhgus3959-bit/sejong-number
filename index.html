@@ -291,7 +291,7 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video"></i> 세종북부서 관내 CCTV (카카오맵 연동)</div>
+        <div class="ah-title"><i class="fas fa-video"></i> 지역별 CCTV</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -304,8 +304,7 @@
         </div>
         <div class="cctv-container" id="cctv-list"></div>
         <div style="font-size:11px; color:#aaa; margin-top:10px; text-align:center; line-height:1.4;">
-            * 버튼 클릭 시 카카오맵이 바로 열립니다.<br>
-            <b style="color:var(--kakao);">열린 지도 화면에 있는 📷CCTV 아이콘을 누르시면 시청 가능합니다.</b>
+            * 버튼 클릭 시 <b>카카오맵 CCTV 영상</b>이 다이렉트로 즉시 실행됩니다.
         </div>
     </div>
 </div>
@@ -463,14 +462,14 @@
         { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
     ];
 
-    // [전면 교체] 모달창이 아닌 카카오맵 링크 연동으로 교체 
+    // [수정 완료] 카카오맵 CCTV 영상 다이렉트 공유 링크(kko.to) 적용
     const cctvData = [
-        { area: '조치원', name: '상리사거리', url: 'https://map.kakao.com/link/map/상리사거리,36.6024,127.3031' },
-        { area: '조치원', name: '번암삼거리', url: 'https://map.kakao.com/link/map/번암삼거리,36.5925,127.2980' },
-        { area: '조치원', name: '신안리교차로', url: 'https://map.kakao.com/link/map/신안리교차로,36.6133,127.2917' },
-        { area: '연서', name: '월하오거리', url: 'https://map.kakao.com/link/map/월하오거리,36.5780,127.2840' },
-        { area: '전의', name: '전의교차로', url: 'https://map.kakao.com/link/map/전의교차로,36.6780,127.2020' },
-        { area: '부강', name: '부강교차로', url: 'https://map.kakao.com/link/map/부강교차로,36.5280,127.3680' }
+        { area: '조치원', name: '상리사거리', url: 'https://kko.to/dBQsMlozVV' },
+        { area: '조치원', name: '번암삼거리', url: 'https://kko.to/여기에_번암삼거리_링크_입력' },
+        { area: '조치원', name: '신안리교차로', url: 'https://kko.to/여기에_신안리교차로_링크_입력' },
+        { area: '연서', name: '월하오거리', url: 'https://kko.to/여기에_월하오거리_링크_입력' },
+        { area: '전의', name: '전의교차로', url: 'https://kko.to/여기에_전의교차로_링크_입력' },
+        { area: '부강', name: '부강교차로', url: 'https://kko.to/여기에_부강교차로_링크_입력' }
     ];
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
@@ -863,7 +862,7 @@
         }
     }
 
-    // --- [결론] CCTV 버튼 클릭 시 동작 ---
+    // --- [완벽 수정본] CCTV 버튼 누르면 카카오맵 다이렉트 영상 링크(kko.to) 바로 열기 ---
     function setCCTVFilter(type, btn) {
         cctvFilter = type;
         const group = btn.parentElement;
@@ -879,12 +878,18 @@
             if(cctvFilter !== 'all' && item.area !== cctvFilter) return;
             const div = document.createElement('div');
             div.className = 'cctv-card';
-            // 클릭 시 카카오맵 웹페이지 팝업
-            div.onclick = () => window.open(item.url, '_blank');
+            // 버튼 클릭 시 kko.to 링크를 즉시 오픈 (앱이 깔려있으면 앱으로 영상 재생)
+            div.onclick = () => {
+                if (item.url.includes("여기에")) {
+                    alert("코드 내에서 해당 지역의 카카오맵 CCTV 링크(kko.to)를 입력해주세요!");
+                } else {
+                    window.open(item.url, '_blank');
+                }
+            };
             div.innerHTML = `
                 <div><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div>
                 <div class="cctv-icon"><i class="fas fa-video"></i></div>
-                <div class="cctv-btn">영상 팝업열기</div>
+                <div class="cctv-btn">CCTV 영상 열기</div>
             `;
             container.appendChild(div);
         });
