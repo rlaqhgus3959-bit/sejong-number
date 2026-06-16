@@ -484,13 +484,13 @@
             <div class="search-row">
                 <input type="text" class="search-input" id="cctv-search" placeholder="CCTV 장소 검색" onkeyup="renderCctvs()">
                 <button class="add-loc-btn" id="add-cctv-btn" onclick="addCctvLocation()">+ CCTV</button>
-                <button class="add-loc-btn" id="load-its-cctv-btn" onclick="fetchJochiwonItsCctv()">ITS 조치원</button>
+                <button class="add-loc-btn" id="load-its-cctv-btn" onclick="fetchJochiwonItsCctv()" style="display:block; background:var(--green);">ITS 조치원 불러오기</button>
             </div>
             <div class="filter-group" id="cctv-filter-group"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * 관리자 모드에서 CCTV 추가 또는 ITS 조치원 CCTV를 불러올 수 있습니다.
+            * ITS 조치원 불러오기 버튼으로 CCTV를 가져온 뒤, 생성된 CCTV 카드를 누르면 팝업으로 재생됩니다.
         </div>
     </div>
 </div>
@@ -2402,7 +2402,7 @@
                 isAdmin = true;
                 document.body.classList.add('admin-mode');
                 document.getElementById('admin-btn').classList.add('active');
-                ['add-loc-btn','add-shelter-btn','add-cctv-btn','load-its-cctv-btn'].forEach(id => {
+                ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'block';
                 });
@@ -2413,7 +2413,7 @@
             isAdmin = false;
             document.body.classList.remove('admin-mode');
             document.getElementById('admin-btn').classList.remove('active');
-            ['add-loc-btn','add-shelter-btn','add-cctv-btn','load-its-cctv-btn'].forEach(id => {
+            ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -2586,7 +2586,7 @@
             const hasUrl = !!c.url;
             const opacity = hasUrl ? '1' : '0.6';
             const btnStyle = hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);';
-            const btnText = hasUrl ? '<i class="fas fa-play"></i> 즉시 재생' : '<i class="fas fa-link"></i> 링크 대기중';
+            const btnText = hasUrl ? '<i class="fas fa-play"></i> 눌러서 재생' : '<i class="fas fa-link"></i> 링크 대기중';
             const sourceLabel = c.source === 'ITS' ? 'ITS' : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접');
             const card = document.createElement('div');
             card.className = 'traffic-card';
