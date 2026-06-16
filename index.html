@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
 
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>세종북부서 재난상황실</title>
+    <title>세종경찰 재난관리 플랫폼</title>
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -266,6 +266,41 @@
         .cm-call-btn:active { transform:scale(0.95); opacity:0.8; }
         .cm-call-btn.dual { padding: 6px 10px; font-size: 11px; }
 
+
+        .scope-panel {
+            background: var(--card); border-radius: 20px; padding: 14px;
+            margin-bottom: 16px; box-shadow: var(--shadow);
+        }
+        .scope-tabs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+        .scope-btn {
+            border: none; border-radius: 14px; padding: 12px 6px;
+            background: var(--card-elevated); color: var(--sub);
+            font-size: 14px; font-weight: 800; cursor: pointer;
+        }
+        .scope-btn.active { background: var(--text); color: var(--card); }
+        .jurisdiction-box {
+            margin-top: 12px; background: var(--card-elevated); border-radius: 14px;
+            padding: 12px; font-size: 12px; color: var(--sub); line-height: 1.55;
+        }
+        .jurisdiction-title { font-size: 13px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+        .jurisdiction-row { margin-top: 5px; word-break: keep-all; }
+        .jurisdiction-row b { color: var(--text); }
+        .office-chip {
+            display: inline-block; padding: 2px 7px; border-radius: 999px;
+            background: #fff; border: 1px solid var(--line); color: var(--text);
+            font-size: 10px; font-weight: 800; margin-right: 4px;
+        }
+        .admin-actions {
+            display: none; gap: 4px; margin-top: 6px; width: 100%;
+        }
+        .admin-mode .admin-actions { display: flex; }
+        .mini-btn {
+            flex: 1; border: none; border-radius: 8px; padding: 6px 4px;
+            font-size: 10px; font-weight: 800; cursor: pointer;
+            background: #fff; color: var(--blue); border: 1px solid var(--line);
+        }
+        .mini-btn.danger { color: var(--red); }
+
     </style>
 </head>
 <body>
@@ -273,7 +308,7 @@
 <header>
     <div class="top-nav">
         <div class="title-group">
-            <h1>세종북부서 재난상황</h1>
+            <h1>세종경찰 재난관리 플랫폼</h1>
         </div>
         <div style="display:flex; gap:12px; align-items:center;">
             <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
@@ -283,6 +318,19 @@
         </div>
     </div>
 </header>
+
+<div class="scope-panel">
+    <div class="scope-tabs" id="global-scope-tabs">
+        <button class="scope-btn active" onclick="setGlobalScope('all', this)">세종청</button>
+        <button class="scope-btn" onclick="setGlobalScope('north', this)">북부서</button>
+        <button class="scope-btn" onclick="setGlobalScope('south', this)">남부서</button>
+    </div>
+    <div class="jurisdiction-box" id="jurisdiction-summary">
+        <div class="jurisdiction-title">관할 읍·면·동 구분</div>
+        <div class="jurisdiction-row"><span class="office-chip">북부서</span> 조치원읍, 연서면, 전의면, 전동면, 소정면, 부강면, 연동면</div>
+        <div class="jurisdiction-row"><span class="office-chip">남부서</span> 그 외 세종시 읍·면·동</div>
+    </div>
+</div>
 
 <div class="accord-section" id="sec-weather">
     <div class="accord-header" onclick="toggleSection('sec-weather')">
@@ -298,7 +346,7 @@
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 세종시 전체 강우량
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 세종시 일누적 강수량
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -311,10 +359,15 @@
             <div>
                 <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
             </div>
+            <div style="margin-top:8px; font-size:11px; color:var(--sub);">
+                * 일누적 강수량은 기상청 초단기실황 RN1(1시간 강수량)을 Firebase에 시간별 저장 후 오늘 00시부터 합산합니다.
+            </div>
         </div>
 
+        <div class="filter-group" id="rain-office-filters" style="margin-bottom:15px;"></div>
+
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 전체 1시간 강수 평균</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">선택 관할 일누적 강수 평균</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
         <div class="rain-grid" id="rain-grid"></div>
@@ -344,8 +397,10 @@
             </div>
         </div>
 
+        <div class="filter-group" id="snow-office-filters" style="margin-bottom:15px;"></div>
+
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 전체 예보 적설 평균</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">선택 관할 예보 적설 평균</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -368,6 +423,7 @@
             </div>
             <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">산림청 보기</a>
         </div>
+        <div class="filter-group" id="forest-office-filters" style="margin-bottom:15px;"></div>
         <div class="rain-grid" id="forest-grid"></div>
     </div>
 </div>
@@ -392,16 +448,9 @@
         <div class="filter-area">
             <div class="search-row">
                 <input type="text" class="search-input" id="search" placeholder="장소명 검색" onkeyup="render()">
-                <button class="add-loc-btn" id="add-loc-btn" onclick="addTrafficLocation()">+ 추가</button>
+                <button class="add-loc-btn" id="add-loc-btn" onclick="addTrafficLocation()">+ 통제장소</button>
             </div>
-            <div class="filter-group">
-                <button class="filter-btn active" onclick="setFilter('all', this)">전체</button>
-                <button class="filter-btn" onclick="setFilter('ban', this)">🚨 통제</button>
-                <button class="filter-btn" onclick="setFilter('free', this)">✅ 정상</button>
-                <button class="filter-btn" onclick="setFilter('조치원', this)">조치원</button>
-                <button class="filter-btn" onclick="setFilter('전의', this)">전의</button>
-                <button class="filter-btn" onclick="setFilter('부강', this)">부강</button>
-            </div>
+            <div class="filter-group" id="traffic-filter-group"></div>
         </div>
 
         <div class="list-container" id="list"></div>
@@ -414,16 +463,12 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="filter-group" style="margin-bottom:15px;">
-            <button class="filter-btn active" onclick="filterShelter('전체', this)">전체</button>
-            <button class="filter-btn" style="color:var(--blue);" onclick="sortByDistance(this)"><i class="fas fa-location-crosshairs"></i> 가까운순</button>
-            <button class="filter-btn" onclick="filterShelter('조치원', this)">조치원</button>
-            <button class="filter-btn" onclick="filterShelter('연서', this)">연서</button>
-            <button class="filter-btn" onclick="filterShelter('전의', this)">전의</button>
-            <button class="filter-btn" onclick="filterShelter('전동', this)">전동</button>
-            <button class="filter-btn" onclick="filterShelter('소정', this)">소정</button>
-            <button class="filter-btn" onclick="filterShelter('부강', this)">부강</button>
-            <button class="filter-btn" onclick="filterShelter('연동', this)">연동</button>
+        <div class="filter-area">
+            <div class="search-row">
+                <input type="text" class="search-input" id="shelter-search" placeholder="대피소명·주소 검색" onkeyup="renderShelters()">
+                <button class="add-loc-btn" id="add-shelter-btn" onclick="addShelterLocation()">+ 대피소</button>
+            </div>
+            <div class="filter-group" id="shelter-filter-group" style="margin-bottom:5px;"></div>
         </div>
         <div class="shelter-list" id="shelter-list"></div>
     </div>
@@ -431,40 +476,20 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video" style="color:var(--blue)"></i> 실시간 CCTV 영상망 (카카오맵 직통)</div>
+        <div class="ah-title"><i class="fas fa-video" style="color:var(--blue)"></i> CCTV 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="list-container">
-            <a href="https://m.map.kakao.com/actions/cctvView?cctvid=4547" target="_blank" class="traffic-card" style="text-decoration:none;">
-                <div class="card-info"><span class="area-tag">조치원</span><div class="loc-name" style="margin-top:4px;">상리사거리</div></div>
-                <div class="status-btn" style="background:var(--kakao); color:#3b1e1e;"><i class="fas fa-play"></i> 즉시 재생</div>
-            </a>
-            
-            <a href="https://m.map.kakao.com/actions/cctvView?cctvid=4546" target="_blank" class="traffic-card" style="text-decoration:none;">
-                <div class="card-info"><span class="area-tag">조치원</span><div class="loc-name" style="margin-top:4px;">홍대입구삼거리</div></div>
-                <div class="status-btn" style="background:var(--kakao); color:#3b1e1e;"><i class="fas fa-play"></i> 즉시 재생</div>
-            </a>
-            
-            <a href="#" onclick="alert('나머지 장소들의 cctvid 번호를 알려주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
-                <div class="card-info"><span class="area-tag" style="background:var(--line); color:var(--sub);">조치원</span><div class="loc-name" style="color:var(--sub); margin-top:4px;">번암사거리</div></div>
-                <div class="status-btn" style="background:#FFFFFF; border:1px solid var(--line); color:var(--sub);"><i class="fas fa-link"></i> 링크 대기중</div>
-            </a>
-            <a href="#" onclick="alert('나머지 장소들의 cctvid 번호를 알려주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
-                <div class="card-info"><span class="area-tag" style="background:var(--line); color:var(--sub);">조치원</span><div class="loc-name" style="color:var(--sub); margin-top:4px;">조치원역</div></div>
-                <div class="status-btn" style="background:#FFFFFF; border:1px solid var(--line); color:var(--sub);"><i class="fas fa-link"></i> 링크 대기중</div>
-            </a>
-            <a href="#" onclick="alert('나머지 장소들의 cctvid 번호를 알려주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
-                <div class="card-info"><span class="area-tag" style="background:var(--line); color:var(--sub);">조치원</span><div class="loc-name" style="color:var(--sub); margin-top:4px;">욱일지하차도</div></div>
-                <div class="status-btn" style="background:#FFFFFF; border:1px solid var(--line); color:var(--sub);"><i class="fas fa-link"></i> 링크 대기중</div>
-            </a>
-            <a href="#" onclick="alert('나머지 장소들의 cctvid 번호를 알려주시면 바로 작동되게 넣어드릴게요!'); return false;" class="traffic-card" style="text-decoration:none; opacity:0.6;">
-                <div class="card-info"><span class="area-tag" style="background:var(--line); color:var(--sub);">조치원</span><div class="loc-name" style="color:var(--sub); margin-top:4px;">신안사거리</div></div>
-                <div class="status-btn" style="background:#FFFFFF; border:1px solid var(--line); color:var(--sub);"><i class="fas fa-link"></i> 링크 대기중</div>
-            </a>
+        <div class="filter-area">
+            <div class="search-row">
+                <input type="text" class="search-input" id="cctv-search" placeholder="CCTV 장소 검색" onkeyup="renderCctvs()">
+                <button class="add-loc-btn" id="add-cctv-btn" onclick="addCctvLocation()">+ CCTV</button>
+            </div>
+            <div class="filter-group" id="cctv-filter-group"></div>
         </div>
+        <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * 버튼 클릭 시 로딩 없이 카카오맵 CCTV 실시간 영상으로 즉시 연결됩니다.
+            * 관리자 모드에서 북부서·남부서 CCTV를 추가할 수 있습니다.
         </div>
     </div>
 </div>
@@ -646,6 +671,16 @@
         { area:'소정', name:'소정면 운당2리 경로당', addr:'소정면 운당너머말길 29', cap:'25명', tel:'044-301-6044', lat:36.7255, lng:127.1455 }
     ];
 
+
+    const defaultCctvData = [
+        { id:4547, station:'북부서', area:'조치원', name:'상리사거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4547', active:true },
+        { id:4546, station:'북부서', area:'조치원', name:'홍대입구삼거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4546', active:true },
+        { id:9001, station:'북부서', area:'조치원', name:'번암사거리', url:'', active:false },
+        { id:9002, station:'북부서', area:'조치원', name:'조치원역', url:'', active:false },
+        { id:9003, station:'북부서', area:'조치원', name:'욱일지하차도', url:'', active:false },
+        { id:9004, station:'북부서', area:'조치원', name:'신안사거리', url:'', active:false }
+    ];
+
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
         { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'송하한정식 앞', status:2 },
@@ -659,13 +694,274 @@
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
     let currFilter = 'all';
+    let shelterExtraData = [];
+    let managedShelterData = [];
+    let cctvData = [];
+    let shelterFilter = '전체';
+    let cctvFilter = 'all';
+    let globalScope = 'all';
+    const weatherOfficeFilters = { rain: 'all', snow: 'all', forest: 'all' };
+
+    // 세종경찰 관할 구분 기준
+    const NORTH_FULL_NAMES = ['조치원읍','연서면','전의면','전동면','소정면','부강면','연동면'];
+    const NORTH_SHORT_NAMES = ['조치원','연서','전의','전동','소정','부강','연동'];
+    const SOUTH_FULL_NAMES = [
+        '연기면','금남면','장군면',
+        '한솔동','새롬동','나성동','다정동','도담동','어진동','종촌동','고운동','아름동',
+        '보람동','대평동','소담동','반곡동','해밀동','산울동','집현동'
+    ];
+
+    function getOfficeByAreaName(name = '') {
+        const text = String(name || '');
+        if (NORTH_FULL_NAMES.some(n => text.includes(n)) || NORTH_SHORT_NAMES.some(n => text.includes(n))) return '북부서';
+        return '남부서';
+    }
+
+    function stationToFilter(station) {
+        return station === '북부서' ? 'north' : 'south';
+    }
+
+    function normalizeStation(input, fallbackText = '') {
+        const v = String(input || '').trim();
+        if (v.includes('남')) return '남부서';
+        if (v.includes('북')) return '북부서';
+        return getOfficeByAreaName(fallbackText);
+    }
+
+    function withStation(item) {
+        return { ...item, station: item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''} ${item.addr || ''}`) };
+    }
+
+    const NORTH_AREAS = NORTH_FULL_NAMES.map(name => ({ label: name, key: name.replace(/(읍|면)$/, '') }));
+    const SOUTH_AREAS = SOUTH_FULL_NAMES.map(name => ({ label: name, key: name }));
+    const ALL_AREAS = [...NORTH_AREAS, ...SOUTH_AREAS];
+
+    function getAreasForScope() {
+        if (globalScope === 'north') return NORTH_AREAS;
+        if (globalScope === 'south') return SOUTH_AREAS;
+        return ALL_AREAS;
+    }
+
+    function areaMatches(text, key) {
+        const src = String(text || '');
+        const k = String(key || '').replace(/^area:/, '');
+        if (!k || k === 'all' || k === '전체') return true;
+        const noSuffix = k.replace(/(읍|면|동)$/, '');
+        return src.includes(k) || (!!noSuffix && src.includes(noSuffix));
+    }
+
+    function officeFilterLabel(type) {
+        if (type === 'north') return '북부서';
+        if (type === 'south') return '남부서';
+        if (String(type || '').startsWith('area:')) return String(type).replace('area:', '');
+        return '전체';
+    }
+
+    function getSectionFilterLabel(section) {
+        const forced = scopeStation();
+        const type = weatherOfficeFilters[section] || 'all';
+        if (String(type).startsWith('area:')) return String(type).replace('area:', '');
+        if (forced && type === 'all') return forced;
+        return officeFilterLabel(type);
+    }
+
+    function scopeStation() {
+        if (globalScope === 'north') return '북부서';
+        if (globalScope === 'south') return '남부서';
+        return null;
+    }
+
+    function filterRowsByOffice(rows, section) {
+        const forcedStation = scopeStation();
+        let result = Array.isArray(rows) ? rows : [];
+        if (forcedStation) result = result.filter(row => (row.office || getOfficeByAreaName(row.name || row.area)) === forcedStation);
+
+        const type = weatherOfficeFilters[section] || 'all';
+        if (type === 'all') return result;
+        if (type === 'north' || type === 'south') {
+            const station = officeFilterLabel(type);
+            return result.filter(row => (row.office || getOfficeByAreaName(row.name || row.area)) === station);
+        }
+        if (String(type).startsWith('area:')) {
+            const key = String(type).replace('area:', '');
+            return result.filter(row => areaMatches(`${row.name || ''} ${row.area || ''}`, key));
+        }
+        return result;
+    }
+
+    function buttonHtml(label, value, fnName, activeValue, extraStyle = '') {
+        const active = value === activeValue ? ' active' : '';
+        const safeLabel = String(label).replace(/'/g, "\'");
+        const safeValue = String(value).replace(/'/g, "\'");
+        return `<button class="filter-btn${active}" style="${extraStyle}" onclick="${fnName}('${safeValue}', this)">${safeLabel}</button>`;
+    }
+
+    function renderWeatherFilterButtons(section) {
+        const wrap = document.getElementById(`${section}-office-filters`);
+        if (!wrap) return;
+        const active = weatherOfficeFilters[section] || 'all';
+        let html = buttonHtml('전체', 'all', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
+        // 세종청 화면에서는 서별 전체 선택도 가능, 북부서/남부서 화면에서는 행정구역만 표시
+        if (globalScope === 'all') {
+            html += buttonHtml('북부서', 'north', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
+            html += buttonHtml('남부서', 'south', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
+        }
+        getAreasForScope().forEach(a => {
+            html += buttonHtml(a.label, `area:${a.key}`, `setWeatherOfficeFilter.bind(null, '${section}')`, active);
+        });
+        // bind 문자열은 inline onclick에서 호환성이 떨어져 직접 문자열로 다시 구성
+        html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
+        if (globalScope === 'all') {
+            html += `<button class="filter-btn${active === 'north' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'north', this)">북부서</button>`;
+            html += `<button class="filter-btn${active === 'south' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'south', this)">남부서</button>`;
+        }
+        getAreasForScope().forEach(a => {
+            const val = `area:${a.key}`;
+            html += `<button class="filter-btn${active === val ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', '${val}', this)">${a.label}</button>`;
+        });
+        wrap.innerHTML = html;
+    }
+
+    function renderTrafficFilterButtons() {
+        const wrap = document.getElementById('traffic-filter-group');
+        if (!wrap) return;
+        let html = `<button class="filter-btn${currFilter === 'all' ? ' active' : ''}" onclick="setFilter('all', this)">전체</button>`;
+        html += `<button class="filter-btn${currFilter === 'ban' ? ' active' : ''}" onclick="setFilter('ban', this)">🚨 통제</button>`;
+        html += `<button class="filter-btn${currFilter === 'free' ? ' active' : ''}" onclick="setFilter('free', this)">✅ 정상</button>`;
+        if (globalScope === 'all') {
+            html += `<button class="filter-btn${currFilter === 'north' ? ' active' : ''}" onclick="setFilter('north', this)">북부서</button>`;
+            html += `<button class="filter-btn${currFilter === 'south' ? ' active' : ''}" onclick="setFilter('south', this)">남부서</button>`;
+        }
+        getAreasForScope().forEach(a => {
+            const val = `area:${a.key}`;
+            html += `<button class="filter-btn${currFilter === val ? ' active' : ''}" onclick="setFilter('${val}', this)">${a.label}</button>`;
+        });
+        wrap.innerHTML = html;
+    }
+
+    function renderShelterFilterButtons() {
+        const wrap = document.getElementById('shelter-filter-group');
+        if (!wrap) return;
+        let html = `<button class="filter-btn${shelterFilter === '전체' ? ' active' : ''}" onclick="filterShelter('전체', this)">전체</button>`;
+        html += `<button class="filter-btn" style="color:var(--blue);" onclick="sortByDistance(this)"><i class="fas fa-location-crosshairs"></i> 가까운순</button>`;
+        if (globalScope === 'all') {
+            html += `<button class="filter-btn${shelterFilter === '북부서' ? ' active' : ''}" onclick="filterShelter('북부서', this)">북부서</button>`;
+            html += `<button class="filter-btn${shelterFilter === '남부서' ? ' active' : ''}" onclick="filterShelter('남부서', this)">남부서</button>`;
+        }
+        getAreasForScope().forEach(a => {
+            const val = `area:${a.key}`;
+            html += `<button class="filter-btn${shelterFilter === val ? ' active' : ''}" onclick="filterShelter('${val}', this)">${a.label}</button>`;
+        });
+        wrap.innerHTML = html;
+    }
+
+    function renderCctvFilterButtons() {
+        const wrap = document.getElementById('cctv-filter-group');
+        if (!wrap) return;
+        let html = `<button class="filter-btn${cctvFilter === 'all' ? ' active' : ''}" onclick="setCctvFilter('all', this)">전체</button>`;
+        if (globalScope === 'all') {
+            html += `<button class="filter-btn${cctvFilter === 'north' ? ' active' : ''}" onclick="setCctvFilter('north', this)">북부서</button>`;
+            html += `<button class="filter-btn${cctvFilter === 'south' ? ' active' : ''}" onclick="setCctvFilter('south', this)">남부서</button>`;
+        }
+        getAreasForScope().forEach(a => {
+            const val = `area:${a.key}`;
+            html += `<button class="filter-btn${cctvFilter === val ? ' active' : ''}" onclick="setCctvFilter('${val}', this)">${a.label}</button>`;
+        });
+        wrap.innerHTML = html;
+    }
+
+    function renderAllScopedFilterButtons() {
+        ['rain','snow','forest'].forEach(renderWeatherFilterButtons);
+        renderTrafficFilterButtons();
+        renderShelterFilterButtons();
+        renderCctvFilterButtons();
+    }
+
+    function setWeatherOfficeFilter(section, type, btn) {
+        weatherOfficeFilters[section] = type;
+        renderWeatherFilterButtons(section);
+        renderJurisdictionSummary();
+        if (section === 'rain') fetchDetailRain();
+        if (section === 'snow') fetchDetailSnow();
+        if (section === 'forest') autoFetchForest();
+    }
+
+    function syncGlobalScopeButtons() {
+        document.querySelectorAll('#global-scope-tabs .scope-btn').forEach((b, idx) => {
+            b.classList.toggle('active', (idx === 0 && globalScope === 'all') || (idx === 1 && globalScope === 'north') || (idx === 2 && globalScope === 'south'));
+        });
+    }
+
+    function renderJurisdictionSummary() {
+        const el = document.getElementById('jurisdiction-summary');
+        if (!el) return;
+        const north = NORTH_FULL_NAMES.join(', ');
+        const south = SOUTH_FULL_NAMES.join(', ');
+
+        if (globalScope === 'north') {
+            el.innerHTML = `<div class="jurisdiction-title">북부서 관할 행정구역</div><div class="jurisdiction-row"><span class="office-chip">북부서</span> ${north}</div>`;
+        } else if (globalScope === 'south') {
+            el.innerHTML = `<div class="jurisdiction-title">남부서 관할 행정구역</div><div class="jurisdiction-row"><span class="office-chip">남부서</span> ${south}</div>`;
+        } else {
+            el.innerHTML = `<div class="jurisdiction-title">관할 행정구역 구분</div><div class="jurisdiction-row"><span class="office-chip">북부서</span> ${north}</div><div class="jurisdiction-row"><span class="office-chip">남부서</span> ${south}</div>`;
+        }
+    }
+
+    function setGlobalScope(scope, btn) {
+        globalScope = scope;
+        syncGlobalScopeButtons();
+        weatherOfficeFilters.rain = 'all';
+        weatherOfficeFilters.snow = 'all';
+        weatherOfficeFilters.forest = 'all';
+        currFilter = 'all';
+        cctvFilter = 'all';
+        shelterFilter = '전체';
+        renderJurisdictionSummary();
+        renderAllScopedFilterButtons();
+        render();
+        renderShelters();
+        renderCctvs();
+        fetchDetailRain();
+        fetchDetailSnow();
+        autoFetchForest();
+    }
 
     window.onload = () => { 
+        renderJurisdictionSummary();
+        renderAllScopedFilterButtons();
         refreshAll();
         db.ref('trafficData').on('value', (snapshot) => {
             const data = snapshot.val();
-            if(data) { trafficData = data; render(); document.getElementById('sync-status').classList.add('live'); } 
-            else { db.ref('trafficData').set(defaultData); }
+            if(data) {
+                trafficData = data.map(item => withStation(item));
+                render();
+                document.getElementById('sync-status').classList.add('live');
+            } else {
+                db.ref('trafficData').set(defaultData.map(item => ({ ...item, station: '북부서' })));
+            }
+        });
+        db.ref('shelterManagedData').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (Array.isArray(data)) {
+                managedShelterData = data.map((item, idx) => withStation({ ...item, id: item.id || `shelter-${idx}` }));
+            } else {
+                managedShelterData = shelterData.map((item, idx) => withStation({ ...item, id: item.id || `base-shelter-${idx}` }));
+                db.ref('shelterManagedData').set(managedShelterData);
+            }
+            renderShelters();
+        });
+        db.ref('shelterExtraData').on('value', (snapshot) => {
+            const data = snapshot.val();
+            shelterExtraData = Array.isArray(data) ? data.map(withStation) : [];
+        });
+        db.ref('cctvData').on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (Array.isArray(data)) cctvData = data.map(withStation);
+            else {
+                cctvData = defaultCctvData.map(withStation);
+                db.ref('cctvData').set(cctvData);
+            }
+            renderCctvs();
         });
     };
 
@@ -690,7 +986,7 @@
         const icon = document.getElementById('refresh-icon');
         icon.classList.add('spin'); 
 
-        await Promise.all([ render(), renderShelters(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
+        await Promise.all([ render(), renderShelters(), renderCctvs(), fetchDetailRain(), fetchDetailSnow(), autoFetchSpecial(), autoFetchForest() ]);
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
@@ -726,7 +1022,7 @@
         { name:'해밀동', lat:36.5295, lng:127.2695 },
         { name:'산울동', lat:36.5265, lng:127.2555 },
         { name:'집현동', lat:36.4895, lng:127.3275 }
-    ].map(area => ({ ...area, ...kmaLatLngToGrid(area.lat, area.lng) }));
+    ].map(area => ({ ...area, office: getOfficeByAreaName(area.name), ...kmaLatLngToGrid(area.lat, area.lng) }));
 
     function kmaLatLngToGrid(lat, lng) {
         const RE = 6371.00877;
@@ -884,15 +1180,75 @@
     }
 
 
+    function safeFirebaseKey(value) {
+        return String(value || 'unknown').replace(/[.#$\[\]\/]/g, '_');
+    }
+
+    async function saveDailyRainSamples(rows, base) {
+        const today = base.baseDate;
+        const timeKey = `${base.baseDate}_${base.baseTime}`;
+        const updates = {};
+
+        rows.forEach(row => {
+            if (!row || row.error) return;
+            const areaKey = safeFirebaseKey(row.name);
+            updates[`dailyRainRn1/${today}/${areaKey}/name`] = row.name;
+            updates[`dailyRainRn1/${today}/${areaKey}/office`] = row.office || getOfficeByAreaName(row.name);
+            updates[`dailyRainRn1/${today}/${areaKey}/samples/${timeKey}`] = {
+                rain: Number(row.rain || 0),
+                temp: row.temp ?? '-',
+                wind: row.wind ?? '-',
+                baseDate: base.baseDate,
+                baseTime: base.baseTime,
+                savedAt: firebase.database.ServerValue.TIMESTAMP
+            };
+        });
+
+        if (Object.keys(updates).length > 0) {
+            await db.ref().update(updates);
+        }
+    }
+
+    async function attachDailyRainTotals(rows, base) {
+        try {
+            await saveDailyRainSamples(rows, base);
+            const snapshot = await db.ref(`dailyRainRn1/${base.baseDate}`).once('value');
+            const dailyData = snapshot.val() || {};
+
+            return rows.map(row => {
+                const areaKey = safeFirebaseKey(row.name);
+                const samples = dailyData?.[areaKey]?.samples || {};
+                const values = Object.values(samples);
+                const dailyRain = values.reduce((sum, item) => sum + Number(item?.rain || 0), 0);
+                return {
+                    ...row,
+                    dailyRain,
+                    sampleCount: values.length,
+                    dailySource: 'firebase'
+                };
+            });
+        } catch (e) {
+            console.warn('일누적 강수 저장/조회 실패:', e);
+            // Firebase가 일시적으로 막히면 화면은 최근 1시간 값이라도 표시
+            return rows.map(row => ({
+                ...row,
+                dailyRain: Number(row.rain || 0),
+                sampleCount: row.error ? 0 : 1,
+                dailySource: 'fallback'
+            }));
+        }
+    }
+
     async function fetchDetailRain() {
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
         const base = getUltraNcstBase();
+        const filterLabel = getSectionFilterLabel('rain');
 
         try {
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 수신중...</div>`;
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 수신 및 일누적 계산중...</div>`;
 
-            const rows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
+            const hourlyRows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
                 const data = await fetchKmaShortJson('getUltraSrtNcst', {
                     base_date: base.baseDate,
                     base_time: base.baseTime,
@@ -910,29 +1266,42 @@
                 return { ...area, rain, temp, wind, baseTime: `${base.baseDate} ${base.baseTime}` };
             });
 
-            const valid = rows.filter(r => !r.error);
-            const total = valid.reduce((sum, r) => sum + Number(r.rain || 0), 0);
+            const rows = await attachDailyRainTotals(hourlyRows, base);
+            const displayRows = filterRowsByOffice(rows, 'rain');
+            const valid = displayRows.filter(r => !r.error);
+            const total = valid.reduce((sum, r) => sum + Number(r.dailyRain || 0), 0);
             const avg = valid.length ? total / valid.length : 0;
 
             let html = '';
-            rows.forEach(row => {
+            displayRows.forEach(row => {
+                const station = row.office || getOfficeByAreaName(row.name);
                 if (row.error) {
-                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
+                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${station}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
                     return;
                 }
-                const valClass = row.rain > 0 ? 'rain-val wet' : 'rain-val';
-                const colorStyle = row.rain > 0 ? '' : 'color: var(--sub);';
+                const dailyRain = Number(row.dailyRain || 0);
+                const recentRain = Number(row.rain || 0);
+                const valClass = dailyRain > 0 ? 'rain-val wet' : 'rain-val';
+                const colorStyle = dailyRain > 0 ? '' : 'color: var(--sub);';
+                const storeLabel = row.dailySource === 'fallback' ? '저장지연·최근값' : `저장 ${row.sampleCount || 0}회`;
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${row.name}</div>
-                    <div class="${valClass}" style="${colorStyle}">${Number(row.rain || 0).toFixed(1)}<small>mm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">${row.temp}℃ | 풍속 ${row.wind}m/s</div>
+                    <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${station}</div>
+                    <div class="${valClass}" style="${colorStyle}">${dailyRain.toFixed(1)}<small>mm</small></div>
+                    <div style="font-size:10px; color:var(--blue); margin-top:4px; font-weight:700;">최근1시간 ${recentRain.toFixed(1)}mm</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">${row.temp}℃ | 풍속 ${row.wind}m/s</div>
+                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">${storeLabel}</div>
                 </div>`;
             });
 
+            if (displayRows.length === 0) {
+                html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 강수 자료 없음</div>`;
+            }
+
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 초단기실황</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${base.baseDate} ${base.baseTime}</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 RN1 누적</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · ${base.baseDate} ${base.baseTime}</div>
             </div>`;
 
             gridEl.innerHTML = html;
@@ -950,6 +1319,7 @@
         const avgSnowEl = document.getElementById('avg-snow-val');
         const base = getVilageFcstBase();
         const currentKey = getCurrentFcstKey();
+        const filterLabel = getSectionFilterLabel('snow');
 
         try {
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 적설량 수신중...</div>`;
@@ -974,30 +1344,37 @@
                 return { ...area, snow: snowVal, raw, fcstTime };
             });
 
-            const valid = rows.filter(r => !r.error);
+            const displayRows = filterRowsByOffice(rows, 'snow');
+            const valid = displayRows.filter(r => !r.error);
             const total = valid.reduce((sum, r) => sum + Number(r.snow || 0), 0);
             const avg = valid.length ? total / valid.length : 0;
 
             let html = '';
-            rows.forEach(row => {
+            displayRows.forEach(row => {
+                const station = row.office || getOfficeByAreaName(row.name);
                 if (row.error) {
-                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
+                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${station}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
                     return;
                 }
                 const valClass = row.snow > 0 ? 'rain-val snowing' : 'rain-val';
                 const colorStyle = row.snow > 0 ? '' : 'color: var(--sub);';
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${row.name}</div>
+                    <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${station}</div>
                     <div class="${valClass}" style="${colorStyle}">${Number(row.snow || 0).toFixed(1)}<small>cm</small></div>
                     <div style="font-size:10px; color:var(--sub); margin-top:4px;">SNO: ${row.raw}</div>
                     <div style="font-size:10px; color:var(--sub); margin-top:2px;">예보 ${String(row.fcstTime).slice(-4)}</div>
                 </div>`;
             });
 
+            if (displayRows.length === 0) {
+                html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 적설 자료 없음</div>`;
+            }
+
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
                 <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 단기예보</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${base.baseDate} ${base.baseTime}</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · ${base.baseDate} ${base.baseTime}</div>
             </div>`;
 
             gridEl.innerHTML = html;
@@ -1008,7 +1385,6 @@
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 적설량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
         }
     }
-
 
 
     async function autoFetchForest() {
@@ -1048,7 +1424,7 @@
             { name:'산울동', code:'36110115' },
             { name:'해밀동', code:'36110116' },
             { name:'집현동', code:'36110117' }
-        ];
+        ].map(area => ({ ...area, office: getOfficeByAreaName(area.name) }));
 
         const targetNames = forestAreas.map(a => a.name);
         const localAreas = forestAreas.map(a => a.code).join(',');
@@ -1155,7 +1531,10 @@
             let maxVal = -1;
             let maxName = '';
 
-            forestAreas.forEach(area => {
+            const displayForestAreas = filterRowsByOffice(forestAreas, 'forest');
+            const filterLabel = getSectionFilterLabel('forest');
+
+            displayForestAreas.forEach(area => {
                 const row = results[area.name] || { max: null, mean: null };
                 const level = getLevel(row.max);
 
@@ -1176,10 +1555,14 @@
                 </div>`;
             });
 
+            if (displayForestAreas.length === 0) {
+                html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 산불위험지수 자료 없음</div>`;
+            }
+
             html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
                 <div class="rain-val" style="font-size:11px; color:var(--sub);">산림청</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">현재값</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 현재값</div>
             </div>`;
 
             gridEl.innerHTML = html;
@@ -1188,9 +1571,9 @@
                 const avg = Math.round(totalMean / countMean);
                 const avgLevel = getLevel(avg);
                 const maxTxt = maxVal >= 0 ? `<span style="font-size:11px; color:var(--sub); margin-left:6px;">최고 ${maxName} ${Math.round(maxVal)}</span>` : '';
-                statusEl.innerHTML = `<span style="color:${avgLevel.color};">제공지역 평균 ${avg} · ${avgLevel.text}</span>${maxTxt}`;
+                statusEl.innerHTML = `<span style="color:${avgLevel.color};">${filterLabel} 제공지역 평균 ${avg} · ${avgLevel.text}</span>${maxTxt}`;
             } else {
-                statusEl.innerHTML = `<span style="color:var(--orange);">세종시 산불위험지수 미제공</span>`;
+                statusEl.innerHTML = `<span style="color:var(--orange);">${filterLabel} 산불위험지수 미제공</span>`;
             }
 
         } catch(e) {
@@ -1490,25 +1873,47 @@
         }
     }
 
+    function getAllShelterData() {
+        if (managedShelterData && managedShelterData.length) return managedShelterData.map(withStation);
+        return shelterData.map((s, idx) => withStation({ ...s, id: s.id || `base-shelter-${idx}` })).concat(shelterExtraData.map(withStation));
+    }
+
+    function saveManagedShelters() {
+        if (!managedShelterData || !managedShelterData.length) managedShelterData = getAllShelterData();
+        db.ref('shelterManagedData').set(managedShelterData.map(withStation));
+    }
+
     function renderShelterCards(data, showDistance = false) {
         const container = document.getElementById('shelter-list');
         container.innerHTML = '';
 
+        if (!data.length) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">조건에 맞는 대피소가 없습니다.</div>`;
+            return;
+        }
+
         data.forEach(item => {
+            const station = item.station || '북부서';
             const distHtml = showDistance && typeof item.distance === 'number'
                 ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'}</div>`
                 : '';
 
+            const safeName = String(item.name || '').replace(/'/g, "\\'");
             const div = document.createElement('div');
             div.className = 'shelter-card';
             div.innerHTML = `
                 <div class="shelter-name">${item.name}</div>
-                <div class="shelter-addr">${item.addr}</div>
+                <div style="font-size:9px; color:var(--sub); margin-top:2px;">${station} · ${item.area || '-'}</div>
+                <div class="shelter-addr">${item.addr || '-'}</div>
                 ${distHtml}
-                <div class="shelter-cap">수용: ${item.cap}</div>
+                <div class="shelter-cap">수용: ${item.cap || '-'}</div>
                 <div class="shelter-btn-group">
-                    <a href="tel:${item.tel}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
-                    <button class="shelter-btn" onclick="openKakaoNavi(${item.lat}, ${item.lng}, '${item.name}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                    <a href="tel:${String(item.tel || '').replace(/[^0-9]/g, '')}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
+                    <button class="shelter-btn" onclick="openKakaoNavi(${Number(item.lat || 0)}, ${Number(item.lng || 0)}, '${safeName}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                    <div class="admin-actions">
+                        <button class="mini-btn" onclick="editShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">수정</button>
+                        <button class="mini-btn danger" onclick="deleteShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">삭제</button>
+                    </div>
                 </div>
             `;
             container.appendChild(div);
@@ -1516,23 +1921,76 @@
     }
 
     function renderShelters() {
-        const activeBtn = document.querySelector('#sec-shelter .filter-btn.active');
-        const filterArea = activeBtn ? activeBtn.innerText.trim().replace(/\s+/g, '') : '전체';
+        if (String(shelterFilter).includes('가까운순') || String(shelterFilter).includes('내주변')) return;
 
-        // 가까운순 버튼은 GPS 계산 함수가 직접 다시 그리므로 일반 렌더링에서 제외
-        if (filterArea.includes('가까운순') || filterArea.includes('내주변')) return;
+        const search = (document.getElementById('shelter-search')?.value || '').toLowerCase();
+        let data = getAllShelterData();
+        const forcedStation = scopeStation();
+        if (forcedStation) data = data.filter(s => (s.station || '북부서') === forcedStation);
 
-        const filteredData = filterArea === '전체'
-            ? shelterData
-            : shelterData.filter(s => s.area === filterArea);
+        if (shelterFilter === '북부서' || shelterFilter === '남부서') {
+            data = data.filter(s => (s.station || '북부서') === shelterFilter);
+        } else if (String(shelterFilter).startsWith('area:')) {
+            const key = String(shelterFilter).replace('area:', '');
+            data = data.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
+        } else if (shelterFilter !== '전체') {
+            data = data.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, shelterFilter));
+        }
 
-        renderShelterCards(filteredData, false);
+        if (search) {
+            data = data.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+        }
+
+        renderShelterCards(data, false);
     }
 
     function filterShelter(area, btn) {
-        document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        shelterFilter = area;
+        renderShelterFilterButtons();
         renderShelters(); 
+    }
+
+    function addShelterLocation() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        if (!managedShelterData.length) managedShelterData = getAllShelterData();
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력 (예: 조치원읍, 한솔동)'); if (!area) return;
+        const name = prompt('대피소명 입력'); if (!name) return;
+        const addr = prompt('주소 입력') || '';
+        const cap = prompt('수용인원 입력 (예: 100명)') || '-';
+        const tel = prompt('전화번호 입력') || '';
+        const lat = parseFloat(prompt('위도 입력 (예: 36.6015)') || '0');
+        const lng = parseFloat(prompt('경도 입력 (예: 127.3005)') || '0');
+        const item = { id: `shelter-${Date.now()}`, station, area, name, addr, cap, tel, lat, lng };
+        managedShelterData.push(withStation(item));
+        saveManagedShelters();
+    }
+
+    function editShelterLocation(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        if (!managedShelterData.length) managedShelterData = getAllShelterData();
+        const idx = managedShelterData.findIndex(s => String(s.id) === String(id));
+        if (idx === -1) return alert('대피소 정보를 찾을 수 없습니다.');
+        const item = managedShelterData[idx];
+        const station = normalizeStation(prompt('관할 수정 (북부서/남부서)', item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
+        const area = prompt('행정구역 수정', item.area || ''); if (!area) return;
+        const name = prompt('대피소명 수정', item.name || ''); if (!name) return;
+        const addr = prompt('주소 수정', item.addr || '') || '';
+        const cap = prompt('수용인원 수정', item.cap || '-') || '-';
+        const tel = prompt('전화번호 수정', item.tel || '') || '';
+        const lat = parseFloat(prompt('위도 수정', item.lat || '0') || '0');
+        const lng = parseFloat(prompt('경도 수정', item.lng || '0') || '0');
+        managedShelterData[idx] = withStation({ ...item, station, area, name, addr, cap, tel, lat, lng });
+        saveManagedShelters();
+    }
+
+    function deleteShelterLocation(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        if (!confirm('이 대피소를 삭제하시겠습니까?')) return;
+        if (!managedShelterData.length) managedShelterData = getAllShelterData();
+        managedShelterData = managedShelterData.filter(s => String(s.id) !== String(id));
+        saveManagedShelters();
     }
 
     function openKakaoNavi(lat, lng, name) {
@@ -1551,43 +2009,165 @@
 
     function toggleAdmin() {
         if (!isAdmin) {
-            if (prompt("비밀번호:") === "2580") { isAdmin = true; document.getElementById('admin-btn').classList.add('active'); document.getElementById('add-loc-btn').style.display = 'block'; render(); }
-        } else { isAdmin = false; document.getElementById('admin-btn').classList.remove('active'); document.getElementById('add-loc-btn').style.display = 'none'; render(); }
+            if (prompt("비밀번호:") === "2580") {
+                isAdmin = true;
+                document.body.classList.add('admin-mode');
+                document.getElementById('admin-btn').classList.add('active');
+                ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'block';
+                });
+                renderAllScopedFilterButtons();
+                render(); renderShelters(); renderCctvs();
+            }
+        } else {
+            isAdmin = false;
+            document.body.classList.remove('admin-mode');
+            document.getElementById('admin-btn').classList.remove('active');
+            ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            renderAllScopedFilterButtons();
+            render(); renderShelters(); renderCctvs();
+        }
     }
 
     function render() {
         const container = document.getElementById('list');
-        const searchVal = document.getElementById('search').value.toLowerCase();
-        let banCnt = 0; container.innerHTML = '';
+        const searchVal = (document.getElementById('search')?.value || '').toLowerCase();
+        let banCnt = 0;
+        let visibleTotal = 0;
+        container.innerHTML = '';
+
+        trafficData = trafficData.map(withStation);
+
         trafficData.forEach((item, idx) => {
-            if(item.status === 2) banCnt++;
+            const station = item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''}`);
+            const forcedStation = scopeStation();
+            if (forcedStation && station !== forcedStation) return;
             if(currFilter === 'ban' && item.status === 0) return;
             if(currFilter === 'free' && item.status !== 0) return;
-            if(['조치원','전의','부강'].includes(currFilter) && item.area !== currFilter) return;
-            if(searchVal && !item.name.includes(searchVal)) return;
+            if(currFilter === 'north' && station !== '북부서') return;
+            if(currFilter === 'south' && station !== '남부서') return;
+            if(String(currFilter).startsWith('area:')) {
+                const key = String(currFilter).replace('area:', '');
+                if(!areaMatches(`${item.area || ''} ${item.name || ''}`, key)) return;
+            }
+            if(searchVal && !(`${item.name || ''} ${item.area || ''} ${station}`.toLowerCase().includes(searchVal))) return;
+
+            visibleTotal++;
+            if(item.status === 2) banCnt++;
             const div = document.createElement('div');
             div.className = 'traffic-card';
-            div.innerHTML = `<div class="card-info"><span class="area-tag">${item.area}</span><div class="loc-name">${item.name}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div>`;
+            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${item.area}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
             container.appendChild(div);
         });
-        document.getElementById('cnt-total').innerText = trafficData.length;
+        document.getElementById('cnt-total').innerText = visibleTotal;
         document.getElementById('cnt-ban').innerText = banCnt;
     }
 
     function setFilter(type, btn) {
-        currFilter = type; document.querySelectorAll('.filter-area .filter-btn').forEach(b => b.classList.remove('active')); btn.classList.add('active'); render();
+        currFilter = type;
+        renderTrafficFilterButtons();
+        render();
     }
 
     function addTrafficLocation() {
-        const area = prompt("지역 입력 (예: 조치원)"); if (!area) return;
-        const name = prompt("장소명 입력"); if (!name) return;
-        trafficData.push({ id: Date.now(), area: area, name: name, status: 0 });
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt("관할 입력 (북부서/남부서)", defaultStation), '');
+        const area = prompt("행정구역 입력 (예: 조치원읍, 한솔동)"); if (!area) return;
+        const name = prompt("통제장소명 입력"); if (!name) return;
+        const status = Number(prompt("상태 입력: 0 정상 / 2 통제", "0") || "0");
+        trafficData.push(withStation({ id: Date.now(), station, area, name, status: status === 2 ? 2 : 0 }));
         db.ref('trafficData').set(trafficData);
+    }
+
+    function editTrafficLocation(idx) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return alert('통제장소 정보를 찾을 수 없습니다.');
+        const station = normalizeStation(prompt("관할 수정 (북부서/남부서)", item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
+        const area = prompt("행정구역 수정", item.area || ''); if (!area) return;
+        const name = prompt("통제장소명 수정", item.name || ''); if (!name) return;
+        const status = Number(prompt("상태 수정: 0 정상 / 2 통제", String(item.status || 0)) || "0");
+        trafficData[idx] = withStation({ ...item, station, area, name, status: status === 2 ? 2 : 0 });
+        db.ref('trafficData').set(trafficData);
+    }
+
+    function deleteTrafficLocation(idx) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return;
+        if (!confirm(`통제장소 [${item.name}]을 삭제하시겠습니까?`)) return;
+        trafficData.splice(idx, 1);
+        db.ref('trafficData').set(trafficData);
+    }
+
+    function setCctvFilter(type, btn) {
+        cctvFilter = type;
+        renderCctvFilterButtons();
+        renderCctvs();
+    }
+
+    function renderCctvs() {
+        const container = document.getElementById('cctv-list');
+        if (!container) return;
+        const search = (document.getElementById('cctv-search')?.value || '').toLowerCase();
+        let data = (cctvData && cctvData.length ? cctvData : defaultCctvData).map(withStation);
+        const forcedStation = scopeStation();
+        if (forcedStation) data = data.filter(c => c.station === forcedStation);
+
+        if (cctvFilter === 'north') data = data.filter(c => c.station === '북부서');
+        else if (cctvFilter === 'south') data = data.filter(c => c.station === '남부서');
+        else if (String(cctvFilter).startsWith('area:')) {
+            const key = String(cctvFilter).replace('area:', '');
+            data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, key));
+        } else if (cctvFilter !== 'all') data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, cctvFilter));
+        if (search) data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''}`.toLowerCase().includes(search));
+
+        container.innerHTML = '';
+        if (!data.length) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">조건에 맞는 CCTV가 없습니다.</div>`;
+            return;
+        }
+
+        data.forEach(c => {
+            const hasUrl = !!c.url;
+            const href = hasUrl ? c.url : '#';
+            const click = hasUrl ? '' : `onclick="alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.'); return false;"`;
+            const opacity = hasUrl ? '1' : '0.6';
+            const btnStyle = hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);';
+            const btnText = hasUrl ? '<i class="fas fa-play"></i> 즉시 재생' : '<i class="fas fa-link"></i> 링크 대기중';
+            const a = document.createElement('a');
+            a.href = href;
+            a.target = hasUrl ? '_blank' : '';
+            a.className = 'traffic-card';
+            a.style.textDecoration = 'none';
+            a.style.opacity = opacity;
+            if (!hasUrl) a.setAttribute('onclick', "alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.'); return false;");
+            a.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
+            container.appendChild(a);
+        });
+    }
+
+    function addCctvLocation() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', '북부서'), '');
+        const area = prompt('지역 입력 (예: 조치원, 한솔동)'); if (!area) return;
+        const name = prompt('CCTV 장소명 입력'); if (!name) return;
+        const idOrUrl = prompt('카카오맵 cctvid 또는 전체 URL 입력') || '';
+        let url = '';
+        if (idOrUrl.startsWith('http')) url = idOrUrl;
+        else if (idOrUrl.trim()) url = `https://m.map.kakao.com/actions/cctvView?cctvid=${idOrUrl.trim()}`;
+        cctvData.push({ id: Date.now(), station, area, name, url, active: !!url });
+        db.ref('cctvData').set(cctvData);
     }
 
     function resetData() {
         if (!isAdmin) return;
-        if(confirm('초기화하시겠습니까?')) db.ref('trafficData').set(defaultData);
+        if(confirm('도로통제 데이터를 초기화하시겠습니까?')) db.ref('trafficData').set(defaultData.map(item => ({ ...item, station: '북부서' })));
     }
 
     // --- 현위치 기반 대피소 가까운순 정렬 ---
@@ -1629,7 +2209,19 @@
                 const myLat = position.coords.latitude;
                 const myLng = position.coords.longitude;
 
-                const sortedData = shelterData
+                let sourceData = getAllShelterData();
+                const forcedStation = scopeStation();
+                if (forcedStation) {
+                    sourceData = sourceData.filter(s => (s.station || '북부서') === forcedStation);
+                }
+                if (shelterFilter === '북부서' || shelterFilter === '남부서') {
+                    sourceData = sourceData.filter(s => (s.station || '북부서') === shelterFilter);
+                } else if (String(shelterFilter).startsWith('area:')) {
+                    const key = String(shelterFilter).replace('area:', '');
+                    sourceData = sourceData.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
+                }
+                const sortedData = sourceData
+                    .filter(s => Number(s.lat) && Number(s.lng))
                     .map(s => ({ ...s, distance: getDistance(myLat, myLng, s.lat, s.lng) }))
                     .sort((a, b) => a.distance - b.distance);
 
