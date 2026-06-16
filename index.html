@@ -692,24 +692,36 @@
         return `https://m.map.kakao.com/actions/cctvView?cctvid=${id}`;
     }
 
-    function sanitizeCctvData(source = []) {
-        const arr = Array.isArray(source) ? source.map(withStation) : [];
-        return defaultCctvData.map(def => {
-            const saved = arr.find(c => {
-                const savedId = extractCctvIdFromText(c.url || c.id || '');
-                return String(c.id) === String(def.id) || savedId === String(def.id) || c.name === def.name;
-            });
-            return withStation({
-                ...def,
-                ...(saved || {}),
-                id: def.id,
-                station: '북부서',
-                area: '조치원',
-                name: def.name,
-                url: def.url,
-                active: true
-            });
+    function normalizeCctvItem(item = {}) {
+        const raw = String(item.url || item.id || '').trim();
+        const cctvId = extractCctvIdFromText(raw);
+        const url = cctvId ? makeKakaoCctvUrl(cctvId) : String(item.url || '').trim();
+        const id = cctvId || item.id || Date.now();
+        return withStation({
+            ...item,
+            id,
+            url,
+            active: !!url
         });
+    }
+
+    function sanitizeCctvData(source = []) {
+        const input = Array.isArray(source) && source.length ? source : defaultCctvData;
+        const merged = [...defaultCctvData, ...input];
+        const seen = new Set();
+        const result = [];
+
+        merged.forEach(item => {
+            if (!item) return;
+            const normalized = normalizeCctvItem(item);
+            const cctvId = extractCctvIdFromText(normalized.url || normalized.id || '');
+            const key = cctvId ? `id:${cctvId}` : `name:${normalized.station || ''}:${normalized.area || ''}:${normalized.name || ''}:${normalized.url || ''}`;
+            if (seen.has(key)) return;
+            seen.add(key);
+            result.push(normalized);
+        });
+
+        return result;
     }
 
     const defaultData = [
@@ -987,9 +999,9 @@
         });
         db.ref('cctvData').on('value', (snapshot) => {
             const data = snapshot.val();
-            const cleaned = sanitizeCctvData(Array.isArray(data) ? data : []);
+            const cleaned = sanitizeCctvData(Array.isArray(data) ? data : defaultCctvData);
             cctvData = cleaned;
-            if (JSON.stringify(data || []) !== JSON.stringify(cleaned)) {
+            if (!Array.isArray(data) || !data.length) {
                 db.ref('cctvData').set(cleaned);
             }
             renderCctvs();
@@ -2427,7 +2439,51 @@
 
     function addCctvLocation() {
         if (!isAdmin) return alert('관리자 권한 필요');
-        alert('현재 CCTV 목록은 상리사거리와 홍대입구삼거리 2개만 표시되도록 고정되어 있습니다.');
+
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt("관할 입력 (북부서/남부서)", defaultStation), '');
+        const area = prompt("행정구역 입력 (예: 조치원, 한솔동)", globalScope === 'south' ? '한솔동' : '조치원');
+        if (!area) return;
+
+        const name = prompt("CCTV 장소명 입력", "");
+        if (!name) return;
+
+        const input = prompt("카카오 CCTV 링크 또는 cctvid 번호 입력\n예: https://m.map.kakao.com/actions/cctvView?cctvid=71944\n또는 71944\n또는 kko.to 공유링크", "");
+        if (!input) return;
+
+        const cctvId = extractCctvIdFromText(input);
+        let url = cctvId ? makeKakaoCctvUrl(cctvId) : String(input).trim();
+        if (!/^https?:\/\//i.test(url)) {
+            alert('CCTV 번호 또는 http로 시작하는 링크를 입력해주세요.');
+            return;
+        }
+
+        const newItem = normalizeCctvItem({
+            id: cctvId || Date.now(),
+            station,
+            area,
+            name,
+            url,
+            active: true
+        });
+
+        const current = sanitizeCctvData(cctvData && cctvData.length ? cctvData : defaultCctvData);
+        const newKey = extractCctvIdFromText(newItem.url || newItem.id || '') || newItem.url;
+        const dupIdx = current.findIndex(c => {
+            const key = extractCctvIdFromText(c.url || c.id || '') || c.url;
+            return key && key === newKey;
+        });
+
+        if (dupIdx >= 0) {
+            if (!confirm('같은 CCTV가 이미 있습니다. 기존 정보를 새 내용으로 갱신할까요?')) return;
+            current[dupIdx] = { ...current[dupIdx], ...newItem };
+        } else {
+            current.push(newItem);
+        }
+
+        cctvData = sanitizeCctvData(current);
+        db.ref('cctvData').set(cctvData);
+        renderCctvs();
     }
 
     function resetData() {
