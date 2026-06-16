@@ -518,6 +518,7 @@
             </div>
             <button id="load-its-all-cctv-btn" onclick="fetchAllSejongItsCctv()" style="width:100%; margin-top:8px; background:var(--blue); color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 전체 ITS CCTV 불러오기</button>
             <button id="load-sejong-core-cctv-btn" onclick="addSejongCoreCctvPresets()" style="width:100%; margin-top:8px; background:#5856D6; color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종 신도심 CCTV 넣기</button>
+            <button id="open-sejong-bis-popup-btn" onclick="openSejongBisCctvPopup()" style="width:100%; margin-top:8px; background:#111; color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 교통CCTV 팝업 열기</button>
             <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
                 <button onclick="addDisasterCctvPresets('all')" style="background:#FF3B30; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">재난 CCTV 넣기</button>
                 <button onclick="addDisasterCctvPresets('river')" style="background:#007AFF; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">하천 CCTV 보기</button>
@@ -842,6 +843,10 @@
     // 공개 영상 URL이 확인되는 ITS는 팝업 재생, 세종시/홍수통제소 공개 화면은 공식 화면 연결 방식입니다.
     const FLOOD_CCTV_URL = 'https://n.flood.go.kr/observation/waterlevel/waterLevelCCTV.do';
     const FLOOD_DIRECT_CCTV_URL_3011675 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3011675&ymdhm=202606161910&fcodvcd=03';
+    const FLOOD_DIRECT_CCTV_URL_3011687 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3011687&ymdhm=202606161920&fcodvcd=03';
+    const FLOOD_DIRECT_CCTV_URL_3011695 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3011695&ymdhm=202606161920&fcodvcd=03';
+    const FLOOD_DIRECT_CCTV_URL_3012602 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3012602&ymdhm=202606161920&fcodvcd=03';
+    const FLOOD_DIRECT_CCTV_URL_3012607 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3012607&ymdhm=202606161920&fcodvcd=03';
     const GEUM_RIVER_CCTV_URL = 'https://hrfco.go.kr/sumun/cctvRtmp.do';
     const SEJONG_DISASTER_CCTV_PRESETS = [
         { id:'disaster-jochiwon-sewolgyo', station:'북부서', area:'조치원', name:'조치원 세월교 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'세월교' },
@@ -858,6 +863,10 @@
     ];
     const SEJONG_RIVER_CCTV_PRESETS = [
         { id:'flood-direct-3011675', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011675', url:FLOOD_DIRECT_CCTV_URL_3011675, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3011687', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011687', url:FLOOD_DIRECT_CCTV_URL_3011687, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3011695', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011695', url:FLOOD_DIRECT_CCTV_URL_3011695, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3012602', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3012602', url:FLOOD_DIRECT_CCTV_URL_3012602, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3012607', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3012607', url:FLOOD_DIRECT_CCTV_URL_3012607, active:true, source:'FLOOD_CCTV', type:'하천' },
         { id:'flood-geum-river-control', station:'세종청', area:'금강', name:'금강홍수통제소 수위동영상', url:GEUM_RIVER_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
         { id:'flood-waterlevel-cctv', station:'세종청', area:'세종시', name:'홍수정보시스템 수위관측 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
         { id:'flood-geumgang-sejong', station:'남부서', area:'금남면', name:'금강 세종 구간 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
@@ -2790,6 +2799,10 @@
         modal.style.display = 'block';
     }
 
+    function openSejongBisCctvPopup() {
+        playCctvPageInModal(SEJONG_TRAFFIC_CCTV_URL, '세종시 교통정보시스템 CCTV');
+    }
+
     function openCctvUrl(url, title = 'CCTV 재생', source = '') {
         if (!url) {
             alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
@@ -2800,7 +2813,7 @@
             return;
         }
         if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') {
-            window.open(url, '_blank', 'noopener,noreferrer');
+            playCctvPageInModal(url, title || '세종시 교통CCTV');
             return;
         }
         if (String(url).includes('m.map.kakao.com/actions/cctvView')) {
