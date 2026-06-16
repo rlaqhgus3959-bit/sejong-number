@@ -729,6 +729,29 @@
         return result;
     }
 
+
+    function loadCctvLocalBackup() {
+        try {
+            const saved = localStorage.getItem(CCTV_LOCAL_BACKUP_KEY);
+            return saved ? firebaseListToArray(JSON.parse(saved)).map(normalizeCctvItem) : [];
+        } catch (e) {
+            return [];
+        }
+    }
+
+    function saveCctvLocalBackup(list = []) {
+        try {
+            const cleaned = sanitizeCctvData(list);
+            localStorage.setItem(CCTV_LOCAL_BACKUP_KEY, JSON.stringify(cleaned));
+        } catch (e) {}
+    }
+
+    function mergeCctvSources(...sources) {
+        const merged = [];
+        sources.forEach(src => firebaseListToArray(src).forEach(item => merged.push(item)));
+        return sanitizeCctvData(merged.length ? merged : defaultCctvData);
+    }
+
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
         { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'송하한정식 앞', status:2 },
@@ -745,6 +768,8 @@
     let shelterExtraData = [];
     let managedShelterData = [];
     let cctvData = [];
+    let isCctvSaving = false;
+    const CCTV_LOCAL_BACKUP_KEY = 'sejongPoliceCctvBackup';
     let shelterFilter = '전체';
     let cctvFilter = 'all';
     let globalScope = 'all';
@@ -1003,13 +1028,19 @@
             shelterExtraData = Array.isArray(data) ? data.map(withStation) : [];
         });
         db.ref('cctvData').on('value', (snapshot) => {
+            if (isCctvSaving) return;
             const data = snapshot.val();
             const rawList = firebaseListToArray(data);
-            const cleaned = sanitizeCctvData(rawList.length ? rawList : defaultCctvData);
-            cctvData = cleaned;
-            // 처음 실행 또는 기존 DB 형식이 객체인 경우에만 배열 형태로 정리 저장
-            if (!Array.isArray(data)) {
-                db.ref('cctvData').set(cleaned);
+            const backupList = loadCctvLocalBackup();
+            const merged = mergeCctvSources(rawList.length ? rawList : defaultCctvData, backupList);
+            cctvData = merged;
+            saveCctvLocalBackup(cctvData);
+
+            // Firebase 값이 오래된 값으로 들어와 추가 CCTV가 사라지는 것을 방지
+            const rawCount = sanitizeCctvData(rawList).length;
+            if (backupList.length && rawCount < cctvData.length) {
+                isCctvSaving = true;
+                db.ref('cctvData').set(cctvData).finally(() => { isCctvSaving = false; });
             }
             renderCctvs();
         });
@@ -2492,16 +2523,29 @@
         }
 
         cctvData = sanitizeCctvData(current);
+        saveCctvLocalBackup(cctvData);
         cctvFilter = 'all';
+        globalScope = 'all';
+        syncGlobalScopeButtons();
         const searchBox = document.getElementById('cctv-search');
         if (searchBox) searchBox.value = '';
-        renderCctvFilterButtons();
+        renderAllScopedFilterButtons();
+        renderCctvs();
+
+        isCctvSaving = true;
         db.ref('cctvData').set(cctvData).then(() => {
+            return db.ref('cctvData').once('value');
+        }).then((snapshot) => {
+            const savedList = firebaseListToArray(snapshot.val());
+            cctvData = mergeCctvSources(savedList, loadCctvLocalBackup());
+            saveCctvLocalBackup(cctvData);
             renderCctvs();
             alert('CCTV가 추가되었습니다.');
         }).catch(err => {
             console.error(err);
             alert('CCTV 저장 중 오류가 발생했습니다.');
+        }).finally(() => {
+            isCctvSaving = false;
         });
     }
 
