@@ -484,12 +484,13 @@
             <div class="search-row">
                 <input type="text" class="search-input" id="cctv-search" placeholder="CCTV 장소 검색" onkeyup="renderCctvs()">
                 <button class="add-loc-btn" id="add-cctv-btn" onclick="addCctvLocation()">+ CCTV</button>
+                <button class="add-loc-btn" id="load-its-cctv-btn" onclick="fetchJochiwonItsCctv()">ITS 조치원</button>
             </div>
             <div class="filter-group" id="cctv-filter-group"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * 관리자 모드에서 북부서·남부서 CCTV를 추가할 수 있습니다.
+            * 관리자 모드에서 CCTV 추가 또는 ITS 조치원 CCTV를 불러올 수 있습니다.
         </div>
     </div>
 </div>
@@ -501,6 +502,22 @@
 
 <div style="height:30px; text-align:center; padding-bottom: 20px;">
     <button onclick="resetData()" style="background:none; border:none; color:var(--sub); font-size:11px; text-decoration:underline; cursor:pointer;">[관리자] 데이터 초기화</button>
+</div>
+
+
+<div id="cctv-player-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.85); z-index:3000; padding:calc(20px + env(safe-area-inset-top)) 16px 20px; box-sizing:border-box;">
+    <div style="display:flex; justify-content:space-between; align-items:center; color:white; margin-bottom:12px;">
+        <div id="cctv-player-title" style="font-size:16px; font-weight:800;">CCTV 재생</div>
+        <button onclick="closeCctvPlayer()" style="background:white; color:#111; border:none; border-radius:12px; padding:8px 12px; font-weight:800;">닫기</button>
+    </div>
+    <video id="cctv-player-video" controls autoplay muted playsinline style="width:100%; max-height:70vh; background:#000; border-radius:14px;"></video>
+    <div style="display:flex; gap:8px; margin-top:12px;">
+        <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:12px; padding:12px; font-weight:800;">외부창 열기</button>
+        <button onclick="closeCctvPlayer()" style="flex:1; background:#333; color:white; border:1px solid #555; border-radius:12px; padding:12px; font-weight:800;">재생 종료</button>
+    </div>
+    <div style="font-size:11px; color:#ddd; margin-top:10px; line-height:1.5; text-align:center;">
+        * 브라우저 보안정책 또는 원본 서버 제한으로 내부 재생이 안 되면 외부창으로 확인하세요.
+    </div>
 </div>
 
 <div id="sync-status">● Live Sync</div>
@@ -692,64 +709,125 @@
         return `https://m.map.kakao.com/actions/cctvView?cctvid=${id}`;
     }
 
-    function firebaseListToArray(data) {
-        if (Array.isArray(data)) return data.filter(Boolean);
-        if (data && typeof data === 'object') return Object.values(data).filter(Boolean);
-        return [];
+    function isDirectCctvUrl(url = '', item = {}) {
+        const u = String(url || '').trim();
+        if (!u) return false;
+        if (extractCctvIdFromText(u)) return true;
+        if (u.includes('m.map.kakao.com/actions/cctvView')) return true;
+        if (item.source === 'ITS' || item.cctvformat || item.cctvType) return true;
+        if (/\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(u)) return true;
+        return false;
     }
 
-    function normalizeCctvItem(item = {}) {
-        const raw = String(item.url || item.id || '').trim();
-        const cctvId = extractCctvIdFromText(raw);
-        const url = cctvId ? makeKakaoCctvUrl(cctvId) : String(item.url || '').trim();
-        const id = cctvId || item.id || Date.now();
-        return withStation({
-            ...item,
-            id,
-            url,
-            active: !!url
-        });
+    function normalizeCctvKey(item = {}) {
+        const directId = extractCctvIdFromText(item.url || item.id || '');
+        if (directId) return `kakao-${directId}`;
+        if (item.source === 'ITS') return String(item.id || `${item.name || ''}-${item.coordx || ''}-${item.coordy || ''}`);
+        return String(item.id || item.url || item.name || Date.now());
     }
 
     function sanitizeCctvData(source = []) {
-        const arr = firebaseListToArray(source).map(normalizeCctvItem);
-        const merged = [...defaultCctvData.map(normalizeCctvItem), ...arr];
-        const seen = new Set();
-        const result = [];
-
-        merged.forEach(item => {
-            if (!item) return;
-            const cctvId = extractCctvIdFromText(item.url || item.id || '');
-            const key = cctvId ? `id:${cctvId}` : `url:${item.url || ''}|name:${item.name || ''}|area:${item.area || ''}`;
-            if (seen.has(key)) return;
-            seen.add(key);
-            result.push(withStation(item));
+        const arr = Array.isArray(source) ? source.map(withStation) : Object.values(source || {}).map(withStation);
+        const map = new Map();
+        [...defaultCctvData.map(withStation), ...arr].forEach(raw => {
+            const directId = extractCctvIdFromText(raw.url || raw.id || '');
+            let item = withStation({
+                ...raw,
+                id: raw.id || directId || Date.now(),
+                station: raw.station || normalizeStation('', `${raw.area || ''} ${raw.name || ''}`),
+                area: raw.area || '조치원',
+                active: raw.active !== false
+            });
+            if (directId && !String(item.url || '').includes('cctvid=')) item.url = makeKakaoCctvUrl(directId);
+            if (!item.url || !isDirectCctvUrl(item.url, item)) return;
+            map.set(normalizeCctvKey(item), item);
         });
-
-        return result;
+        return Array.from(map.values());
     }
 
+    const ITS_CCTV_API_KEY = "56934196b0354a48ab5a1d020262c673";
+    const ITS_CCTV_BASE = "https://openapi.its.go.kr:9443/cctvInfo";
+    const JOCHIWON_CCTV_BOUNDS = { minX: 127.245, maxX: 127.335, minY: 36.575, maxY: 36.635 };
 
-    function loadCctvLocalBackup() {
+    function buildItsCctvUrl(type = 'its', cctvType = '1') {
+        const p = new URLSearchParams({
+            apiKey: ITS_CCTV_API_KEY,
+            type,
+            cctvType,
+            minX: String(JOCHIWON_CCTV_BOUNDS.minX),
+            maxX: String(JOCHIWON_CCTV_BOUNDS.maxX),
+            minY: String(JOCHIWON_CCTV_BOUNDS.minY),
+            maxY: String(JOCHIWON_CCTV_BOUNDS.maxY),
+            getType: 'json'
+        });
+        return `${ITS_CCTV_BASE}?${p.toString()}`;
+    }
+
+    function normalizeItsCctvResponse(json) {
+        const data = json?.response?.data || json?.response?.body?.items?.item || json?.body?.items?.item || json?.data || json?.items || [];
+        return Array.isArray(data) ? data : (data ? [data] : []);
+    }
+
+    function mapItsCctvItem(item) {
+        const name = String(item.cctvname || item.name || 'ITS 조치원 CCTV').replace(/^\[?CCTV\]?\s*/i, '').trim();
+        const coordx = item.coordx || item.x || '';
+        const coordy = item.coordy || item.y || '';
+        const url = item.cctvurl || item.url || '';
+        const fmt = item.cctvformat || item.format || '';
+        const ctype = item.cctvtype || item.type || '';
+        return withStation({
+            id: `its-${name}-${coordx}-${coordy}`.replace(/\s+/g, '_'),
+            station: '북부서',
+            area: '조치원',
+            name: name || 'ITS 조치원 CCTV',
+            url,
+            active: true,
+            source: 'ITS',
+            type: '도로',
+            coordx,
+            coordy,
+            cctvformat: fmt,
+            cctvType: ctype
+        });
+    }
+
+    async function fetchJochiwonItsCctv() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const btn = document.getElementById('load-its-cctv-btn');
+        const oldText = btn ? btn.innerText : '';
+        if (btn) { btn.innerText = '불러오는 중'; btn.disabled = true; }
         try {
-            const saved = localStorage.getItem(CCTV_LOCAL_BACKUP_KEY);
-            return saved ? firebaseListToArray(JSON.parse(saved)).map(normalizeCctvItem) : [];
+            const candidates = [
+                ['its', '1'], ['its', '2'], ['all', '1'], ['all', '2']
+            ];
+            const fetched = [];
+            for (const [roadType, cctvType] of candidates) {
+                try {
+                    const res = await fetch(buildItsCctvUrl(roadType, cctvType), { cache: 'no-store' });
+                    if (!res.ok) continue;
+                    const json = await res.json();
+                    normalizeItsCctvResponse(json).forEach(row => fetched.push(row));
+                } catch (e) {
+                    console.warn('ITS CCTV 조회 실패', roadType, cctvType, e);
+                }
+            }
+            const mapped = fetched.map(mapItsCctvItem).filter(c => c.url && isDirectCctvUrl(c.url, c));
+            const merged = sanitizeCctvData([...(cctvData || []), ...mapped]);
+            cctvData = merged;
+            localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
+            await db.ref('cctvData').set(merged);
+            cctvFilter = 'area:조치원';
+            document.getElementById('cctv-search').value = '';
+            renderCctvFilterButtons();
+            renderCctvs();
+            alert(`ITS 조치원 CCTV ${mapped.length}개를 불러왔습니다.
+화면에는 중복 제거 후 ${merged.filter(c => c.area === '조치원').length}개가 표시됩니다.`);
         } catch (e) {
-            return [];
+            console.error(e);
+            alert('ITS CCTV 조회에 실패했습니다. API 키 승인 여부 또는 브라우저 보안정책을 확인하세요.');
+        } finally {
+            if (btn) { btn.innerText = oldText || 'ITS 조치원'; btn.disabled = false; }
         }
-    }
-
-    function saveCctvLocalBackup(list = []) {
-        try {
-            const cleaned = sanitizeCctvData(list);
-            localStorage.setItem(CCTV_LOCAL_BACKUP_KEY, JSON.stringify(cleaned));
-        } catch (e) {}
-    }
-
-    function mergeCctvSources(...sources) {
-        const merged = [];
-        sources.forEach(src => firebaseListToArray(src).forEach(item => merged.push(item)));
-        return sanitizeCctvData(merged.length ? merged : defaultCctvData);
     }
 
     const defaultData = [
@@ -768,8 +846,6 @@
     let shelterExtraData = [];
     let managedShelterData = [];
     let cctvData = [];
-    let isCctvSaving = false;
-    const CCTV_LOCAL_BACKUP_KEY = 'sejongPoliceCctvBackup';
     let shelterFilter = '전체';
     let cctvFilter = 'all';
     let globalScope = 'all';
@@ -1028,19 +1104,14 @@
             shelterExtraData = Array.isArray(data) ? data.map(withStation) : [];
         });
         db.ref('cctvData').on('value', (snapshot) => {
-            if (isCctvSaving) return;
             const data = snapshot.val();
-            const rawList = firebaseListToArray(data);
-            const backupList = loadCctvLocalBackup();
-            const merged = mergeCctvSources(rawList.length ? rawList : defaultCctvData, backupList);
-            cctvData = merged;
-            saveCctvLocalBackup(cctvData);
-
-            // Firebase 값이 오래된 값으로 들어와 추가 CCTV가 사라지는 것을 방지
-            const rawCount = sanitizeCctvData(rawList).length;
-            if (backupList.length && rawCount < cctvData.length) {
-                isCctvSaving = true;
-                db.ref('cctvData').set(cctvData).finally(() => { isCctvSaving = false; });
+            const savedArr = Array.isArray(data) ? data : Object.values(data || {});
+            const localBackup = JSON.parse(localStorage.getItem('cctvDataBackup') || '[]');
+            const cleaned = sanitizeCctvData([...savedArr, ...localBackup]);
+            cctvData = cleaned;
+            localStorage.setItem('cctvDataBackup', JSON.stringify(cleaned));
+            if (JSON.stringify(savedArr) !== JSON.stringify(cleaned)) {
+                db.ref('cctvData').set(cleaned);
             }
             renderCctvs();
         });
@@ -2331,7 +2402,7 @@
                 isAdmin = true;
                 document.body.classList.add('admin-mode');
                 document.getElementById('admin-btn').classList.add('active');
-                ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+                ['add-loc-btn','add-shelter-btn','add-cctv-btn','load-its-cctv-btn'].forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'block';
                 });
@@ -2342,7 +2413,7 @@
             isAdmin = false;
             document.body.classList.remove('admin-mode');
             document.getElementById('admin-btn').classList.remove('active');
-            ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+            ['add-loc-btn','add-shelter-btn','add-cctv-btn','load-its-cctv-btn'].forEach(id => {
                 const el = document.getElementById(id);
                 if (el) el.style.display = 'none';
             });
@@ -2429,12 +2500,64 @@
         renderCctvs();
     }
 
-    function openCctvUrl(url) {
+    let currentCctvUrl = '';
+    let currentHls = null;
+
+    function openCurrentCctvExternal() {
+        if (currentCctvUrl) window.open(currentCctvUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    function closeCctvPlayer() {
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        if (video) { video.pause(); video.removeAttribute('src'); video.load(); }
+        if (modal) modal.style.display = 'none';
+    }
+
+    function playCctvInModal(url, title = 'CCTV 재생') {
+        currentCctvUrl = url;
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const titleEl = document.getElementById('cctv-player-title');
+        if (!modal || !video) return window.open(url, '_blank', 'noopener,noreferrer');
+        if (titleEl) titleEl.innerText = title;
+        modal.style.display = 'block';
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+
+        const isHls = /m3u8/i.test(url);
+        if (isHls && window.Hls && Hls.isSupported()) {
+            currentHls = new Hls({ enableWorker: true, lowLatencyMode: true });
+            currentHls.loadSource(url);
+            currentHls.attachMedia(video);
+            currentHls.on(Hls.Events.ERROR, function(event, data) {
+                console.warn('HLS 재생 오류', data);
+            });
+        } else {
+            video.src = url;
+        }
+        video.play().catch(() => {
+            // 모바일 브라우저에서 자동재생이 막히면 사용자가 재생 버튼을 누르면 됨
+        });
+    }
+
+    function openCctvUrl(url, title = 'CCTV 재생') {
         if (!url) {
             alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
             return;
         }
-        window.open(url, '_blank', 'noopener,noreferrer');
+        if (String(url).includes('m.map.kakao.com/actions/cctvView')) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+        if (/\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(url) || String(url).includes('openapi.its.go.kr') || String(url).includes('cctv')) {
+            playCctvInModal(url, title);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
     }
 
     function renderCctvs() {
@@ -2451,7 +2574,7 @@
             const key = String(cctvFilter).replace('area:', '');
             data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, key));
         } else if (cctvFilter !== 'all') data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, cctvFilter));
-        if (search) data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''}`.toLowerCase().includes(search));
+        if (search) data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''} ${c.source || ''}`.toLowerCase().includes(search));
 
         container.innerHTML = '';
         if (!data.length) {
@@ -2464,89 +2587,43 @@
             const opacity = hasUrl ? '1' : '0.6';
             const btnStyle = hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);';
             const btnText = hasUrl ? '<i class="fas fa-play"></i> 즉시 재생' : '<i class="fas fa-link"></i> 링크 대기중';
+            const sourceLabel = c.source === 'ITS' ? 'ITS' : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접');
             const card = document.createElement('div');
             card.className = 'traffic-card';
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
-            card.onclick = () => openCctvUrl(c.url);
-            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
+            card.onclick = () => openCctvUrl(c.url, c.name || 'CCTV 재생');
+            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
         });
     }
 
     function addCctvLocation() {
         if (!isAdmin) return alert('관리자 권한 필요');
-
         const defaultStation = scopeStation() || '북부서';
-        const stationInput = prompt('관할 입력 (북부서/남부서)', defaultStation);
-        if (stationInput === null) return;
-        const station = normalizeStation(stationInput || defaultStation, defaultStation);
-
-        const area = prompt('행정구역 입력 (예: 조치원, 한솔동)', globalScope === 'south' ? '한솔동' : '조치원');
-        if (!area) return;
-
-        const name = prompt('CCTV 장소명 입력', '');
-        if (!name) return;
-
-        const input = prompt('카카오 CCTV 링크 또는 cctvid 번호 입력\n예: https://m.map.kakao.com/actions/cctvView?cctvid=71944\n또는 71944\n또는 kko.to 공유링크', '');
-        if (!input) return;
-
-        const cctvId = extractCctvIdFromText(input);
-        let url = cctvId ? makeKakaoCctvUrl(cctvId) : String(input).trim();
-        if (!/^https?:\/\//i.test(url)) {
-            alert('CCTV 번호 또는 http로 시작하는 링크를 입력해주세요.');
-            return;
-        }
-
-        const newItem = normalizeCctvItem({
-            id: cctvId || Date.now(),
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력', '조치원'); if (!area) return;
+        const name = prompt('CCTV명 입력'); if (!name) return;
+        const input = prompt('카카오 CCTV 링크, cctvid 번호, 또는 ITS 영상 URL 입력'); if (!input) return;
+        const directId = extractCctvIdFromText(input);
+        const url = directId ? makeKakaoCctvUrl(directId) : input.trim();
+        const item = withStation({
+            id: directId || `manual-${Date.now()}`,
             station,
             area,
             name,
             url,
-            active: true
+            active: true,
+            source: directId ? '카카오' : '직접'
         });
-
-        const current = sanitizeCctvData(cctvData && cctvData.length ? cctvData : defaultCctvData);
-        const newKey = extractCctvIdFromText(newItem.url || newItem.id || '') || newItem.url;
-        const dupIdx = current.findIndex(c => {
-            const key = extractCctvIdFromText(c.url || c.id || '') || c.url;
-            return key && key === newKey;
-        });
-
-        if (dupIdx >= 0) {
-            if (!confirm('같은 CCTV가 이미 있습니다. 기존 정보를 새 내용으로 갱신할까요?')) return;
-            current[dupIdx] = { ...current[dupIdx], ...newItem };
-        } else {
-            current.push(newItem);
-        }
-
-        cctvData = sanitizeCctvData(current);
-        saveCctvLocalBackup(cctvData);
+        cctvData = sanitizeCctvData([...(cctvData || []), item]);
+        localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData));
+        db.ref('cctvData').set(cctvData);
         cctvFilter = 'all';
-        globalScope = 'all';
-        syncGlobalScopeButtons();
-        const searchBox = document.getElementById('cctv-search');
-        if (searchBox) searchBox.value = '';
-        renderAllScopedFilterButtons();
+        document.getElementById('cctv-search').value = '';
+        renderCctvFilterButtons();
         renderCctvs();
-
-        isCctvSaving = true;
-        db.ref('cctvData').set(cctvData).then(() => {
-            return db.ref('cctvData').once('value');
-        }).then((snapshot) => {
-            const savedList = firebaseListToArray(snapshot.val());
-            cctvData = mergeCctvSources(savedList, loadCctvLocalBackup());
-            saveCctvLocalBackup(cctvData);
-            renderCctvs();
-            alert('CCTV가 추가되었습니다.');
-        }).catch(err => {
-            console.error(err);
-            alert('CCTV 저장 중 오류가 발생했습니다.');
-        }).finally(() => {
-            isCctvSaving = false;
-        });
     }
 
     function resetData() {
