@@ -517,11 +517,18 @@
                 <button id="load-its-cctv-btn" onclick="fetchSelectedItsCctv()" style="background:var(--green); color:white; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;">ITS 불러오기</button>
             </div>
             <button id="load-its-all-cctv-btn" onclick="fetchAllSejongItsCctv()" style="width:100%; margin-top:8px; background:var(--blue); color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 전체 ITS CCTV 불러오기</button>
+            <button id="load-sejong-core-cctv-btn" onclick="addSejongCoreCctvPresets()" style="width:100%; margin-top:8px; background:#5856D6; color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종 신도심 CCTV 넣기</button>
+            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
+                <button onclick="addDisasterCctvPresets('all')" style="background:#FF3B30; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">재난 CCTV 넣기</button>
+                <button onclick="addDisasterCctvPresets('river')" style="background:#007AFF; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">하천 CCTV 보기</button>
+                <button onclick="addDisasterCctvPresets('underpass')" style="background:#FF9500; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">지하차도 CCTV 보기</button>
+                <button onclick="addDisasterCctvPresets('flood')" style="background:#34C759; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">침수우려 CCTV 보기</button>
+            </div>
             <div class="filter-group" id="cctv-filter-group"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * 읍·면·동을 선택 후 ITS 불러오기를 누르면 해당 지역 CCTV가 추가되고, CCTV 카드를 누르면 팝업으로 재생됩니다.
+            * ITS CCTV는 팝업 재생, 세종시·홍수 CCTV는 공식 화면으로 연결됩니다.
         </div>
     </div>
 </div>
@@ -745,7 +752,7 @@
         if (!u) return false;
         if (extractCctvIdFromText(u)) return true;
         if (u.includes('m.map.kakao.com/actions/cctvView')) return true;
-        if (item.source === 'ITS' || item.cctvformat || item.cctvType) return true;
+        if (item.source === 'ITS' || item.source === 'SEJONG_BIS' || item.source === 'DISASTER_CCTV' || item.source === 'FLOOD_CCTV' || item.cctvformat || item.cctvType) return true;
         if (/\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(u)) return true;
         return false;
     }
@@ -754,6 +761,8 @@
         const directId = extractCctvIdFromText(item.url || item.id || '');
         if (directId) return `kakao-${directId}`;
         if (item.source === 'ITS') return String(item.id || `${item.name || ''}-${item.coordx || ''}-${item.coordy || ''}`);
+        if (item.source === 'SEJONG_BIS') return String(item.id || `sejong-bis-${item.area || ''}-${item.name || ''}`);
+        if (item.source === 'DISASTER_CCTV' || item.source === 'FLOOD_CCTV') return String(item.id || `disaster-${item.area || ''}-${item.name || ''}`);
         return String(item.id || item.url || item.name || Date.now());
     }
 
@@ -809,6 +818,87 @@
         '산울동': { label:'산울동', station:'남부서', minX:127.245, maxX:127.295, minY:36.530, maxY:36.565 },
         '집현동': { label:'집현동', station:'남부서', minX:127.315, maxX:127.365, minY:36.485, maxY:36.525 }
     };
+
+
+
+    // 세종시 교통정보시스템에 표시되는 신도심권 CCTV 후보
+    // 해당 시스템은 별도 공개 영상 API가 확인되지 않아 공식 CCTV 화면으로 연결합니다.
+    const SEJONG_TRAFFIC_CCTV_URL = 'https://bis.sejong.go.kr/web/atms/atms_map.view?type=1';
+    const SEJONG_CORE_CCTV_PRESETS = [
+        { id:'sejong-bis-saerom-the-sharp-10', station:'남부서', area:'새롬동', name:'더샵 10단지', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-dajeong-saori-underpass', station:'남부서', area:'다정동', name:'사오리지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-naseong-dangam', station:'남부서', area:'나성동', name:'당암삼거리', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-hansol-983', station:'남부서', area:'한솔동', name:'한솔동 983', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-sodam-cross', station:'남부서', area:'소담동', name:'소담 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-kdi-cross', station:'남부서', area:'집현동', name:'한국개발연구원 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-goun-neobitteul', station:'남부서', area:'고운동', name:'너비뜰교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
+        { id:'sejong-bis-sanul-lifelong', station:'남부서', area:'산울동', name:'산울동 평생교육원', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' }
+    ];
+
+
+
+    // 세종시 재난 대응용 CCTV 후보
+    // 공개 영상 URL이 확인되는 ITS는 팝업 재생, 세종시/홍수통제소 공개 화면은 공식 화면 연결 방식입니다.
+    const FLOOD_CCTV_URL = 'https://n.flood.go.kr/observation/waterlevel/waterLevelCCTV.do';
+    const GEUM_RIVER_CCTV_URL = 'https://hrfco.go.kr/sumun/cctvRtmp.do';
+    const SEJONG_DISASTER_CCTV_PRESETS = [
+        { id:'disaster-jochiwon-sewolgyo', station:'북부서', area:'조치원', name:'조치원 세월교 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'세월교' },
+        { id:'disaster-jochiwon-bongam-low-road', station:'북부서', area:'조치원', name:'봉암하상도로 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
+        { id:'disaster-jochiwon-naechangcheon', station:'북부서', area:'조치원', name:'내창천 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'하천' },
+        { id:'disaster-bugang-buyong-bridge', station:'북부서', area:'부강', name:'부강 부용가교 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'교량' },
+        { id:'disaster-dajeong-saori-underpass', station:'남부서', area:'다정동', name:'사오리지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
+        { id:'disaster-boram-underpass', station:'남부서', area:'보람동', name:'보람지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
+        { id:'disaster-sejong-underpass', station:'남부서', area:'대평동', name:'세종지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
+        { id:'disaster-naseong-dangam', station:'남부서', area:'나성동', name:'당암삼거리', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
+        { id:'disaster-sodam-cross', station:'남부서', area:'소담동', name:'소담 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
+        { id:'disaster-jiphyeon-kdi-cross', station:'남부서', area:'집현동', name:'한국개발연구원 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
+        { id:'disaster-goun-neobitteul', station:'남부서', area:'고운동', name:'너비뜰교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' }
+    ];
+    const SEJONG_RIVER_CCTV_PRESETS = [
+        { id:'flood-geum-river-control', station:'세종청', area:'금강', name:'금강홍수통제소 수위동영상', url:GEUM_RIVER_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-waterlevel-cctv', station:'세종청', area:'세종시', name:'홍수정보시스템 수위관측 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-geumgang-sejong', station:'남부서', area:'금남면', name:'금강 세종 구간 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-mihogang-sejong', station:'남부서', area:'연기면', name:'미호강 세종 구간 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-jochen-jochiwon', station:'북부서', area:'조치원', name:'조천·내창천 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' }
+    ];
+
+    async function addDisasterCctvPresets(kind = 'all') {
+        if (!isAdmin) {
+            alert('관리자 권한 필요');
+            return;
+        }
+        let items = [];
+        let focus = 'all';
+        let msg = '재난 CCTV 후보를 추가했습니다.';
+        if (kind === 'river') {
+            items = [...SEJONG_RIVER_CCTV_PRESETS, ...SEJONG_DISASTER_CCTV_PRESETS.filter(c => c.type === '하천' || c.type === '교량' || c.type === '세월교')];
+            focus = 'all';
+            msg = '하천·수위·세월교 CCTV 후보를 추가했습니다.';
+        } else if (kind === 'underpass') {
+            items = SEJONG_DISASTER_CCTV_PRESETS.filter(c => c.type === '지하차도');
+            focus = 'south';
+            msg = '지하차도 CCTV 후보를 추가했습니다.';
+        } else if (kind === 'flood') {
+            items = SEJONG_DISASTER_CCTV_PRESETS.filter(c => ['침수우려지역','세월교','교량','지하차도'].includes(c.type));
+            focus = 'all';
+            msg = '침수우려지역 CCTV 후보를 추가했습니다.';
+        } else {
+            items = [...SEJONG_DISASTER_CCTV_PRESETS, ...SEJONG_RIVER_CCTV_PRESETS];
+            focus = 'all';
+        }
+        const merged = sanitizeCctvData([...(cctvData || []), ...items]);
+        cctvData = merged;
+        localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
+        await db.ref('cctvData').set(merged);
+        cctvFilter = focus;
+        const search = document.getElementById('cctv-search');
+        if (search) search.value = '';
+        renderCctvFilterButtons();
+        renderCctvs();
+        alert(`${msg}
+추가: ${items.length}개
+※ ITS 영상은 팝업 재생, 세종시·홍수 CCTV는 공식 화면으로 연결됩니다.`);
+    }
 
     function buildItsCctvUrlForBounds(bounds, type = 'its', cctvType = '1') {
         const p = new URLSearchParams({
@@ -879,6 +969,25 @@
             }
         }
         return fetched.map(row => mapItsCctvItem(row, areaKey)).filter(c => c.url && isDirectCctvUrl(c.url, c));
+    }
+
+
+
+    async function addSejongCoreCctvPresets() {
+        if (!isAdmin) {
+            alert('관리자 권한 필요');
+            return;
+        }
+        const merged = sanitizeCctvData([...(cctvData || []), ...SEJONG_CORE_CCTV_PRESETS]);
+        cctvData = merged;
+        localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
+        await db.ref('cctvData').set(merged);
+        cctvFilter = 'south';
+        const search = document.getElementById('cctv-search');
+        if (search) search.value = '';
+        renderCctvFilterButtons();
+        renderCctvs();
+        alert('세종 신도심권 CCTV 8개를 추가했습니다.\n해당 CCTV는 세종시 교통정보시스템 공식 CCTV 화면으로 연결됩니다.');
     }
 
     async function saveAndRenderItsCctv(items, focusAreaKey = 'all') {
@@ -2658,9 +2767,13 @@
         });
     }
 
-    function openCctvUrl(url, title = 'CCTV 재생') {
+    function openCctvUrl(url, title = 'CCTV 재생', source = '') {
         if (!url) {
             alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
+            return;
+        }
+        if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV' || source === 'FLOOD_CCTV') {
+            window.open(url, '_blank', 'noopener,noreferrer');
             return;
         }
         if (String(url).includes('m.map.kakao.com/actions/cctvView')) {
@@ -2698,16 +2811,17 @@
 
         data.forEach(c => {
             const hasUrl = !!c.url;
+            const isSejongBis = c.source === 'SEJONG_BIS' || c.source === 'DISASTER_CCTV' || c.source === 'FLOOD_CCTV';
             const opacity = hasUrl ? '1' : '0.6';
-            const btnStyle = hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);';
-            const btnText = hasUrl ? '<i class="fas fa-play"></i> 눌러서 재생' : '<i class="fas fa-link"></i> 링크 대기중';
-            const sourceLabel = c.source === 'ITS' ? 'ITS' : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접');
+            const btnStyle = isSejongBis ? 'background:#5856D6; color:white;' : (hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);');
+            const btnText = c.source === 'FLOOD_CCTV' ? '<i class="fas fa-water"></i> 수위 CCTV 화면' : (isSejongBis ? '<i class="fas fa-up-right-from-square"></i> 공식 CCTV 화면' : (hasUrl ? '<i class="fas fa-play"></i> 눌러서 재생' : '<i class="fas fa-link"></i> 링크 대기중'));
+            const sourceLabel = c.source === 'ITS' ? 'ITS' : (c.source === 'SEJONG_BIS' ? '세종교통' : (c.source === 'DISASTER_CCTV' ? '재난' : (c.source === 'FLOOD_CCTV' ? '하천수위' : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접'))));
             const card = document.createElement('div');
             card.className = 'traffic-card';
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
-            card.onclick = () => openCctvUrl(c.url, c.name || 'CCTV 재생');
+            card.onclick = () => openCctvUrl(c.url, c.name || 'CCTV 재생', c.source || '');
             card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
         });
