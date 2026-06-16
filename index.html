@@ -484,13 +484,44 @@
             <div class="search-row">
                 <input type="text" class="search-input" id="cctv-search" placeholder="CCTV 장소 검색" onkeyup="renderCctvs()">
                 <button class="add-loc-btn" id="add-cctv-btn" onclick="addCctvLocation()">+ CCTV</button>
-                <button class="add-loc-btn" id="load-its-cctv-btn" onclick="fetchJochiwonItsCctv()" style="display:block; background:var(--green);">ITS 조치원 불러오기</button>
             </div>
+            <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px;">
+                <select id="its-cctv-area-select" class="search-input" style="width:100%;">
+                    <option value="조치원">조치원읍</option>
+                    <option value="연서">연서면</option>
+                    <option value="전의">전의면</option>
+                    <option value="전동">전동면</option>
+                    <option value="소정">소정면</option>
+                    <option value="부강">부강면</option>
+                    <option value="연동">연동면</option>
+                    <option value="연기면">연기면</option>
+                    <option value="금남면">금남면</option>
+                    <option value="장군면">장군면</option>
+                    <option value="한솔동">한솔동</option>
+                    <option value="새롬동">새롬동</option>
+                    <option value="나성동">나성동</option>
+                    <option value="다정동">다정동</option>
+                    <option value="도담동">도담동</option>
+                    <option value="어진동">어진동</option>
+                    <option value="종촌동">종촌동</option>
+                    <option value="고운동">고운동</option>
+                    <option value="아름동">아름동</option>
+                    <option value="보람동">보람동</option>
+                    <option value="대평동">대평동</option>
+                    <option value="소담동">소담동</option>
+                    <option value="반곡동">반곡동</option>
+                    <option value="해밀동">해밀동</option>
+                    <option value="산울동">산울동</option>
+                    <option value="집현동">집현동</option>
+                </select>
+                <button id="load-its-cctv-btn" onclick="fetchSelectedItsCctv()" style="background:var(--green); color:white; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;">ITS 불러오기</button>
+            </div>
+            <button id="load-its-all-cctv-btn" onclick="fetchAllSejongItsCctv()" style="width:100%; margin-top:8px; background:var(--blue); color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 전체 ITS CCTV 불러오기</button>
             <div class="filter-group" id="cctv-filter-group"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * ITS 조치원 불러오기 버튼으로 CCTV를 가져온 뒤, 생성된 CCTV 카드를 누르면 팝업으로 재생됩니다.
+            * 읍·면·동을 선택 후 ITS 불러오기를 누르면 해당 지역 CCTV가 추가되고, CCTV 카드를 누르면 팝업으로 재생됩니다.
         </div>
     </div>
 </div>
@@ -747,17 +778,47 @@
 
     const ITS_CCTV_API_KEY = "56934196b0354a48ab5a1d020262c673";
     const ITS_CCTV_BASE = "https://openapi.its.go.kr:9443/cctvInfo";
-    const JOCHIWON_CCTV_BOUNDS = { minX: 127.245, maxX: 127.335, minY: 36.575, maxY: 36.635 };
 
-    function buildItsCctvUrl(type = 'its', cctvType = '1') {
+    // 세종시 읍·면·동별 ITS CCTV 조회용 좌표 범위(대략 범위)
+    // ITS API는 행정동 코드가 아니라 좌표 박스로 CCTV를 조회하므로, 각 지역 중심 범위를 사용합니다.
+    const SEJONG_ITS_CCTV_AREAS = {
+        '조치원': { label:'조치원읍', station:'북부서', minX:127.245, maxX:127.335, minY:36.575, maxY:36.635 },
+        '연서': { label:'연서면', station:'북부서', minX:127.235, maxX:127.315, minY:36.535, maxY:36.605 },
+        '전의': { label:'전의면', station:'북부서', minX:127.165, maxX:127.235, minY:36.645, maxY:36.705 },
+        '전동': { label:'전동면', station:'북부서', minX:127.225, maxX:127.295, minY:36.600, maxY:36.665 },
+        '소정': { label:'소정면', station:'북부서', minX:127.120, maxX:127.180, minY:36.690, maxY:36.740 },
+        '부강': { label:'부강면', station:'북부서', minX:127.335, maxX:127.420, minY:36.500, maxY:36.555 },
+        '연동': { label:'연동면', station:'북부서', minX:127.300, maxX:127.365, minY:36.535, maxY:36.585 },
+        '연기면': { label:'연기면', station:'남부서', minX:127.265, maxX:127.335, minY:36.505, maxY:36.555 },
+        '금남면': { label:'금남면', station:'남부서', minX:127.255, maxX:127.365, minY:36.420, maxY:36.500 },
+        '장군면': { label:'장군면', station:'남부서', minX:127.170, maxX:127.270, minY:36.480, maxY:36.555 },
+        '한솔동': { label:'한솔동', station:'남부서', minX:127.245, maxX:127.285, minY:36.470, maxY:36.500 },
+        '새롬동': { label:'새롬동', station:'남부서', minX:127.245, maxX:127.280, minY:36.480, maxY:36.505 },
+        '나성동': { label:'나성동', station:'남부서', minX:127.250, maxX:127.285, minY:36.480, maxY:36.505 },
+        '다정동': { label:'다정동', station:'남부서', minX:127.235, maxX:127.275, minY:36.485, maxY:36.515 },
+        '도담동': { label:'도담동', station:'남부서', minX:127.250, maxX:127.285, minY:36.500, maxY:36.530 },
+        '어진동': { label:'어진동', station:'남부서', minX:127.250, maxX:127.285, minY:36.490, maxY:36.520 },
+        '종촌동': { label:'종촌동', station:'남부서', minX:127.230, maxX:127.270, minY:36.500, maxY:36.530 },
+        '고운동': { label:'고운동', station:'남부서', minX:127.215, maxX:127.260, minY:36.510, maxY:36.550 },
+        '아름동': { label:'아름동', station:'남부서', minX:127.235, maxX:127.275, minY:36.510, maxY:36.540 },
+        '보람동': { label:'보람동', station:'남부서', minX:127.280, maxX:127.330, minY:36.465, maxY:36.500 },
+        '대평동': { label:'대평동', station:'남부서', minX:127.265, maxX:127.310, minY:36.465, maxY:36.500 },
+        '소담동': { label:'소담동', station:'남부서', minX:127.290, maxX:127.335, minY:36.475, maxY:36.510 },
+        '반곡동': { label:'반곡동', station:'남부서', minX:127.300, maxX:127.355, minY:36.480, maxY:36.525 },
+        '해밀동': { label:'해밀동', station:'남부서', minX:127.255, maxX:127.295, minY:36.520, maxY:36.555 },
+        '산울동': { label:'산울동', station:'남부서', minX:127.245, maxX:127.295, minY:36.530, maxY:36.565 },
+        '집현동': { label:'집현동', station:'남부서', minX:127.315, maxX:127.365, minY:36.485, maxY:36.525 }
+    };
+
+    function buildItsCctvUrlForBounds(bounds, type = 'its', cctvType = '1') {
         const p = new URLSearchParams({
             apiKey: ITS_CCTV_API_KEY,
             type,
             cctvType,
-            minX: String(JOCHIWON_CCTV_BOUNDS.minX),
-            maxX: String(JOCHIWON_CCTV_BOUNDS.maxX),
-            minY: String(JOCHIWON_CCTV_BOUNDS.minY),
-            maxY: String(JOCHIWON_CCTV_BOUNDS.maxY),
+            minX: String(bounds.minX),
+            maxX: String(bounds.maxX),
+            minY: String(bounds.minY),
+            maxY: String(bounds.maxY),
             getType: 'json'
         });
         return `${ITS_CCTV_BASE}?${p.toString()}`;
@@ -768,8 +829,9 @@
         return Array.isArray(data) ? data : (data ? [data] : []);
     }
 
-    function mapItsCctvItem(item) {
-        const name = String(item.cctvname || item.name || 'ITS 조치원 CCTV').replace(/^\[?CCTV\]?\s*/i, '').trim();
+    function mapItsCctvItem(item, areaKey = '조치원') {
+        const areaInfo = SEJONG_ITS_CCTV_AREAS[areaKey] || SEJONG_ITS_CCTV_AREAS['조치원'];
+        const name = String(item.cctvname || item.name || `ITS ${areaInfo.label} CCTV`).replace(/^\[?CCTV\]?\s*/i, '').trim();
         const coordx = item.coordx || item.x || '';
         const coordy = item.coordy || item.y || '';
         const url = item.cctvurl || item.url || '';
@@ -777,9 +839,9 @@
         const ctype = item.cctvtype || item.type || '';
         return withStation({
             id: `its-${name}-${coordx}-${coordy}`.replace(/\s+/g, '_'),
-            station: '북부서',
-            area: '조치원',
-            name: name || 'ITS 조치원 CCTV',
+            station: areaInfo.station,
+            area: areaKey,
+            name: name || `ITS ${areaInfo.label} CCTV`,
             url,
             active: true,
             source: 'ITS',
@@ -791,43 +853,95 @@
         });
     }
 
-    async function fetchJochiwonItsCctv() {
-        if (!isAdmin) return alert('관리자 권한 필요');
+    async function fetchItsCctvByArea(areaKey, silent = false) {
+        if (!isAdmin) {
+            if (!silent) alert('관리자 권한 필요');
+            return [];
+        }
+        const areaInfo = SEJONG_ITS_CCTV_AREAS[areaKey];
+        if (!areaInfo) {
+            if (!silent) alert('지원하지 않는 지역입니다.');
+            return [];
+        }
+
+        const candidates = [
+            ['its', '1'], ['its', '2'], ['ex', '1'], ['ex', '2'], ['all', '1'], ['all', '2']
+        ];
+        const fetched = [];
+        for (const [roadType, cctvType] of candidates) {
+            try {
+                const res = await fetch(buildItsCctvUrlForBounds(areaInfo, roadType, cctvType), { cache: 'no-store' });
+                if (!res.ok) continue;
+                const json = await res.json();
+                normalizeItsCctvResponse(json).forEach(row => fetched.push(row));
+            } catch (e) {
+                console.warn('ITS CCTV 조회 실패', areaKey, roadType, cctvType, e);
+            }
+        }
+        return fetched.map(row => mapItsCctvItem(row, areaKey)).filter(c => c.url && isDirectCctvUrl(c.url, c));
+    }
+
+    async function saveAndRenderItsCctv(items, focusAreaKey = 'all') {
+        const merged = sanitizeCctvData([...(cctvData || []), ...(items || [])]);
+        cctvData = merged;
+        localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
+        await db.ref('cctvData').set(merged);
+        cctvFilter = focusAreaKey && focusAreaKey !== 'all' ? `area:${focusAreaKey}` : 'all';
+        const search = document.getElementById('cctv-search');
+        if (search) search.value = '';
+        renderCctvFilterButtons();
+        renderCctvs();
+        return merged;
+    }
+
+    async function fetchSelectedItsCctv() {
+        const select = document.getElementById('its-cctv-area-select');
+        const areaKey = select ? select.value : '조치원';
+        const areaInfo = SEJONG_ITS_CCTV_AREAS[areaKey];
         const btn = document.getElementById('load-its-cctv-btn');
         const oldText = btn ? btn.innerText : '';
-        if (btn) { btn.innerText = '불러오는 중'; btn.disabled = true; }
+        if (btn) { btn.innerText = '조회중'; btn.disabled = true; }
         try {
-            const candidates = [
-                ['its', '1'], ['its', '2'], ['all', '1'], ['all', '2']
-            ];
-            const fetched = [];
-            for (const [roadType, cctvType] of candidates) {
-                try {
-                    const res = await fetch(buildItsCctvUrl(roadType, cctvType), { cache: 'no-store' });
-                    if (!res.ok) continue;
-                    const json = await res.json();
-                    normalizeItsCctvResponse(json).forEach(row => fetched.push(row));
-                } catch (e) {
-                    console.warn('ITS CCTV 조회 실패', roadType, cctvType, e);
-                }
-            }
-            const mapped = fetched.map(mapItsCctvItem).filter(c => c.url && isDirectCctvUrl(c.url, c));
-            const merged = sanitizeCctvData([...(cctvData || []), ...mapped]);
-            cctvData = merged;
-            localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
-            await db.ref('cctvData').set(merged);
-            cctvFilter = 'area:조치원';
-            document.getElementById('cctv-search').value = '';
-            renderCctvFilterButtons();
-            renderCctvs();
-            alert(`ITS 조치원 CCTV ${mapped.length}개를 불러왔습니다.
-화면에는 중복 제거 후 ${merged.filter(c => c.area === '조치원').length}개가 표시됩니다.`);
+            const items = await fetchItsCctvByArea(areaKey);
+            const merged = await saveAndRenderItsCctv(items, areaKey);
+            const visibleCount = merged.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, areaKey)).length;
+            alert(`${areaInfo?.label || areaKey} ITS CCTV ${items.length}개를 불러왔습니다.\n화면에는 중복 제거 후 ${visibleCount}개가 표시됩니다.`);
         } catch (e) {
             console.error(e);
             alert('ITS CCTV 조회에 실패했습니다. API 키 승인 여부 또는 브라우저 보안정책을 확인하세요.');
         } finally {
-            if (btn) { btn.innerText = oldText || 'ITS 조치원'; btn.disabled = false; }
+            if (btn) { btn.innerText = oldText || 'ITS 불러오기'; btn.disabled = false; }
         }
+    }
+
+    async function fetchAllSejongItsCctv() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const btn = document.getElementById('load-its-all-cctv-btn');
+        const oldText = btn ? btn.innerText : '';
+        if (btn) { btn.innerText = '세종시 전체 조회중'; btn.disabled = true; }
+        try {
+            const allItems = [];
+            const keys = Object.keys(SEJONG_ITS_CCTV_AREAS);
+            for (let i = 0; i < keys.length; i++) {
+                if (btn) btn.innerText = `조회중 ${i + 1}/${keys.length}`;
+                const items = await fetchItsCctvByArea(keys[i], true);
+                allItems.push(...items);
+            }
+            const merged = await saveAndRenderItsCctv(allItems, 'all');
+            alert(`세종시 읍·면·동별 ITS CCTV ${allItems.length}개를 불러왔습니다.\n중복 제거 후 전체 CCTV ${merged.length}개가 저장·표시됩니다.`);
+        } catch (e) {
+            console.error(e);
+            alert('세종시 전체 ITS CCTV 조회에 실패했습니다.');
+        } finally {
+            if (btn) { btn.innerText = oldText || '세종시 전체 ITS CCTV 불러오기'; btn.disabled = false; }
+        }
+    }
+
+    // 기존 조치원 버튼 함수명과 호환
+    async function fetchJochiwonItsCctv() {
+        const select = document.getElementById('its-cctv-area-select');
+        if (select) select.value = '조치원';
+        return fetchSelectedItsCctv();
     }
 
     const defaultData = [
