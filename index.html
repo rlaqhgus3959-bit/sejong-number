@@ -674,12 +674,43 @@
 
     const defaultCctvData = [
         { id:4547, station:'북부서', area:'조치원', name:'상리사거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4547', active:true },
-        { id:4546, station:'북부서', area:'조치원', name:'홍대입구삼거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4546', active:true },
-        { id:9001, station:'북부서', area:'조치원', name:'번암사거리', url:'', active:false },
-        { id:9002, station:'북부서', area:'조치원', name:'조치원역', url:'', active:false },
-        { id:9003, station:'북부서', area:'조치원', name:'욱일지하차도', url:'', active:false },
-        { id:9004, station:'북부서', area:'조치원', name:'신안사거리', url:'', active:false }
+        { id:4546, station:'북부서', area:'조치원', name:'홍대입구삼거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4546', active:true }
     ];
+
+    const ESSENTIAL_CCTV_IDS = ['4547', '4546'];
+
+    function extractCctvIdFromText(input = '') {
+        const text = String(input || '').trim();
+        if (!text) return '';
+        const direct = text.match(/cctvid(?:=|%3D)(\d+)/i);
+        if (direct) return direct[1];
+        if (/^\d{3,}$/.test(text)) return text;
+        return '';
+    }
+
+    function makeKakaoCctvUrl(id) {
+        return `https://m.map.kakao.com/actions/cctvView?cctvid=${id}`;
+    }
+
+    function sanitizeCctvData(source = []) {
+        const arr = Array.isArray(source) ? source.map(withStation) : [];
+        return defaultCctvData.map(def => {
+            const saved = arr.find(c => {
+                const savedId = extractCctvIdFromText(c.url || c.id || '');
+                return String(c.id) === String(def.id) || savedId === String(def.id) || c.name === def.name;
+            });
+            return withStation({
+                ...def,
+                ...(saved || {}),
+                id: def.id,
+                station: '북부서',
+                area: '조치원',
+                name: def.name,
+                url: def.url,
+                active: true
+            });
+        });
+    }
 
     const defaultData = [
         { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
@@ -956,10 +987,10 @@
         });
         db.ref('cctvData').on('value', (snapshot) => {
             const data = snapshot.val();
-            if (Array.isArray(data)) cctvData = data.map(withStation);
-            else {
-                cctvData = defaultCctvData.map(withStation);
-                db.ref('cctvData').set(cctvData);
+            const cleaned = sanitizeCctvData(Array.isArray(data) ? data : []);
+            cctvData = cleaned;
+            if (JSON.stringify(data || []) !== JSON.stringify(cleaned)) {
+                db.ref('cctvData').set(cleaned);
             }
             renderCctvs();
         });
@@ -2348,11 +2379,19 @@
         renderCctvs();
     }
 
+    function openCctvUrl(url) {
+        if (!url) {
+            alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
+            return;
+        }
+        window.open(url, '_blank', 'noopener,noreferrer');
+    }
+
     function renderCctvs() {
         const container = document.getElementById('cctv-list');
         if (!container) return;
         const search = (document.getElementById('cctv-search')?.value || '').toLowerCase();
-        let data = (cctvData && cctvData.length ? cctvData : defaultCctvData).map(withStation);
+        let data = sanitizeCctvData(cctvData && cctvData.length ? cctvData : defaultCctvData);
         const forcedStation = scopeStation();
         if (forcedStation) data = data.filter(c => c.station === forcedStation);
 
@@ -2372,34 +2411,23 @@
 
         data.forEach(c => {
             const hasUrl = !!c.url;
-            const href = hasUrl ? c.url : '#';
-            const click = hasUrl ? '' : `onclick="alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.'); return false;"`;
             const opacity = hasUrl ? '1' : '0.6';
             const btnStyle = hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);';
             const btnText = hasUrl ? '<i class="fas fa-play"></i> 즉시 재생' : '<i class="fas fa-link"></i> 링크 대기중';
-            const a = document.createElement('a');
-            a.href = href;
-            a.target = hasUrl ? '_blank' : '';
-            a.className = 'traffic-card';
-            a.style.textDecoration = 'none';
-            a.style.opacity = opacity;
-            if (!hasUrl) a.setAttribute('onclick', "alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.'); return false;");
-            a.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
-            container.appendChild(a);
+            const card = document.createElement('div');
+            card.className = 'traffic-card';
+            card.style.textDecoration = 'none';
+            card.style.opacity = opacity;
+            card.style.cursor = 'pointer';
+            card.onclick = () => openCctvUrl(c.url);
+            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
+            container.appendChild(card);
         });
     }
 
     function addCctvLocation() {
         if (!isAdmin) return alert('관리자 권한 필요');
-        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', '북부서'), '');
-        const area = prompt('지역 입력 (예: 조치원, 한솔동)'); if (!area) return;
-        const name = prompt('CCTV 장소명 입력'); if (!name) return;
-        const idOrUrl = prompt('카카오맵 cctvid 또는 전체 URL 입력') || '';
-        let url = '';
-        if (idOrUrl.startsWith('http')) url = idOrUrl;
-        else if (idOrUrl.trim()) url = `https://m.map.kakao.com/actions/cctvView?cctvid=${idOrUrl.trim()}`;
-        cctvData.push({ id: Date.now(), station, area, name, url, active: !!url });
-        db.ref('cctvData').set(cctvData);
+        alert('현재 CCTV 목록은 상리사거리와 홍대입구삼거리 2개만 표시되도록 고정되어 있습니다.');
     }
 
     function resetData() {
