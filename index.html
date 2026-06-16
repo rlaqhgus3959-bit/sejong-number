@@ -416,7 +416,7 @@
     <div class="accord-content">
         <div class="forest-body" style="margin-bottom: 15px;">
             <div>
-                <div style="font-size:11px; color:var(--sub); margin-bottom:4px; font-weight:600;">공공데이터포털 현재값 기준</div>
+                <div style="font-size:11px; color:var(--sub); margin-bottom:4px; font-weight:600;">공공데이터포털 · 현재값(excludeForecast=1) · 최고값(maxi)</div>
                 <div class="forest-status" id="forest-status-text" style="font-size:16px;">
                     <i class="fas fa-spinner fa-spin"></i> API 연결 중...
                 </div>
@@ -1387,201 +1387,438 @@
     }
 
 
+    let forestRefreshInProgress = false;
+
     async function autoFetchForest() {
         const gridEl = document.getElementById('forest-grid');
         const statusEl = document.getElementById('forest-status-text');
         if (!gridEl || !statusEl) return;
 
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
+        const API_BASE = 'https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch';
+        const CACHE_PATH = 'forestRiskCache/sejong';
+        const CACHE_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 산불위험예보는 3시간 주기라 3시간 캐시
+        const FOREST_SEJONG_URL = 'https://forestfire.nifos.go.kr/mobile/jsp/fireGrade.jsp?cd=36&cdName=%EC%84%B8%EC%A2%85%ED%8A%B9%EB%B3%84%EC%9E%90%EC%B9%98%EC%8B%9C';
+        const filterLabel = getSectionFilterLabel('forest');
 
-        // 세종시 전체 읍·면·동 코드
-        // 산림청 산불 API에서 값이 내려오지 않는 지역은 0으로 만들지 않고 "미제공"으로 표시합니다.
         const forestAreas = [
-            { name:'조치원읍', code:'36110250' },
-            { name:'연기면', code:'36110310' },
-            { name:'연동면', code:'36110320' },
-            { name:'부강면', code:'36110330' },
-            { name:'금남면', code:'36110340' },
-            { name:'장군면', code:'36110350' },
-            { name:'연서면', code:'36110360' },
-            { name:'전의면', code:'36110370' },
-            { name:'전동면', code:'36110380' },
-            { name:'소정면', code:'36110390' },
-            { name:'반곡동', code:'36110101' },
-            { name:'소담동', code:'36110102' },
-            { name:'보람동', code:'36110103' },
-            { name:'대평동', code:'36110104' },
-            { name:'가람동', code:'36110105' },
-            { name:'한솔동', code:'36110106' },
-            { name:'나성동', code:'36110107' },
-            { name:'새롬동', code:'36110108' },
-            { name:'다정동', code:'36110109' },
-            { name:'어진동', code:'36110110' },
-            { name:'종촌동', code:'36110111' },
-            { name:'고운동', code:'36110112' },
-            { name:'아름동', code:'36110113' },
-            { name:'도담동', code:'36110114' },
-            { name:'산울동', code:'36110115' },
-            { name:'해밀동', code:'36110116' },
-            { name:'집현동', code:'36110117' }
-        ].map(area => ({ ...area, office: getOfficeByAreaName(area.name) }));
-
-        const targetNames = forestAreas.map(a => a.name);
-        const localAreas = forestAreas.map(a => a.code).join(',');
-
-        const apiUrl =
-            `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch` +
-            `?serviceKey=${encodeURIComponent(API_KEY)}` +
-            `&pageNo=1` +
-            `&numOfRows=100` +
-            `&localAreas=${encodeURIComponent(localAreas)}` +
-            `&excludeForecast=1` +
-            `&_type=json` +
-            `&_=${Date.now()}`;
-
-        const urls = [
-            apiUrl,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}&_=${Date.now()}`,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`
+            { name:'조치원읍', office:'북부서', code:'36110250' },
+            { name:'연기면', office:'남부서', code:'36110310' },
+            { name:'연동면', office:'북부서', code:'36110320' },
+            { name:'부강면', office:'북부서', code:'36110330' },
+            { name:'금남면', office:'남부서', code:'36110340' },
+            { name:'장군면', office:'남부서', code:'36110350' },
+            { name:'연서면', office:'북부서', code:'36110360' },
+            { name:'전의면', office:'북부서', code:'36110370' },
+            { name:'전동면', office:'북부서', code:'36110380' },
+            { name:'소정면', office:'북부서', code:'36110390' },
+            { name:'반곡동', office:'남부서', code:'36110101' },
+            { name:'소담동', office:'남부서', code:'36110102' },
+            { name:'보람동', office:'남부서', code:'36110103' },
+            { name:'대평동', office:'남부서', code:'36110104' },
+            { name:'가람동', office:'남부서', code:'36110105' },
+            { name:'한솔동', office:'남부서', code:'36110106' },
+            { name:'나성동', office:'남부서', code:'36110107' },
+            { name:'새롬동', office:'남부서', code:'36110108' },
+            { name:'다정동', office:'남부서', code:'36110109' },
+            { name:'어진동', office:'남부서', code:'36110110' },
+            { name:'종촌동', office:'남부서', code:'36110111' },
+            { name:'고운동', office:'남부서', code:'36110112' },
+            { name:'아름동', office:'남부서', code:'36110113' },
+            { name:'도담동', office:'남부서', code:'36110114' },
+            { name:'산울동', office:'남부서', code:'36110115' },
+            { name:'해밀동', office:'남부서', code:'36110116' },
+            { name:'집현동', office:'남부서', code:'36110117' }
         ];
 
-        function parseNum(v) {
+        const parseNum = (v) => {
             if (v === null || v === undefined || v === '') return null;
-            const n = parseFloat(String(v).replace(/,/g, ''));
+            const n = parseFloat(String(v).replace(/,/g, '').replace(/[−–—]/g, '-'));
             return isNaN(n) ? null : n;
-        }
+        };
 
-        function getLevel(val) {
-            // 중요: null을 Number(null)=0으로 바꾸면 미제공 지역이 0으로 보입니다.
+        const escapeHtml = (v) => String(v ?? '').replace(/[&<>"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[ch]));
+
+        const fmtTime = (ms) => {
+            if (!ms) return '수신이력 없음';
+            const d = new Date(ms);
+            const hh = String(d.getHours()).padStart(2, '0');
+            const mm = String(d.getMinutes()).padStart(2, '0');
+            return `${d.getMonth() + 1}/${d.getDate()} ${hh}:${mm}`;
+        };
+
+        const getLevel = (val) => {
             if (val === null || val === undefined || val === '') {
-                return { text: '미제공', color: 'var(--sub)', value: '-' };
+                return { text:'미제공', color:'var(--sub)', value:'-' };
             }
             const num = Number(val);
-            if (isNaN(num)) return { text: '미제공', color: 'var(--sub)', value: '-' };
+            if (isNaN(num)) return { text:'미제공', color:'var(--sub)', value:'-' };
             const displayVal = Math.round(num);
-            if (displayVal <= 50) return { text: '낮음', color: 'var(--forest)', value: displayVal };
-            if (displayVal <= 65) return { text: '보통', color: 'var(--orange)', value: displayVal };
-            if (displayVal <= 85) return { text: '높음', color: 'var(--red)', value: displayVal };
-            return { text: '매우높음', color: '#FF3B30', value: displayVal };
-        }
+            if (displayVal >= 86) return { text:'매우높음', color:'#FF3B30', value:displayVal };
+            if (displayVal >= 66) return { text:'높음', color:'var(--red)', value:displayVal };
+            if (displayVal >= 51) return { text:'다소높음', color:'var(--orange)', value:displayVal };
+            return { text:'낮음', color:'var(--forest)', value:displayVal };
+        };
 
-        async function fetchForestText() {
-            let lastError = null;
-            for (const url of urls) {
-                try {
-                    const res = await fetch(url, { cache: 'no-store' });
-                    const text = await res.text();
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    if (!text || text.trim().length < 10) throw new Error('응답 없음');
-                    return text;
-                } catch (e) {
-                    lastError = e;
-                    console.warn('산불위험지수 호출 실패:', url, e);
+        const normalizeItems = (data) => {
+            let items = data?.response?.body?.items?.item || data?.body?.items?.item || data?.items?.item || data?.item || [];
+            if (!items) return [];
+            if (!Array.isArray(items)) items = [items];
+            return items.filter(Boolean);
+        };
+
+        const makeProxyUrls = (url) => [
+            url,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
+            `https://corsproxy.io/?${encodeURIComponent(url)}`
+        ];
+
+        const fetchTextWithTimeout = async (url, timeoutMs = 6500) => {
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), timeoutMs);
+            try {
+                const res = await fetch(url, { cache:'no-store', signal: controller.signal });
+                let text = await res.text();
+                if (url.includes('api.allorigins.win/get')) {
+                    try {
+                        const wrapped = JSON.parse(text);
+                        text = wrapped.contents || text;
+                    } catch(e) {}
                 }
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                if (!text || text.trim().length < 2) throw new Error('응답 없음');
+                return text;
+            } finally {
+                clearTimeout(timer);
             }
-            throw lastError || new Error('산불위험지수 전체 호출 실패');
-        }
+        };
 
-        try {
-            statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> API 연결 중...`;
-            const text = await fetchForestText();
-            const trimmed = text.trim();
+        const buildApiUrl = (areaCodes) => {
+            const params = new URLSearchParams();
+            params.set('serviceKey', API_KEY);
+            params.set('pageNo', '1');
+            params.set('numOfRows', '100');
+            params.set('localAreas', Array.isArray(areaCodes) ? areaCodes.join(',') : String(areaCodes));
+            params.set('excludeForecast', '1'); // 현재값 기준, 72시간 예측값 제외
+            params.set('_type', 'json');
+            params.set('_', String(Date.now()));
+            return `${API_BASE}?${params.toString()}`;
+        };
 
-            if (trimmed.startsWith('<')) {
-                const xml = new DOMParser().parseFromString(trimmed, 'text/xml');
-                const msg = xml.querySelector('returnAuthMsg, errMsg, resultMsg')?.textContent || 'API 응답 확인 필요';
+        const parseForestApiText = (text) => {
+            const raw = String(text || '').trim();
+            if (!raw) throw new Error('응답 없음');
+            if (raw.startsWith('<')) {
+                const xml = new DOMParser().parseFromString(raw, 'text/xml');
+                const msg = xml.querySelector('returnAuthMsg, errMsg, resultMsg, cmmMsgHeader > returnReasonCode')?.textContent || 'XML 오류 응답';
                 throw new Error(msg);
             }
+            let data;
+            try { data = JSON.parse(raw); }
+            catch(e) { throw new Error('JSON 파싱 실패'); }
 
-            const data = JSON.parse(trimmed);
-            const header = data?.response?.header;
-            if (header && header.resultCode && header.resultCode !== '00') {
-                throw new Error(header.resultMsg || `API 오류 ${header.resultCode}`);
+            const header = data?.response?.header || data?.header;
+            const resultCode = String(header?.resultCode ?? header?.returnReasonCode ?? '').trim();
+            const resultMsg = header?.resultMsg || header?.returnAuthMsg || header?.errMsg || '';
+            if (resultCode && !['00', '0', 'NORMAL_SERVICE'].includes(resultCode)) {
+                throw new Error(resultMsg || `API 오류 ${resultCode}`);
+            }
+            return normalizeItems(data);
+        };
+
+        const itemToRow = (area, item, statusText = '현재값') => {
+            if (!item) {
+                return { name:area.name, office:area.office, code:area.code, max:null, mean:null, min:null, std:null, status:'미제공' };
+            }
+            const max = parseNum(item.maxi);
+            const mean = parseNum(item.meanavg ?? item.mean ?? item.avg);
+            const min = parseNum(item.mini ?? item.min);
+            const std = parseNum(item.std ?? item.stdev);
+            if (max === null && mean === null) {
+                return { name:area.name, office:area.office, code:area.code, max:null, mean:null, min:null, std:null, status:'미제공' };
+            }
+            return {
+                name: area.name,
+                office: area.office,
+                code: area.code,
+                max,
+                mean: mean !== null ? mean : max,
+                min,
+                std,
+                status: statusText,
+                raw: item
+            };
+        };
+
+        const matchItemForArea = (items, area) => {
+            const candidates = items.filter(item => {
+                const max = parseNum(item?.maxi);
+                const mean = parseNum(item?.meanavg ?? item?.mean ?? item?.avg);
+                if (max === null && mean === null) return false;
+                const emd = String(item.emd || item.emdNm || item.localAreaNm || item.addr || '');
+                const code = String(item.localArea || item.localAreaCode || item.emdCd || item.code || '');
+                if (code && code.includes(area.code)) return true;
+                if (emd && emd.includes(area.name)) return true;
+                return false;
+            });
+            return candidates.find(item => parseNum(item?.maxi) !== null || parseNum(item?.meanavg ?? item?.mean ?? item?.avg) !== null) || null;
+        };
+
+        const fetchApiItems = async (apiUrl, timeoutMs = 6500) => {
+            let lastError = null;
+            for (const url of makeProxyUrls(apiUrl)) {
+                try {
+                    const text = await fetchTextWithTimeout(url, timeoutMs);
+                    return parseForestApiText(text);
+                } catch(e) {
+                    lastError = e;
+                }
+            }
+            throw lastError || new Error('산불 API 수신 실패');
+        };
+
+        const fetchDetailRowsFast = async () => {
+            // 1차: 세종 전체 코드를 한 번에 조회합니다. 성공하면 27번 호출보다 훨씬 빠릅니다.
+            try {
+                const items = await fetchApiItems(buildApiUrl(forestAreas.map(a => a.code)), 8000);
+                const rows = forestAreas.map(area => itemToRow(area, matchItemForArea(items, area), '현재값'));
+                if (rows.some(r => r.max !== null || r.mean !== null)) return rows;
+            } catch(e) {
+                console.warn('산불 전체 묶음 조회 실패, 개별 조회로 보조:', e);
             }
 
-            let items = data?.response?.body?.items?.item || [];
-            if (!Array.isArray(items)) items = [items];
+            // 2차: 묶음 조회가 실패한 경우에만 개별 조회합니다. 이 작업은 3시간 캐시 갱신 때만 실행됩니다.
+            const fetchOneArea = async (area) => {
+                try {
+                    const items = await fetchApiItems(buildApiUrl(area.code), 5000);
+                    return itemToRow(area, matchItemForArea(items, area) || items[0], '현재값');
+                } catch(e) {
+                    return { name:area.name, office:area.office, code:area.code, max:null, mean:null, min:null, std:null, status:'미제공', error:e.message };
+                }
+            };
+            return await mapLimit(forestAreas, 8, fetchOneArea);
+        };
 
-            const results = {};
-            targetNames.forEach(name => results[name] = { max: null, mean: null });
+        const parseRepresentativeValue = (text) => {
+            const raw = String(text || '').replace(/\u00a0/g, ' ');
+            let doc = null;
+            try { doc = new DOMParser().parseFromString(raw, 'text/html'); } catch(e) {}
 
-            items.forEach(item => {
-                const emd = item.emd || item.emdNm || item.localAreaNm || item.addr || '';
-                const code = String(item.localArea || item.localAreaCode || item.emdCd || item.code || '');
-                const matchedByName = targetNames.find(name => String(emd).includes(name));
-                const matchedByCodeObj = forestAreas.find(a => code.includes(a.code));
-                const matched = matchedByName || matchedByCodeObj?.name;
-                if (!matched) return;
+            const validNums = (txt) => {
+                const nums = String(txt || '').match(/\d{1,3}(?:\.\d+)?/g) || [];
+                return nums.map(Number).filter(n => !isNaN(n) && n >= 0 && n <= 100);
+            };
 
-                // 현재값 기준: 예측값 제외(excludeForecast=1)
-                // 카드 표시: 해당 읍면동 최고값(maxi)
-                // 상단 전체 요약: 제공 지역의 평균값(meanavg, 없으면 maxi) 평균
-                const maxVal = parseNum(item.maxi);
-                const meanVal = parseNum(item.meanavg ?? item.mean ?? item.avg);
+            if (doc) {
+                const rows = Array.from(doc.querySelectorAll('tr, li, div, p, span')).filter(el => /세종|Sejong|산불위험/.test(el.textContent || ''));
+                for (const el of rows) {
+                    const nums = validNums(el.textContent);
+                    if (nums.length) return { value: nums[nums.length - 1], text: el.textContent.replace(/\s+/g, ' ').trim() };
+                    const grade = String(el.textContent || '').match(/(매우높음|다소높음|높음|낮음)/);
+                    if (grade) return { value:null, levelText: grade[1], text: el.textContent.replace(/\s+/g, ' ').trim() };
+                }
+            }
 
-                if (maxVal !== null) results[matched].max = maxVal;
-                if (meanVal !== null) results[matched].mean = meanVal;
-                else if (maxVal !== null) results[matched].mean = maxVal;
-            });
+            const plain = raw.replace(/<script[\s\S]*?<\/script>/gi, ' ').replace(/<style[\s\S]*?<\/style>/gi, ' ').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+            const patterns = [
+                /세종특별자치시[^0-9]{0,80}(\d{1,3}(?:\.\d+)?)/,
+                /세종[^0-9]{0,80}(\d{1,3}(?:\.\d+)?)/,
+                /산불위험(?:지수)?[^0-9]{0,80}(\d{1,3}(?:\.\d+)?)/
+            ];
+            for (const p of patterns) {
+                const m = plain.match(p);
+                if (m) {
+                    const n = Number(m[1]);
+                    if (!isNaN(n) && n >= 0 && n <= 100) return { value:n, text:m[0] };
+                }
+            }
+            const grade = plain.match(/(매우높음|다소높음|높음|낮음)/);
+            if (grade) return { value:null, levelText: grade[1], text: grade[0] };
+            return null;
+        };
+
+        const fetchOfficialRepresentative = async () => {
+            let lastError = null;
+            for (const url of makeProxyUrls(FOREST_SEJONG_URL)) {
+                try {
+                    const text = await fetchTextWithTimeout(url, 6000);
+                    const parsed = parseRepresentativeValue(text);
+                    if (parsed) {
+                        return {
+                            value: parseNum(parsed.value),
+                            levelText: parsed.levelText || null,
+                            source: '국가산불위험예보시스템',
+                            rawText: String(parsed.text || '').slice(0, 160)
+                        };
+                    }
+                } catch(e) {
+                    lastError = e;
+                }
+            }
+            throw lastError || new Error('대표값 파싱 실패');
+        };
+
+        const makeFallbackRows = () => forestAreas.map(area => ({
+            name: area.name,
+            office: area.office,
+            code: area.code,
+            max: null,
+            mean: null,
+            min: null,
+            std: null,
+            status: '미제공'
+        }));
+
+        const saveCache = async (cache) => {
+            try { await db.ref(CACHE_PATH).set(cache); } catch(e) { console.warn('Firebase 산불 캐시 저장 실패:', e); }
+            try { localStorage.setItem(CACHE_PATH, JSON.stringify(cache)); } catch(e) {}
+        };
+
+        const loadCache = async () => {
+            try {
+                const snap = await db.ref(CACHE_PATH).once('value');
+                const val = snap.val();
+                if (val && Array.isArray(val.rows)) return val;
+            } catch(e) {
+                console.warn('Firebase 산불 캐시 읽기 실패:', e);
+            }
+            try {
+                const val = JSON.parse(localStorage.getItem(CACHE_PATH) || 'null');
+                if (val && Array.isArray(val.rows)) return val;
+            } catch(e) {}
+            return null;
+        };
+
+        const renderForest = (cache, stateText = '') => {
+            const rowsAll = Array.isArray(cache?.rows) ? cache.rows : makeFallbackRows();
+            const rows = filterRowsByOffice(rowsAll, 'forest');
+            const representative = cache?.representative || null;
+            const updatedAt = cache?.updatedAt || cache?.fetchedAt || null;
+            const ageMs = updatedAt ? Date.now() - Number(updatedAt) : null;
+            const isStale = ageMs === null || ageMs > CACHE_MAX_AGE_MS;
 
             let html = '';
             let totalMean = 0;
             let countMean = 0;
             let maxVal = -1;
             let maxName = '';
+            let missingCount = 0;
 
-            const displayForestAreas = filterRowsByOffice(forestAreas, 'forest');
-            const filterLabel = getSectionFilterLabel('forest');
-
-            displayForestAreas.forEach(area => {
-                const row = results[area.name] || { max: null, mean: null };
+            rows.forEach(row => {
                 const level = getLevel(row.max);
-
+                if (row.status === '미제공') missingCount++;
                 if (row.mean !== null && !isNaN(row.mean)) {
-                    totalMean += row.mean;
+                    totalMean += Number(row.mean);
                     countMean++;
                 }
-                if (row.max !== null && !isNaN(row.max) && row.max > maxVal) {
-                    maxVal = row.max;
-                    maxName = area.name;
+                if (row.max !== null && !isNaN(row.max) && Number(row.max) > maxVal) {
+                    maxVal = Number(row.max);
+                    maxName = row.name;
                 }
 
+                const detailText = row.status === '미제공'
+                    ? 'API 미제공'
+                    : `평균 ${Math.round(row.mean ?? row.max)}${row.min !== null ? ` · 최저 ${Math.round(row.min)}` : ''}`;
+
                 html += `<div class="rain-cell">
-                    <div class="rain-loc">${area.name}</div>
+                    <div class="rain-loc">${escapeHtml(row.name)}</div>
+                    <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${escapeHtml(row.office)}</div>
                     <div class="rain-val" style="color:${level.color};">${level.value}</div>
                     <div style="font-size:10px; color:${level.color}; margin-top:4px; font-weight:700;">${level.text}</div>
-                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">최고값 기준</div>
+                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">최고값(maxi)</div>
+                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">${escapeHtml(detailText)}</div>
                 </div>`;
             });
 
-            if (displayForestAreas.length === 0) {
+            if (!rows.length) {
                 html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 산불위험지수 자료 없음</div>`;
             }
+
+            const srcStatus = representative?.value !== null && representative?.value !== undefined
+                ? `세종 대표 ${Math.round(representative.value)}`
+                : (representative?.levelText ? `세종 대표 ${representative.levelText}` : '세종 대표값 보조조회');
 
             html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
                 <div class="rain-val" style="font-size:11px; color:var(--sub);">산림청</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 현재값</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${escapeHtml(srcStatus)}</div>
+                <div style="font-size:9px; color:var(--sub); margin-top:2px;">캐시 ${fmtTime(updatedAt)}</div>
             </div>`;
 
             gridEl.innerHTML = html;
 
-            if (countMean > 0) {
-                const avg = Math.round(totalMean / countMean);
-                const avgLevel = getLevel(avg);
-                const maxTxt = maxVal >= 0 ? `<span style="font-size:11px; color:var(--sub); margin-left:6px;">최고 ${maxName} ${Math.round(maxVal)}</span>` : '';
-                statusEl.innerHTML = `<span style="color:${avgLevel.color};">${filterLabel} 제공지역 평균 ${avg} · ${avgLevel.text}</span>${maxTxt}`;
+            const repLevel = representative && representative.value !== null && representative.value !== undefined ? getLevel(representative.value) : null;
+            const avg = countMean > 0 ? Math.round(totalMean / countMean) : null;
+            const avgLevel = avg !== null ? getLevel(avg) : null;
+            const maxTxt = maxVal >= 0 ? `<span style="font-size:11px; color:var(--sub); margin-left:6px;">최고 ${escapeHtml(maxName)} ${Math.round(maxVal)}</span>` : '';
+            const missTxt = missingCount > 0 ? `<span style="font-size:11px; color:var(--orange); margin-left:6px;">미제공 ${missingCount}</span>` : '';
+            const staleTxt = isStale ? `<span style="font-size:11px; color:var(--orange); margin-left:6px;">갱신필요</span>` : '';
+            const state = stateText ? `<span style="font-size:11px; color:var(--blue); margin-left:6px;">${escapeHtml(stateText)}</span>` : '';
+
+            if (globalScope === 'all' && weatherOfficeFilters.forest === 'all' && repLevel) {
+                statusEl.innerHTML = `<span style="color:${repLevel.color};">세종 대표 ${repLevel.value} · ${repLevel.text}</span>${maxTxt}${missTxt}${staleTxt}${state}<div style="font-size:10px; color:var(--sub); margin-top:2px;">대표값은 국가산불위험예보시스템, 지역 카드는 공공데이터 캐시값</div>`;
+            } else if (avg !== null) {
+                statusEl.innerHTML = `<span style="color:${avgLevel.color};">${escapeHtml(filterLabel)} 기준 ${avg} · ${avgLevel.text}</span>${maxTxt}${missTxt}${staleTxt}${state}<div style="font-size:10px; color:var(--sub); margin-top:2px;">관할 기준값은 제공지역 평균(meanavg), 지역 카드는 최고값(maxi)</div>`;
+            } else if (representative?.levelText) {
+                statusEl.innerHTML = `<span style="color:var(--forest);">세종 대표 ${escapeHtml(representative.levelText)}</span>${missTxt}${staleTxt}${state}`;
             } else {
-                statusEl.innerHTML = `<span style="color:var(--orange);">${filterLabel} 산불위험지수 미제공</span>`;
+                statusEl.innerHTML = `<span style="color:var(--orange);">산불위험지수 미제공</span>${staleTxt}${state}`;
+            }
+        };
+
+        const refreshForestCache = async (oldCache = null) => {
+            if (forestRefreshInProgress) return;
+            forestRefreshInProgress = true;
+            try {
+                const repPromise = fetchOfficialRepresentative().catch(e => {
+                    console.warn('세종 대표 산불위험값 수신 실패:', e);
+                    return oldCache?.representative || null;
+                });
+                const rowsPromise = fetchDetailRowsFast().catch(e => {
+                    console.warn('세종 산불 상세 캐시 갱신 실패:', e);
+                    return oldCache?.rows || makeFallbackRows();
+                });
+                const [representative, rows] = await Promise.all([repPromise, rowsPromise]);
+                const cache = {
+                    updatedAt: Date.now(),
+                    representative,
+                    rows: Array.isArray(rows) && rows.length ? rows : makeFallbackRows()
+                };
+                await saveCache(cache);
+                renderForest(cache, '갱신완료');
+            } catch(e) {
+                console.error('산불위험지수 캐시 갱신 처리 실패:', e);
+                if (oldCache) renderForest(oldCache, '마지막값 유지');
+                else renderForest({ updatedAt:null, representative:null, rows: makeFallbackRows() }, '조회실패');
+            } finally {
+                forestRefreshInProgress = false;
+            }
+        };
+
+        try {
+            const cache = await loadCache();
+            if (cache) {
+                renderForest(cache);
+                const ageMs = Date.now() - Number(cache.updatedAt || cache.fetchedAt || 0);
+                if (ageMs > CACHE_MAX_AGE_MS && !forestRefreshInProgress) {
+                    statusEl.innerHTML += `<div style="font-size:10px; color:var(--blue); margin-top:2px;"><i class="fas fa-rotate-right fa-spin"></i> 3시간 경과, 새 값 갱신 중...</div>`;
+                    refreshForestCache(cache);
+                }
+                return;
             }
 
+            const emptyCache = { updatedAt:null, representative:null, rows: makeFallbackRows() };
+            renderForest(emptyCache, '첫 조회중');
+            refreshForestCache(null);
         } catch(e) {
-            console.error('산불위험지수 수신 실패:', e);
-            statusEl.innerHTML = `<span style="color:var(--orange);">API 수신 지연</span>`;
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--orange); font-size:12px; line-height:1.5;">산불위험지수 수신 지연<br><span style="color:var(--sub); font-size:11px;">공공데이터포털 인증키 또는 프록시 상태를 확인하세요.</span></div>`;
+            console.error('산불위험지수 처리 실패:', e);
+            const emptyCache = { updatedAt:null, representative:null, rows: makeFallbackRows() };
+            renderForest(emptyCache, '확인필요');
         }
     }
+
 
     async function autoFetchSpecial() {
         const contentEl = document.getElementById('monitor-content');
