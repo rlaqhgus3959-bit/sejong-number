@@ -298,7 +298,7 @@
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 강우량, 기온 및 풍속
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 세종시 전체 강우량
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -314,7 +314,7 @@
         </div>
 
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">7개 읍면 일평균 강수</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 전체 1시간 강수 평균</div>
             <div class="rain-avg-val" id="avg-rain-val">- mm</div>
         </div>
         <div class="rain-grid" id="rain-grid"></div>
@@ -324,7 +324,7 @@
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
         <div class="ah-title">
-            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 실시간 적설량
+            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 적설량(공공데이터)
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleSnowInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -337,7 +337,7 @@
                 <b style="color:var(--text);">적 설 량 :</b> 현재 쌓여 있는 적설<br>
                 <b style="color:var(--text);">최심적설량 :</b> 임의의 기간동안 쌓여 있는 적설 중 가장 높은 값
             </div>
-            <div style="font-size:11px; margin-bottom:8px; color:var(--sub);">* 금일 적설 = 신적설, 현재적설 = 적설</div>
+            <div style="font-size:11px; margin-bottom:8px; color:var(--sub);">* 공공데이터포털 기상청 단기예보 SNO(1시간 신적설) 예보값 기준</div>
             <div>
                 <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
                 <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
@@ -345,7 +345,7 @@
         </div>
 
         <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 평균 적설량</div>
+            <div style="font-size:12px; color:var(--sub); font-weight:600;">세종시 전체 예보 적설 평균</div>
             <div class="snow-avg-val" id="avg-snow-val">- cm</div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
@@ -355,7 +355,7 @@
 
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
-        <div class="ah-title"><i class="fas fa-tree" style="color:var(--forest)"></i> 산불위험지수</div>
+        <div class="ah-title"><i class="fas fa-tree" style="color:var(--forest)"></i> 세종시 전체 산불위험지수</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -410,7 +410,7 @@
 
 <div class="accord-section" id="sec-shelter">
     <div class="accord-header" onclick="toggleSection('sec-shelter')">
-        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황 (69개소)</div>
+        <div class="ah-title"><i class="fas fa-person-shelter" style="color:var(--shelter); font-size:16px;"></i> 대피소 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -694,283 +694,321 @@
         setTimeout(() => { icon.classList.remove('spin'); }, 500);
     }
 
-    async function fetchDetailRain() {
-        const gridEl = document.getElementById('rain-grid');
-        const avgRainEl = document.getElementById('avg-rain-val');
-        const timeMin = Math.floor(Date.now() / 60000);
-        const targetUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do?_=' + timeMin;
-        const proxyUrl = `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`;
-        const locs = [{name:'조치원'},{name:'연서'},{name:'전의'},{name:'전동'},{name:'소정'},{name:'부강'},{name:'연동'}];
+    
+    // --- 공공데이터포털 기상청 단기예보 조회서비스: 세종시 전체 읍·면·동 대표 격자 ---
+    const KMA_SHORT_SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
+    const KMA_SHORT_BASE = "https://apis.data.go.kr/1360000/VilageFcstInfoService_2.0";
 
+    const SEJONG_WEATHER_AREAS = [
+        { name:'조치원읍', lat:36.6015, lng:127.3005 },
+        { name:'연기면', lat:36.5425, lng:127.2795 },
+        { name:'연동면', lat:36.5585, lng:127.3255 },
+        { name:'부강면', lat:36.5255, lng:127.3685 },
+        { name:'금남면', lat:36.4635, lng:127.2805 },
+        { name:'장군면', lat:36.4975, lng:127.2055 },
+        { name:'연서면', lat:36.5655, lng:127.2785 },
+        { name:'전의면', lat:36.6785, lng:127.2055 },
+        { name:'전동면', lat:36.6355, lng:127.2655 },
+        { name:'소정면', lat:36.7155, lng:127.1555 },
+        { name:'한솔동', lat:36.4795, lng:127.2535 },
+        { name:'새롬동', lat:36.4865, lng:127.2525 },
+        { name:'나성동', lat:36.4895, lng:127.2635 },
+        { name:'다정동', lat:36.4945, lng:127.2505 },
+        { name:'도담동', lat:36.5155, lng:127.2635 },
+        { name:'어진동', lat:36.5025, lng:127.2635 },
+        { name:'종촌동', lat:36.5045, lng:127.2475 },
+        { name:'고운동', lat:36.5195, lng:127.2375 },
+        { name:'아름동', lat:36.5125, lng:127.2465 },
+        { name:'보람동', lat:36.4785, lng:127.2905 },
+        { name:'대평동', lat:36.4705, lng:127.2765 },
+        { name:'소담동', lat:36.4835, lng:127.3005 },
+        { name:'반곡동', lat:36.5005, lng:127.3105 },
+        { name:'해밀동', lat:36.5295, lng:127.2695 },
+        { name:'산울동', lat:36.5265, lng:127.2555 },
+        { name:'집현동', lat:36.4895, lng:127.3275 }
+    ].map(area => ({ ...area, ...kmaLatLngToGrid(area.lat, area.lng) }));
+
+    function kmaLatLngToGrid(lat, lng) {
+        const RE = 6371.00877;
+        const GRID = 5.0;
+        const SLAT1 = 30.0;
+        const SLAT2 = 60.0;
+        const OLON = 126.0;
+        const OLAT = 38.0;
+        const XO = 43;
+        const YO = 136;
+        const DEGRAD = Math.PI / 180.0;
+        const re = RE / GRID;
+        const slat1 = SLAT1 * DEGRAD;
+        const slat2 = SLAT2 * DEGRAD;
+        const olon = OLON * DEGRAD;
+        const olat = OLAT * DEGRAD;
+        let sn = Math.tan(Math.PI * 0.25 + slat2 * 0.5) / Math.tan(Math.PI * 0.25 + slat1 * 0.5);
+        sn = Math.log(Math.cos(slat1) / Math.cos(slat2)) / Math.log(sn);
+        let sf = Math.tan(Math.PI * 0.25 + slat1 * 0.5);
+        sf = Math.pow(sf, sn) * Math.cos(slat1) / sn;
+        let ro = Math.tan(Math.PI * 0.25 + olat * 0.5);
+        ro = re * sf / Math.pow(ro, sn);
+        let ra = Math.tan(Math.PI * 0.25 + lat * DEGRAD * 0.5);
+        ra = re * sf / Math.pow(ra, sn);
+        let theta = lng * DEGRAD - olon;
+        if (theta > Math.PI) theta -= 2.0 * Math.PI;
+        if (theta < -Math.PI) theta += 2.0 * Math.PI;
+        theta *= sn;
+        return {
+            nx: Math.floor(ra * Math.sin(theta) + XO + 0.5),
+            ny: Math.floor(ro - ra * Math.cos(theta) + YO + 0.5)
+        };
+    }
+
+    function getKstDate() {
+        return new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Seoul' }));
+    }
+
+    function kmaDateString(date) {
+        const y = date.getFullYear();
+        const m = String(date.getMonth() + 1).padStart(2, '0');
+        const d = String(date.getDate()).padStart(2, '0');
+        return `${y}${m}${d}`;
+    }
+
+    function kmaTimeString(hour) {
+        return `${String(hour).padStart(2, '0')}00`;
+    }
+
+    function getUltraNcstBase() {
+        const d = getKstDate();
+        if (d.getMinutes() < 45) d.setHours(d.getHours() - 1);
+        return { baseDate: kmaDateString(d), baseTime: kmaTimeString(d.getHours()) };
+    }
+
+    function getVilageFcstBase() {
+        const now = getKstDate();
+        const baseHours = [2, 5, 8, 11, 14, 17, 20, 23];
+        let chosen = null;
+        for (const h of baseHours) {
+            if (now.getHours() > h || (now.getHours() === h && now.getMinutes() >= 20)) chosen = h;
+        }
+        const d = new Date(now);
+        if (chosen === null) {
+            d.setDate(d.getDate() - 1);
+            chosen = 23;
+        }
+        return { baseDate: kmaDateString(d), baseTime: kmaTimeString(chosen) };
+    }
+
+    function getCurrentFcstKey() {
+        const now = getKstDate();
+        const rounded = new Date(now);
+        rounded.setMinutes(0, 0, 0);
+        return kmaDateString(rounded) + kmaTimeString(rounded.getHours());
+    }
+
+    async function fetchTextWithTimeout(url, timeoutMs = 9000) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), timeoutMs);
         try {
-            const [rainRes, tempRes] = await Promise.all([
-                fetch(proxyUrl),
-                fetch(`https://api.open-meteo.com/v1/forecast?latitude=36.601,36.560,36.670,36.630,36.720,36.520,36.560&longitude=127.301,127.270,127.200,127.260,127.150,127.370,127.320&current=temperature_2m,wind_speed_10m&timezone=Asia%2FTokyo`)
-            ]);
-
-            const htmlText = await rainRes.text();
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-            const sejongRain = {};
-            let headerRow = [], valueRow = [];
-
-            doc.querySelectorAll('table tr').forEach(row => {
-                const cells = Array.from(row.querySelectorAll('th, td')).map(c => c.textContent.trim());
-                if (cells.some(c => c.includes('조치원'))) headerRow = cells;
-                if (cells.some(c => c.includes('합계'))) valueRow = cells;
-            });
-
-            if (headerRow.length > 0 && valueRow.length > 0) {
-                locs.forEach(loc => {
-                    const idx = headerRow.findIndex(h => h.includes(loc.name));
-                    if (idx !== -1 && idx < valueRow.length) {
-                        const num = parseFloat(valueRow[idx].replace(/,/g, ''));
-                        sejongRain[loc.name] = isNaN(num) ? 0 : num;
-                    }
-                });
+            const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            let text = await res.text();
+            if (url.includes('api.allorigins.win/get')) {
+                try {
+                    const wrapped = JSON.parse(text);
+                    text = wrapped.contents || text;
+                } catch(e) {}
             }
-
-            const tempData = await tempRes.json();
-            const tempResults = Array.isArray(tempData) ? tempData : [tempData];
-
-            let html = ''; let totalRain = 0; let count = 0;
-            locs.forEach((loc, idx) => {
-                const todayRain = sejongRain[loc.name] !== undefined ? sejongRain[loc.name] : 0;
-                const currentTemp = tempResults[idx]?.current?.temperature_2m ?? '-';
-                const currentWind = tempResults[idx]?.current?.wind_speed_10m ?? '-';
-                totalRain += todayRain; count++;
-                const valClass = todayRain > 0 ? 'rain-val wet' : 'rain-val';
-                const rainColorStyle = todayRain > 0 ? '' : 'color: var(--sub);';
-
-                html += `<div class="rain-cell"><div class="rain-loc">${loc.name}</div><div class="${valClass}" style="${rainColorStyle}">${todayRain}<small>mm</small></div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${currentTemp}℃ | 풍속 ${currentWind}m/s</div></div>`;
-            });
-            html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);"><div class="rain-loc" style="color:var(--text);">출처</div><div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div><div style="font-size:10px; color:var(--green); margin-top:4px;">Live</div></div>`;
-
-            gridEl.innerHTML = html;
-            avgRainEl.innerText = `${count > 0 ? (totalRain/count).toFixed(1) : '-'} mm`;
-        } catch (e) {
-            avgRainEl.innerText = "지연";
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px;">데이터 수 수신 지연</div>`;
+            return text;
+        } finally {
+            clearTimeout(timer);
         }
     }
 
-    async function fetchDetailSnow() {
-        const gridEl = document.getElementById('snow-grid');
-        const avgSnowEl = document.getElementById('avg-snow-val');
-        const baseUrl = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do';
-        const targetUrl = baseUrl + '?_=' + Date.now();
-
-        const locs = [
-            {name:'조치원', display:'조치원읍'},
-            {name:'연동', display:'연동면'},
-            {name:'부강', display:'부강면'},
-            {name:'금남', display:'금남면'},
-            {name:'장군', display:'장군면'},
-            {name:'연서', display:'연서면'},
-            {name:'전의', display:'전의면'},
-            {name:'전동', display:'전동면'},
-            {name:'소정', display:'소정면'}
+    async function fetchKmaShortJson(endpoint, params) {
+        const query = new URLSearchParams({
+            serviceKey: KMA_SHORT_SERVICE_KEY,
+            pageNo: '1',
+            numOfRows: '1000',
+            dataType: 'JSON',
+            ...params
+        });
+        const apiUrl = `${KMA_SHORT_BASE}/${endpoint}?${query.toString()}`;
+        const urls = [
+            apiUrl,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`
         ];
 
-        const extractNum = (str) => {
-            if (!str) return 0;
-            const cleaned = String(str).replace(/,/g, '').replace(/[−–—]/g, '-');
-            const match = cleaned.match(/-?\d+(\.\d+)?/);
-            return match ? parseFloat(match[0]) : 0;
-        };
+        let lastError = null;
+        for (const url of urls) {
+            try {
+                const text = await fetchTextWithTimeout(url);
+                if (text.trim().startsWith('<')) throw new Error('XML 오류 응답: ' + text.slice(0, 80));
+                const data = JSON.parse(text);
+                const code = data?.response?.header?.resultCode;
+                const msg = data?.response?.header?.resultMsg;
+                if (code && code !== '00') throw new Error(msg || ('공공데이터 오류 ' + code));
+                return data;
+            } catch (e) {
+                lastError = e;
+            }
+        }
+        throw lastError || new Error('기상청 단기예보 API 수신 실패');
+    }
 
-        const renderSnow = (snowMap, avgSnow, sourceLabel = 'Live') => {
+    async function mapLimit(list, limit, worker) {
+        const results = new Array(list.length);
+        let idx = 0;
+        const runners = Array.from({ length: Math.min(limit, list.length) }, async () => {
+            while (idx < list.length) {
+                const current = idx++;
+                try {
+                    results[current] = await worker(list[current], current);
+                } catch (e) {
+                    console.warn('지역별 기상 조회 실패:', list[current]?.name, e);
+                    results[current] = { ...list[current], error: true };
+                }
+            }
+        });
+        await Promise.all(runners);
+        return results;
+    }
+
+    function parseKmaNumber(value, smallValue = 0) {
+        const s = String(value ?? '').trim();
+        if (!s || s === '-' || s.includes('없음')) return 0;
+        if (s.includes('미만')) return smallValue;
+        const m = s.replace(/,/g, '').match(/-?\d+(\.\d+)?/);
+        return m ? parseFloat(m[0]) : 0;
+    }
+
+
+    async function fetchDetailRain() {
+        const gridEl = document.getElementById('rain-grid');
+        const avgRainEl = document.getElementById('avg-rain-val');
+        const base = getUltraNcstBase();
+
+        try {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 수신중...</div>`;
+
+            const rows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
+                const data = await fetchKmaShortJson('getUltraSrtNcst', {
+                    base_date: base.baseDate,
+                    base_time: base.baseTime,
+                    nx: String(area.nx),
+                    ny: String(area.ny)
+                });
+                const items = data?.response?.body?.items?.item || [];
+                const arr = Array.isArray(items) ? items : [items];
+                const map = {};
+                arr.forEach(item => { map[item.category] = item.obsrValue; });
+
+                const rain = parseKmaNumber(map.RN1, 0.5);
+                const temp = map.T1H ?? '-';
+                const wind = map.WSD ?? '-';
+                return { ...area, rain, temp, wind, baseTime: `${base.baseDate} ${base.baseTime}` };
+            });
+
+            const valid = rows.filter(r => !r.error);
+            const total = valid.reduce((sum, r) => sum + Number(r.rain || 0), 0);
+            const avg = valid.length ? total / valid.length : 0;
+
             let html = '';
-
-            locs.forEach(loc => {
-                const data = snowMap[loc.name] || {sin: 0, choe: 0, juk: 0};
-                const valClass = data.juk > 0 ? 'rain-val snowing' : 'rain-val';
-                const colorStyle = data.juk > 0 ? '' : 'color: var(--sub);';
-
+            rows.forEach(row => {
+                if (row.error) {
+                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
+                    return;
+                }
+                const valClass = row.rain > 0 ? 'rain-val wet' : 'rain-val';
+                const colorStyle = row.rain > 0 ? '' : 'color: var(--sub);';
                 html += `<div class="rain-cell">
-                    <div class="rain-loc">${loc.display}</div>
-                    <div class="${valClass}" style="${colorStyle}">${Number(data.juk || 0).toFixed(1)}<small>cm</small></div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">신적설: ${Number(data.sin || 0).toFixed(1)}</div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">최심: ${Number(data.choe || 0).toFixed(1)}</div>
+                    <div class="rain-loc">${row.name}</div>
+                    <div class="${valClass}" style="${colorStyle}">${Number(row.rain || 0).toFixed(1)}<small>mm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">${row.temp}℃ | 풍속 ${row.wind}m/s</div>
                 </div>`;
             });
 
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시망</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${sourceLabel}</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 초단기실황</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${base.baseDate} ${base.baseTime}</div>
             </div>`;
 
             gridEl.innerHTML = html;
-            avgSnowEl.innerText = `${Number(avgSnow || 0).toFixed(1)} cm`;
-        };
-
-        const fetchWithTimeout = async (url, timeoutMs = 8000) => {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-            try {
-                const res = await fetch(url, {
-                    cache: 'no-store',
-                    signal: controller.signal,
-                    headers: { 'Accept': 'text/html,application/json,text/plain,*/*' }
-                });
-                if (!res.ok) throw new Error('HTTP ' + res.status);
-
-                let text = await res.text();
-
-                // allorigins get 방식은 JSON 안에 contents로 HTML이 들어옵니다.
-                if (url.includes('api.allorigins.win/get')) {
-                    try {
-                        const json = JSON.parse(text);
-                        text = json.contents || text;
-                    } catch (e) {}
-                }
-
-                return text;
-            } finally {
-                clearTimeout(timer);
-            }
-        };
-
-        const makeProxyUrls = (url) => [
-            // 세종시 서버가 CORS를 허용하면 직접 연결
-            url,
-            // 프록시 예비 연결 4개
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`,
-            `https://corsproxy.io/?${encodeURIComponent(url)}`
-        ];
-
-        const fetchSnowHtml = async () => {
-            let lastError = null;
-
-            for (const url of makeProxyUrls(targetUrl)) {
-                try {
-                    const text = await fetchWithTimeout(url);
-
-                    // 기존에는 '조치원'이 없으면 무조건 실패 처리했는데,
-                    // 실제 페이지 문구가 바뀌거나 프록시가 JSON으로 감싸면 여기서 막힐 수 있어 조건을 완화했습니다.
-                    if (text && (text.includes('적설') || text.includes('신적설') || text.includes('조치원') || text.includes('소정'))) {
-                        return text;
-                    }
-
-                    throw new Error('적설 데이터 문구 없음');
-                } catch (e) {
-                    lastError = e;
-                    console.warn('적설량 수신 재시도:', e);
-                }
-            }
-
-            throw lastError || new Error('적설량 데이터 수신 실패');
-        };
-
-        try {
-            const htmlText = await fetchSnowHtml();
-
-            const parser = new DOMParser();
-            const doc = parser.parseFromString(htmlText, 'text/html');
-
-            const rows = Array.from(doc.querySelectorAll('table tr'));
-            let headerCells = [];
-            let sejongSnow = {};
-            let avgSnow = 0;
-
-            rows.forEach(tr => {
-                const cells = Array.from(tr.querySelectorAll('th, td')).map(c =>
-                    c.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
-                );
-
-                if (cells.length < 2) return;
-
-                if (cells.some(c => c.includes('신적설') || c.includes('최심신적설') || c.includes('적설'))) {
-                    headerCells = cells;
-                }
-            });
-
-            const findHeaderIdx = (type) => {
-                if (!headerCells.length) return -1;
-
-                if (type === 'sin') {
-                    return headerCells.findIndex(h => h.includes('신적설') && !h.includes('최심'));
-                }
-
-                if (type === 'choe') {
-                    return headerCells.findIndex(h => h.includes('최심신적설') || h.includes('최심 신적설'));
-                }
-
-                if (type === 'juk') {
-                    return headerCells.findIndex(h =>
-                        (h.includes('적설') || h.includes('적설량')) &&
-                        !h.includes('신적설') &&
-                        !h.includes('최심')
-                    );
-                }
-
-                return -1;
-            };
-
-            const idxSin = findHeaderIdx('sin');
-            const idxChoe = findHeaderIdx('choe');
-            const idxJuk = findHeaderIdx('juk');
-
-            rows.forEach(tr => {
-                const cells = Array.from(tr.querySelectorAll('th, td')).map(c =>
-                    c.textContent.replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim()
-                );
-
-                if (cells.length < 2) return;
-
-                const rowText = cells.join(' ');
-                const rowTitle = cells[0];
-
-                const getByIdx = (idx, fallbackIdx) => {
-                    if (idx >= 0 && idx < cells.length) return extractNum(cells[idx]);
-                    if (fallbackIdx >= 0 && fallbackIdx < cells.length) return extractNum(cells[fallbackIdx]);
-                    return 0;
-                };
-
-                if (rowText.includes('평균')) {
-                    // 보통 적설량은 5번째 칸(cells[4])이지만, 표 헤더가 바뀌면 헤더 기준으로 찾습니다.
-                    avgSnow = getByIdx(idxJuk, 4);
-                    return;
-                }
-
-                const matchedLoc = locs.find(l => rowTitle.includes(l.name) || rowText.includes(l.display));
-                if (!matchedLoc) return;
-
-                sejongSnow[matchedLoc.name] = {
-                    sin: getByIdx(idxSin, 1),
-                    choe: getByIdx(idxChoe, 2),
-                    juk: getByIdx(idxJuk, 4)
-                };
-            });
-
-            // 표 구조가 조금 바뀌어도 최소한 0.0 카드라도 표시되도록 보정합니다.
-            if (Object.keys(sejongSnow).length === 0) {
-                throw new Error('적설 표 파싱 실패');
-            }
-
-            renderSnow(sejongSnow, avgSnow, 'Live');
-
-        } catch(e) {
-            console.error('적설량 수신 실패:', e);
-
-            // 적설량은 겨울 외 기간에는 전부 0일 가능성이 높으므로,
-            // 통신이 잠깐 실패해도 화면이 깨지지 않게 0.0 기본값을 먼저 보여줍니다.
-            const emptySnow = {};
-            locs.forEach(loc => emptySnow[loc.name] = {sin: 0, choe: 0, juk: 0});
-
-            renderSnow(emptySnow, 0, '수신지연');
-
-            gridEl.insertAdjacentHTML('afterbegin',
-                `<div style="grid-column:1/-1; text-align:center; padding:8px; color:var(--orange); font-size:12px;">
-                    적설량 수신 지연 - 기본값 0.0cm 표시 중
-                </div>`
-            );
+            avgRainEl.innerText = `${avg.toFixed(1)} mm`;
+        } catch (e) {
+            console.error('공공데이터 강수량 수신 실패:', e);
+            avgRainEl.innerText = '오류';
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 강수량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
         }
     }
+
+
+    async function fetchDetailSnow() {
+        const gridEl = document.getElementById('snow-grid');
+        const avgSnowEl = document.getElementById('avg-snow-val');
+        const base = getVilageFcstBase();
+        const currentKey = getCurrentFcstKey();
+
+        try {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 적설량 수신중...</div>`;
+
+            const rows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
+                const data = await fetchKmaShortJson('getVilageFcst', {
+                    base_date: base.baseDate,
+                    base_time: base.baseTime,
+                    nx: String(area.nx),
+                    ny: String(area.ny)
+                });
+                const items = data?.response?.body?.items?.item || [];
+                const arr = Array.isArray(items) ? items : [items];
+                const snowItems = arr
+                    .filter(item => item.category === 'SNO')
+                    .sort((a, b) => String(a.fcstDate + a.fcstTime).localeCompare(String(b.fcstDate + b.fcstTime)));
+
+                const picked = snowItems.find(item => String(item.fcstDate + item.fcstTime) >= currentKey) || snowItems[0];
+                const raw = picked?.fcstValue ?? '적설없음';
+                const snowVal = parseKmaNumber(raw, 0.5);
+                const fcstTime = picked ? `${picked.fcstDate} ${picked.fcstTime}` : '확인불가';
+                return { ...area, snow: snowVal, raw, fcstTime };
+            });
+
+            const valid = rows.filter(r => !r.error);
+            const total = valid.reduce((sum, r) => sum + Number(r.snow || 0), 0);
+            const avg = valid.length ? total / valid.length : 0;
+
+            let html = '';
+            rows.forEach(row => {
+                if (row.error) {
+                    html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">재시도 필요</div></div>`;
+                    return;
+                }
+                const valClass = row.snow > 0 ? 'rain-val snowing' : 'rain-val';
+                const colorStyle = row.snow > 0 ? '' : 'color: var(--sub);';
+                html += `<div class="rain-cell">
+                    <div class="rain-loc">${row.name}</div>
+                    <div class="${valClass}" style="${colorStyle}">${Number(row.snow || 0).toFixed(1)}<small>cm</small></div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:4px;">SNO: ${row.raw}</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">예보 ${String(row.fcstTime).slice(-4)}</div>
+                </div>`;
+            });
+
+            html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
+                <div class="rain-loc" style="color:var(--text);">출처</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 단기예보</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${base.baseDate} ${base.baseTime}</div>
+            </div>`;
+
+            gridEl.innerHTML = html;
+            avgSnowEl.innerText = `${avg.toFixed(1)} cm`;
+        } catch (e) {
+            console.error('공공데이터 적설량 수신 실패:', e);
+            avgSnowEl.innerText = '오류';
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 적설량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
+        }
+    }
+
 
 
     async function autoFetchForest() {
@@ -979,14 +1017,47 @@
         if (!gridEl || !statusEl) return;
 
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
-        const targetNames = ['조치원읍', '연서면', '전의면', '전동면', '소정면', '부강면', '연동면'];
-        const localAreas = "36110250,36110320,36110330,36110360,36110370,36110380,36110390";
+
+        // 세종시 전체 읍·면·동 코드
+        // 산림청 산불 API에서 값이 내려오지 않는 지역은 0으로 만들지 않고 "미제공"으로 표시합니다.
+        const forestAreas = [
+            { name:'조치원읍', code:'36110250' },
+            { name:'연기면', code:'36110310' },
+            { name:'연동면', code:'36110320' },
+            { name:'부강면', code:'36110330' },
+            { name:'금남면', code:'36110340' },
+            { name:'장군면', code:'36110350' },
+            { name:'연서면', code:'36110360' },
+            { name:'전의면', code:'36110370' },
+            { name:'전동면', code:'36110380' },
+            { name:'소정면', code:'36110390' },
+            { name:'반곡동', code:'36110101' },
+            { name:'소담동', code:'36110102' },
+            { name:'보람동', code:'36110103' },
+            { name:'대평동', code:'36110104' },
+            { name:'가람동', code:'36110105' },
+            { name:'한솔동', code:'36110106' },
+            { name:'나성동', code:'36110107' },
+            { name:'새롬동', code:'36110108' },
+            { name:'다정동', code:'36110109' },
+            { name:'어진동', code:'36110110' },
+            { name:'종촌동', code:'36110111' },
+            { name:'고운동', code:'36110112' },
+            { name:'아름동', code:'36110113' },
+            { name:'도담동', code:'36110114' },
+            { name:'산울동', code:'36110115' },
+            { name:'해밀동', code:'36110116' },
+            { name:'집현동', code:'36110117' }
+        ];
+
+        const targetNames = forestAreas.map(a => a.name);
+        const localAreas = forestAreas.map(a => a.code).join(',');
 
         const apiUrl =
             `https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch` +
             `?serviceKey=${encodeURIComponent(API_KEY)}` +
             `&pageNo=1` +
-            `&numOfRows=10` +
+            `&numOfRows=100` +
             `&localAreas=${encodeURIComponent(localAreas)}` +
             `&excludeForecast=1` +
             `&_type=json` +
@@ -999,9 +1070,19 @@
             `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`
         ];
 
+        function parseNum(v) {
+            if (v === null || v === undefined || v === '') return null;
+            const n = parseFloat(String(v).replace(/,/g, ''));
+            return isNaN(n) ? null : n;
+        }
+
         function getLevel(val) {
+            // 중요: null을 Number(null)=0으로 바꾸면 미제공 지역이 0으로 보입니다.
+            if (val === null || val === undefined || val === '') {
+                return { text: '미제공', color: 'var(--sub)', value: '-' };
+            }
             const num = Number(val);
-            if (isNaN(num)) return { text: '-', color: 'var(--sub)', value: '-' };
+            if (isNaN(num)) return { text: '미제공', color: 'var(--sub)', value: '-' };
             const displayVal = Math.round(num);
             if (displayVal <= 50) return { text: '낮음', color: 'var(--forest)', value: displayVal };
             if (displayVal <= 65) return { text: '보통', color: 'var(--orange)', value: displayVal };
@@ -1028,7 +1109,6 @@
 
         try {
             statusEl.innerHTML = `<i class="fas fa-spinner fa-spin"></i> API 연결 중...`;
-
             const text = await fetchForestText();
             const trimmed = text.trim();
 
@@ -1048,55 +1128,75 @@
             if (!Array.isArray(items)) items = [items];
 
             const results = {};
-            targetNames.forEach(name => results[name] = null);
+            targetNames.forEach(name => results[name] = { max: null, mean: null });
 
             items.forEach(item => {
                 const emd = item.emd || item.emdNm || item.localAreaNm || item.addr || '';
-                const matched = targetNames.find(name => String(emd).includes(name));
+                const code = String(item.localArea || item.localAreaCode || item.emdCd || item.code || '');
+                const matchedByName = targetNames.find(name => String(emd).includes(name));
+                const matchedByCodeObj = forestAreas.find(a => code.includes(a.code));
+                const matched = matchedByName || matchedByCodeObj?.name;
                 if (!matched) return;
 
-                const val = parseFloat(item.maxi);
-                if (!isNaN(val)) results[matched] = val;
+                // 현재값 기준: 예측값 제외(excludeForecast=1)
+                // 카드 표시: 해당 읍면동 최고값(maxi)
+                // 상단 전체 요약: 제공 지역의 평균값(meanavg, 없으면 maxi) 평균
+                const maxVal = parseNum(item.maxi);
+                const meanVal = parseNum(item.meanavg ?? item.mean ?? item.avg);
+
+                if (maxVal !== null) results[matched].max = maxVal;
+                if (meanVal !== null) results[matched].mean = meanVal;
+                else if (maxVal !== null) results[matched].mean = maxVal;
             });
 
             let html = '';
-            let total = 0;
-            let count = 0;
+            let totalMean = 0;
+            let countMean = 0;
+            let maxVal = -1;
+            let maxName = '';
 
-            targetNames.forEach(name => {
-                const level = getLevel(results[name]);
-                const rawVal = results[name];
-                if (rawVal !== null && !isNaN(rawVal)) {
-                    total += rawVal;
-                    count++;
+            forestAreas.forEach(area => {
+                const row = results[area.name] || { max: null, mean: null };
+                const level = getLevel(row.max);
+
+                if (row.mean !== null && !isNaN(row.mean)) {
+                    totalMean += row.mean;
+                    countMean++;
                 }
-                const shortName = name.replace('읍', '').replace('면', '');
+                if (row.max !== null && !isNaN(row.max) && row.max > maxVal) {
+                    maxVal = row.max;
+                    maxName = area.name;
+                }
+
                 html += `<div class="rain-cell">
-                    <div class="rain-loc">${shortName}</div>
-                    <div class="rain-val" style="color:${level.color}; font-size:12px;">${level.text}</div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:2px;">${level.value}</div>
+                    <div class="rain-loc">${area.name}</div>
+                    <div class="rain-val" style="color:${level.color};">${level.value}</div>
+                    <div style="font-size:10px; color:${level.color}; margin-top:4px; font-weight:700;">${level.text}</div>
+                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">최고값 기준</div>
                 </div>`;
             });
 
-            const avg = count > 0 ? Math.round(total / count) : NaN;
-            const avgLevel = getLevel(avg);
-
-            html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
-                <div class="rain-loc" style="color:var(--text);">7개 평균</div>
-                <div class="rain-val" style="color:${avgLevel.color}; font-size:12px;">${avgLevel.text}</div>
-                <div style="font-size:10px; color:var(--sub); margin-top:2px;">${avgLevel.value}</div>
+            html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
+                <div class="rain-loc" style="color:var(--text);">출처</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">산림청</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">현재값</div>
             </div>`;
 
             gridEl.innerHTML = html;
-            statusEl.innerHTML = `<span style="color:var(--green); font-size:12px;">API 정상 수신됨</span>`;
 
-        } catch (e) {
+            if (countMean > 0) {
+                const avg = Math.round(totalMean / countMean);
+                const avgLevel = getLevel(avg);
+                const maxTxt = maxVal >= 0 ? `<span style="font-size:11px; color:var(--sub); margin-left:6px;">최고 ${maxName} ${Math.round(maxVal)}</span>` : '';
+                statusEl.innerHTML = `<span style="color:${avgLevel.color};">제공지역 평균 ${avg} · ${avgLevel.text}</span>${maxTxt}`;
+            } else {
+                statusEl.innerHTML = `<span style="color:var(--orange);">세종시 산불위험지수 미제공</span>`;
+            }
+
+        } catch(e) {
             console.error('산불위험지수 수신 실패:', e);
-            statusEl.innerHTML = `<span style="color:var(--orange); font-size:12px;">API 수신 지연</span>`;
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">
-                산불위험지수 수신 지연<br>
-                <span style="color:var(--sub); font-size:11px;">공공데이터 승인·CORS·응답 형식을 확인하세요.</span>
-            </div>`;
+            statusEl.innerHTML = `<span style="color:var(--orange);">API 수신 지연</span>`;
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--orange); font-size:12px; line-height:1.5;">산불위험지수 수신 지연<br><span style="color:var(--sub); font-size:11px;">공공데이터포털 인증키 또는 프록시 상태를 확인하세요.</span></div>`;
         }
     }
 
