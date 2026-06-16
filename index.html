@@ -692,6 +692,12 @@
         return `https://m.map.kakao.com/actions/cctvView?cctvid=${id}`;
     }
 
+    function firebaseListToArray(data) {
+        if (Array.isArray(data)) return data.filter(Boolean);
+        if (data && typeof data === 'object') return Object.values(data).filter(Boolean);
+        return [];
+    }
+
     function normalizeCctvItem(item = {}) {
         const raw = String(item.url || item.id || '').trim();
         const cctvId = extractCctvIdFromText(raw);
@@ -706,19 +712,18 @@
     }
 
     function sanitizeCctvData(source = []) {
-        const input = Array.isArray(source) && source.length ? source : defaultCctvData;
-        const merged = [...defaultCctvData, ...input];
+        const arr = firebaseListToArray(source).map(normalizeCctvItem);
+        const merged = [...defaultCctvData.map(normalizeCctvItem), ...arr];
         const seen = new Set();
         const result = [];
 
         merged.forEach(item => {
             if (!item) return;
-            const normalized = normalizeCctvItem(item);
-            const cctvId = extractCctvIdFromText(normalized.url || normalized.id || '');
-            const key = cctvId ? `id:${cctvId}` : `name:${normalized.station || ''}:${normalized.area || ''}:${normalized.name || ''}:${normalized.url || ''}`;
+            const cctvId = extractCctvIdFromText(item.url || item.id || '');
+            const key = cctvId ? `id:${cctvId}` : `url:${item.url || ''}|name:${item.name || ''}|area:${item.area || ''}`;
             if (seen.has(key)) return;
             seen.add(key);
-            result.push(normalized);
+            result.push(withStation(item));
         });
 
         return result;
@@ -999,9 +1004,11 @@
         });
         db.ref('cctvData').on('value', (snapshot) => {
             const data = snapshot.val();
-            const cleaned = sanitizeCctvData(Array.isArray(data) ? data : defaultCctvData);
+            const rawList = firebaseListToArray(data);
+            const cleaned = sanitizeCctvData(rawList.length ? rawList : defaultCctvData);
             cctvData = cleaned;
-            if (!Array.isArray(data) || !data.length) {
+            // 처음 실행 또는 기존 DB 형식이 객체인 경우에만 배열 형태로 정리 저장
+            if (!Array.isArray(data)) {
                 db.ref('cctvData').set(cleaned);
             }
             renderCctvs();
@@ -2441,14 +2448,17 @@
         if (!isAdmin) return alert('관리자 권한 필요');
 
         const defaultStation = scopeStation() || '북부서';
-        const station = normalizeStation(prompt("관할 입력 (북부서/남부서)", defaultStation), '');
-        const area = prompt("행정구역 입력 (예: 조치원, 한솔동)", globalScope === 'south' ? '한솔동' : '조치원');
+        const stationInput = prompt('관할 입력 (북부서/남부서)', defaultStation);
+        if (stationInput === null) return;
+        const station = normalizeStation(stationInput || defaultStation, defaultStation);
+
+        const area = prompt('행정구역 입력 (예: 조치원, 한솔동)', globalScope === 'south' ? '한솔동' : '조치원');
         if (!area) return;
 
-        const name = prompt("CCTV 장소명 입력", "");
+        const name = prompt('CCTV 장소명 입력', '');
         if (!name) return;
 
-        const input = prompt("카카오 CCTV 링크 또는 cctvid 번호 입력\n예: https://m.map.kakao.com/actions/cctvView?cctvid=71944\n또는 71944\n또는 kko.to 공유링크", "");
+        const input = prompt('카카오 CCTV 링크 또는 cctvid 번호 입력\n예: https://m.map.kakao.com/actions/cctvView?cctvid=71944\n또는 71944\n또는 kko.to 공유링크', '');
         if (!input) return;
 
         const cctvId = extractCctvIdFromText(input);
@@ -2482,8 +2492,17 @@
         }
 
         cctvData = sanitizeCctvData(current);
-        db.ref('cctvData').set(cctvData);
-        renderCctvs();
+        cctvFilter = 'all';
+        const searchBox = document.getElementById('cctv-search');
+        if (searchBox) searchBox.value = '';
+        renderCctvFilterButtons();
+        db.ref('cctvData').set(cctvData).then(() => {
+            renderCctvs();
+            alert('CCTV가 추가되었습니다.');
+        }).catch(err => {
+            console.error(err);
+            alert('CCTV 저장 중 오류가 발생했습니다.');
+        });
     }
 
     function resetData() {
