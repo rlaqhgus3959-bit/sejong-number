@@ -476,7 +476,7 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title"><i class="fas fa-video" style="color:var(--blue)"></i> CCTV 현황</div>
+        <div class="ah-title">CCTV 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -485,51 +485,17 @@
                 <input type="text" class="search-input" id="cctv-search" placeholder="CCTV 장소 검색" onkeyup="renderCctvs()">
                 <button class="add-loc-btn" id="add-cctv-btn" onclick="addCctvLocation()">+ CCTV</button>
             </div>
-            <div style="display:grid; grid-template-columns:1fr auto; gap:8px; margin-top:8px;">
-                <select id="its-cctv-area-select" class="search-input" style="width:100%;">
-                    <option value="조치원">조치원읍</option>
-                    <option value="연서">연서면</option>
-                    <option value="전의">전의면</option>
-                    <option value="전동">전동면</option>
-                    <option value="소정">소정면</option>
-                    <option value="부강">부강면</option>
-                    <option value="연동">연동면</option>
-                    <option value="연기면">연기면</option>
-                    <option value="금남면">금남면</option>
-                    <option value="장군면">장군면</option>
-                    <option value="한솔동">한솔동</option>
-                    <option value="새롬동">새롬동</option>
-                    <option value="나성동">나성동</option>
-                    <option value="다정동">다정동</option>
-                    <option value="도담동">도담동</option>
-                    <option value="어진동">어진동</option>
-                    <option value="종촌동">종촌동</option>
-                    <option value="고운동">고운동</option>
-                    <option value="아름동">아름동</option>
-                    <option value="보람동">보람동</option>
-                    <option value="대평동">대평동</option>
-                    <option value="소담동">소담동</option>
-                    <option value="반곡동">반곡동</option>
-                    <option value="해밀동">해밀동</option>
-                    <option value="산울동">산울동</option>
-                    <option value="집현동">집현동</option>
-                </select>
-                <button id="load-its-cctv-btn" onclick="fetchSelectedItsCctv()" style="background:var(--green); color:white; border:none; border-radius:10px; padding:0 14px; font-size:13px; font-weight:800; cursor:pointer; white-space:nowrap;">ITS 불러오기</button>
+            <div style="margin-top:10px; font-size:11px; color:var(--sub); line-height:1.45; font-weight:700;">
+                CCTV는 아래 섹터에서 바로 확인하세요.
             </div>
-            <button id="load-its-all-cctv-btn" onclick="fetchAllSejongItsCctv()" style="width:100%; margin-top:8px; background:var(--blue); color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 전체 ITS CCTV 불러오기</button>
-            <button id="load-sejong-core-cctv-btn" onclick="addSejongCoreCctvPresets()" style="width:100%; margin-top:8px; background:#5856D6; color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종 신도심 CCTV 넣기</button>
-            <button id="open-sejong-bis-popup-btn" onclick="openSejongBisCctvPopup()" style="width:100%; margin-top:8px; background:#111; color:white; border:none; border-radius:10px; padding:12px; font-size:13px; font-weight:800; cursor:pointer;">세종시 교통CCTV 팝업 열기</button>
-            <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-top:8px;">
-                <button onclick="addDisasterCctvPresets('all')" style="background:#FF3B30; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">재난 CCTV 넣기</button>
-                <button onclick="addDisasterCctvPresets('river')" style="background:#007AFF; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">하천 CCTV 보기</button>
-                <button onclick="addDisasterCctvPresets('underpass')" style="background:#FF9500; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">지하차도 CCTV 보기</button>
-                <button onclick="addDisasterCctvPresets('flood')" style="background:#34C759; color:white; border:none; border-radius:10px; padding:12px 6px; font-size:12px; font-weight:800; cursor:pointer;">침수우려 CCTV 보기</button>
-            </div>
-            <div class="filter-group" id="cctv-filter-group"></div>
+            <div style="margin-top:12px; font-size:12px; color:var(--sub); font-weight:800;">CCTV 섹터</div>
+            <div class="filter-group" id="cctv-sector-filter-group" style="margin-top:6px;"></div>
+            <div style="margin-top:10px; font-size:12px; color:var(--sub); font-weight:800;">관할·지역</div>
+            <div class="filter-group" id="cctv-filter-group" style="margin-top:6px;"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
         <div style="font-size:11px; color:var(--sub); margin-top:15px; line-height:1.4; text-align:center;">
-            * ITS CCTV는 영상 팝업 재생, 홍수 CCTV는 화면 팝업, 세종시 CCTV는 공식 화면으로 연결됩니다.
+            * ITS CCTV는 영상 팝업 재생, 홍수정보 수위 CCTV는 화면 팝업, 세종시 CCTV는 공식 화면으로 연결됩니다.
         </div>
     </div>
 </div>
@@ -550,7 +516,7 @@
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
                 <div style="min-width:0;">
                     <div id="cctv-player-badge" style="display:inline-flex; align-items:center; gap:5px; background:#007AFF; color:white; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:900; margin-bottom:7px;">
-                        <i class="fas fa-video"></i> CCTV
+                        CCTV
                     </div>
                     <div id="cctv-player-title" style="font-size:17px; font-weight:900; line-height:1.25; word-break:keep-all;">CCTV 재생</div>
                     <div id="cctv-player-guide" style="font-size:12px; color:#cfcfcf; margin-top:6px; line-height:1.45; word-break:keep-all;">
@@ -567,12 +533,8 @@
         </div>
 
         <div style="display:flex; gap:8px;">
-            <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                <i class="fas fa-up-right-from-square"></i> 외부창 열기
-            </button>
-            <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                <i class="fas fa-xmark"></i> 닫기
-            </button>
+            <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">외부창 열기</button>
+            <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">닫기</button>
         </div>
         <div id="cctv-player-note" style="font-size:11px; color:#ddd; line-height:1.45; text-align:center; word-break:keep-all; padding:0 4px;">
             * 원본 사이트의 보안정책으로 내부 팝업 표시가 차단되면 외부창에서 확인하세요.
@@ -843,18 +805,11 @@
 
 
 
-    // 세종시 교통정보시스템에 표시되는 신도심권 CCTV 후보
-    // 해당 시스템은 별도 공개 영상 API가 확인되지 않아 공식 CCTV 화면으로 연결합니다.
+    // 세종시 교통정보시스템 도심권 전체 CCTV 바로가기
+    // 개별 신도심 CCTV 항목은 삭제하고, 도심 전체 화면 1개 카드만 표시합니다.
     const SEJONG_TRAFFIC_CCTV_URL = 'https://bis.sejong.go.kr/web/atms/atms_map.view?type=1';
     const SEJONG_CORE_CCTV_PRESETS = [
-        { id:'sejong-bis-saerom-the-sharp-10', station:'남부서', area:'새롬동', name:'더샵 10단지', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-dajeong-saori-underpass', station:'남부서', area:'다정동', name:'사오리지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-naseong-dangam', station:'남부서', area:'나성동', name:'당암삼거리', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-hansol-983', station:'남부서', area:'한솔동', name:'한솔동 983', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-sodam-cross', station:'남부서', area:'소담동', name:'소담 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-kdi-cross', station:'남부서', area:'집현동', name:'한국개발연구원 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-goun-neobitteul', station:'남부서', area:'고운동', name:'너비뜰교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' },
-        { id:'sejong-bis-sanul-lifelong', station:'남부서', area:'산울동', name:'산울동 평생교육원', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도로' }
+        { id:'sejong-bis-downtown-all', station:'남부서', area:'도심권', name:'도심 전체 CCTV', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도심전체' }
     ];
 
 
@@ -868,30 +823,13 @@
     const FLOOD_DIRECT_CCTV_URL_3012602 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3012602&ymdhm=202606161920&fcodvcd=03';
     const FLOOD_DIRECT_CCTV_URL_3012607 = 'https://n.flood.go.kr/main/cctvView.do?obscd=3012607&ymdhm=202606161920&fcodvcd=03';
     const GEUM_RIVER_CCTV_URL = 'https://hrfco.go.kr/sumun/cctvRtmp.do';
-    const SEJONG_DISASTER_CCTV_PRESETS = [
-        { id:'disaster-jochiwon-sewolgyo', station:'북부서', area:'조치원', name:'조치원 세월교 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'세월교' },
-        { id:'disaster-jochiwon-bongam-low-road', station:'북부서', area:'조치원', name:'봉암하상도로 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
-        { id:'disaster-jochiwon-naechangcheon', station:'북부서', area:'조치원', name:'내창천 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'하천' },
-        { id:'disaster-bugang-buyong-bridge', station:'북부서', area:'부강', name:'부강 부용가교 주변', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'교량' },
-        { id:'disaster-dajeong-saori-underpass', station:'남부서', area:'다정동', name:'사오리지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
-        { id:'disaster-boram-underpass', station:'남부서', area:'보람동', name:'보람지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
-        { id:'disaster-sejong-underpass', station:'남부서', area:'대평동', name:'세종지하차도 위', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'지하차도' },
-        { id:'disaster-naseong-dangam', station:'남부서', area:'나성동', name:'당암삼거리', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
-        { id:'disaster-sodam-cross', station:'남부서', area:'소담동', name:'소담 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
-        { id:'disaster-jiphyeon-kdi-cross', station:'남부서', area:'집현동', name:'한국개발연구원 교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' },
-        { id:'disaster-goun-neobitteul', station:'남부서', area:'고운동', name:'너비뜰교차로', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'DISASTER_CCTV', type:'침수우려지역' }
-    ];
+    const SEJONG_DISASTER_CCTV_PRESETS = [];
     const SEJONG_RIVER_CCTV_PRESETS = [
-        { id:'flood-direct-3011675', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011675', url:FLOOD_DIRECT_CCTV_URL_3011675, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-direct-3011687', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011687', url:FLOOD_DIRECT_CCTV_URL_3011687, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-direct-3011695', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3011695', url:FLOOD_DIRECT_CCTV_URL_3011695, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-direct-3012602', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3012602', url:FLOOD_DIRECT_CCTV_URL_3012602, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-direct-3012607', station:'세종청', area:'하천', name:'홍수정보 수위 CCTV 3012607', url:FLOOD_DIRECT_CCTV_URL_3012607, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-geum-river-control', station:'세종청', area:'금강', name:'금강홍수통제소 수위동영상', url:GEUM_RIVER_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-waterlevel-cctv', station:'세종청', area:'세종시', name:'홍수정보시스템 수위관측 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-geumgang-sejong', station:'남부서', area:'금남면', name:'금강 세종 구간 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-mihogang-sejong', station:'남부서', area:'연기면', name:'미호강 세종 구간 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' },
-        { id:'flood-jochen-jochiwon', station:'북부서', area:'조치원', name:'조천·내창천 수위 CCTV', url:FLOOD_CCTV_URL, active:true, source:'FLOOD_CCTV', type:'하천' }
+        { id:'flood-direct-3011675', station:'세종청', area:'하천수위', name:'상조천교', url:FLOOD_DIRECT_CCTV_URL_3011675, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3011687', station:'세종청', area:'하천수위', name:'월암교', url:FLOOD_DIRECT_CCTV_URL_3011687, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3011695', station:'세종청', area:'하천수위', name:'월산교', url:FLOOD_DIRECT_CCTV_URL_3011695, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3012602', station:'세종청', area:'하천수위', name:'햇무리교', url:FLOOD_DIRECT_CCTV_URL_3012602, active:true, source:'FLOOD_CCTV', type:'하천' },
+        { id:'flood-direct-3012607', station:'세종청', area:'하천수위', name:'도암교', url:FLOOD_DIRECT_CCTV_URL_3012607, active:true, source:'FLOOD_CCTV', type:'하천' }
     ];
 
     async function addDisasterCctvPresets(kind = 'all') {
@@ -903,29 +841,27 @@
         let focus = 'all';
         let msg = '재난 CCTV 후보를 추가했습니다.';
         if (kind === 'river') {
-            items = [...SEJONG_RIVER_CCTV_PRESETS, ...SEJONG_DISASTER_CCTV_PRESETS.filter(c => c.type === '하천' || c.type === '교량' || c.type === '세월교')];
+            items = SEJONG_RIVER_CCTV_PRESETS.filter(isNumericFloodCctv);
             focus = 'all';
-            msg = '하천·수위·세월교 CCTV 후보를 추가했습니다.';
-        } else if (kind === 'underpass') {
-            items = SEJONG_DISASTER_CCTV_PRESETS.filter(c => c.type === '지하차도');
-            focus = 'south';
-            msg = '지하차도 CCTV 후보를 추가했습니다.';
-        } else if (kind === 'flood') {
-            items = SEJONG_DISASTER_CCTV_PRESETS.filter(c => ['침수우려지역','세월교','교량','지하차도'].includes(c.type));
-            focus = 'all';
-            msg = '침수우려지역 CCTV 후보를 추가했습니다.';
+            msg = '홍수정보 수위 CCTV를 추가했습니다.';
         } else {
-            items = [...SEJONG_DISASTER_CCTV_PRESETS, ...SEJONG_RIVER_CCTV_PRESETS];
+            items = SEJONG_RIVER_CCTV_PRESETS.filter(isNumericFloodCctv);
             focus = 'all';
+            msg = '홍수정보 수위 CCTV를 추가했습니다.';
         }
         const merged = sanitizeCctvData([...(cctvData || []), ...items]);
         cctvData = merged;
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
         await db.ref('cctvData').set(merged);
         cctvFilter = focus;
+        if (kind === 'river') cctvSectorFilter = 'river';
+        else if (kind === 'underpass') cctvSectorFilter = 'underpass';
+        else if (kind === 'flood') cctvSectorFilter = 'flood';
+        else cctvSectorFilter = 'all';
         const search = document.getElementById('cctv-search');
         if (search) search.value = '';
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
         renderCctvs();
         alert(`${msg}
 추가: ${items.length}개
@@ -1014,12 +950,14 @@
         cctvData = merged;
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
         await db.ref('cctvData').set(merged);
-        cctvFilter = 'south';
+        cctvFilter = 'all';
+        cctvSectorFilter = 'downtown';
         const search = document.getElementById('cctv-search');
         if (search) search.value = '';
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
         renderCctvs();
-        alert('세종 신도심권 CCTV 8개를 추가했습니다.\n해당 CCTV는 세종시 교통정보시스템 공식 CCTV 화면으로 연결됩니다.');
+        alert('도심 전체 CCTV 1개를 추가했습니다.\n해당 CCTV는 세종시 교통정보시스템 공식 CCTV 화면으로 연결됩니다.');
     }
 
     async function saveAndRenderItsCctv(items, focusAreaKey = 'all') {
@@ -1028,9 +966,11 @@
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
         await db.ref('cctvData').set(merged);
         cctvFilter = focusAreaKey && focusAreaKey !== 'all' ? `area:${focusAreaKey}` : 'all';
+        cctvSectorFilter = 'its';
         const search = document.getElementById('cctv-search');
         if (search) search.value = '';
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
         renderCctvs();
         return merged;
     }
@@ -1103,6 +1043,7 @@
     let cctvData = [];
     let shelterFilter = '전체';
     let cctvFilter = 'all';
+    let cctvSectorFilter = 'all';
     let globalScope = 'all';
     const weatherOfficeFilters = { rain: 'all', snow: 'all', forest: 'all' };
 
@@ -1259,6 +1200,84 @@
         wrap.innerHTML = html;
     }
 
+
+    function getCctvSectorValue(c = {}) {
+        const type = String(c.type || '').trim();
+        const source = String(c.source || '').trim();
+        const area = String(c.area || '').trim();
+        const name = String(c.name || '').trim();
+        const text = `${area} ${name} ${type} ${source}`;
+
+        if (source === 'ITS') return 'its';
+        if (source === 'SEJONG_BIS' && (type === '도심전체' || name.includes('도심 전체') || area === '도심권')) return 'downtown';
+        if (source === 'FLOOD_CCTV' || type === '하천' || text.includes('수위') || text.includes('하천')) return 'river';
+        if (type === '지하차도' || text.includes('지하차도')) return 'underpass';
+        if (type === '침수우려지역' || text.includes('침수') || text.includes('하상도로')) return 'flood';
+        if (type === '세월교' || type === '교량' || text.includes('세월교') || text.includes('교량') || text.includes('가교')) return 'bridge';
+        if (source === 'SEJONG_BIS' && /동$/.test(area)) return 'downtown';
+        if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') return 'sejong_bis';
+        return 'manual';
+    }
+
+    function getCctvSectorLabel(value) {
+        const labels = {
+            all: '전체',
+            its: 'ITS 교통',
+            sejong_bis: '세종교통',
+            downtown: '도심 전체',
+            river: '하천수위'
+        };
+        return labels[value] || '기타';
+    }
+
+    function getCctvSectorOptions() {
+        return [
+            ['all', '전체'],
+            ['its', 'ITS 교통'],
+            ['sejong_bis', '세종교통'],
+            ['downtown', '도심 전체'],
+            ['river', '하천수위']
+        ];
+    }
+
+    function isNumericFloodCctv(c = {}) {
+        if (String(c.source || '') !== 'FLOOD_CCTV') return false;
+        const text = `${c.id || ''} ${c.name || ''} ${c.url || ''}`;
+        return /(3011675|3011687|3011695|3012602|3012607)/.test(text);
+    }
+
+    function isAllowedCctvItem(c = {}) {
+        const sector = getCctvSectorValue(c);
+        const source = String(c.source || '');
+        const id = String(c.id || '');
+        const name = String(c.name || '');
+
+        if (name.includes('내창천')) return false;
+        if (sector === 'river' && !isNumericFloodCctv(c)) return false;
+        if (['underpass', 'flood', 'bridge', 'manual'].includes(sector)) return false;
+        if (source === 'SEJONG_BIS' && !(id === 'sejong-bis-downtown-all' || name === '도심 전체 CCTV')) return false;
+        if (extractCctvIdFromText(c.url || c.id || '') && !['ITS', 'SEJONG_BIS', 'FLOOD_CCTV'].includes(source)) return false;
+        return true;
+    }
+
+    function getCctvMasterData() {
+        const presetItems = [
+            ...(typeof SEJONG_CORE_CCTV_PRESETS !== 'undefined' && Array.isArray(SEJONG_CORE_CCTV_PRESETS) ? SEJONG_CORE_CCTV_PRESETS : []),
+            ...(typeof SEJONG_RIVER_CCTV_PRESETS !== 'undefined' && Array.isArray(SEJONG_RIVER_CCTV_PRESETS) ? SEJONG_RIVER_CCTV_PRESETS : [])
+        ];
+        return sanitizeCctvData([...(cctvData || []), ...presetItems]).filter(isAllowedCctvItem);
+    }
+
+    function renderCctvSectorButtons() {
+        const wrap = document.getElementById('cctv-sector-filter-group');
+        if (!wrap) return;
+        let html = '';
+        getCctvSectorOptions().forEach(([value, label]) => {
+            html += `<button class="filter-btn${cctvSectorFilter === value ? ' active' : ''}" onclick="setCctvSectorFilter('${value}', this)">${label}</button>`;
+        });
+        wrap.innerHTML = html;
+    }
+
     function renderCctvFilterButtons() {
         const wrap = document.getElementById('cctv-filter-group');
         if (!wrap) return;
@@ -1279,6 +1298,7 @@
         renderTrafficFilterButtons();
         renderShelterFilterButtons();
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
     }
 
     function setWeatherOfficeFilter(section, type, btn) {
@@ -1319,6 +1339,7 @@
         weatherOfficeFilters.forest = 'all';
         currFilter = 'all';
         cctvFilter = 'all';
+        cctvSectorFilter = 'all';
         shelterFilter = '전체';
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
@@ -2752,6 +2773,13 @@
     function setCctvFilter(type, btn) {
         cctvFilter = type;
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
+        renderCctvs();
+    }
+
+    function setCctvSectorFilter(type, btn) {
+        cctvSectorFilter = type;
+        renderCctvSectorButtons();
         renderCctvs();
     }
 
@@ -2778,7 +2806,7 @@
         const guideEl = document.getElementById('cctv-player-guide');
         if (titleEl) titleEl.innerText = title || 'CCTV 재생';
         if (badgeEl) {
-            badgeEl.innerHTML = `<i class="fas fa-video"></i> ${badgeText || 'CCTV'}`;
+            badgeEl.innerHTML = `${badgeText || 'CCTV'}`;
             badgeEl.style.background = badgeColor;
         }
         if (guideEl) guideEl.innerText = guideText || '영상이 바로 보이지 않으면 아래 외부창 열기를 눌러 확인하세요.';
@@ -2880,7 +2908,7 @@
         const container = document.getElementById('cctv-list');
         if (!container) return;
         const search = (document.getElementById('cctv-search')?.value || '').toLowerCase();
-        let data = sanitizeCctvData(cctvData && cctvData.length ? cctvData : defaultCctvData);
+        let data = getCctvMasterData();
         const forcedStation = scopeStation();
         if (forcedStation) data = data.filter(c => c.station === forcedStation);
 
@@ -2890,7 +2918,24 @@
             const key = String(cctvFilter).replace('area:', '');
             data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, key));
         } else if (cctvFilter !== 'all') data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, cctvFilter));
-        if (search) data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''} ${c.source || ''}`.toLowerCase().includes(search));
+
+        if (cctvSectorFilter !== 'all') {
+            data = data.filter(c => getCctvSectorValue(c) === cctvSectorFilter);
+        }
+
+        if (search) {
+            data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''} ${c.source || ''} ${c.type || ''}`.toLowerCase().includes(search));
+        }
+
+        const sectorOrder = ['its','sejong_bis','downtown','river'];
+        data = data.slice().sort((a, b) => {
+            const sa = getCctvSectorValue(a);
+            const sb = getCctvSectorValue(b);
+            const ia = sectorOrder.indexOf(sa) >= 0 ? sectorOrder.indexOf(sa) : 99;
+            const ib = sectorOrder.indexOf(sb) >= 0 ? sectorOrder.indexOf(sb) : 99;
+            if (ia !== ib) return ia - ib;
+            return `${a.area || ''} ${a.name || ''}`.localeCompare(`${b.area || ''} ${b.name || ''}`, 'ko');
+        });
 
         container.innerHTML = '';
         if (!data.length) {
@@ -2898,20 +2943,54 @@
             return;
         }
 
+        let lastSector = '';
         data.forEach(c => {
+            const sector = getCctvSectorValue(c);
+            if (cctvSectorFilter === 'all' && sector !== lastSector) {
+                const header = document.createElement('div');
+                header.style.gridColumn = '1 / -1';
+                header.style.marginTop = lastSector ? '10px' : '0';
+                header.style.padding = '10px 12px';
+                header.style.borderRadius = '12px';
+                header.style.background = 'var(--card-elevated)';
+                header.style.fontSize = '13px';
+                header.style.fontWeight = '900';
+                header.style.color = 'var(--text)';
+                header.innerHTML = `${getCctvSectorLabel(sector)}`;
+                container.appendChild(header);
+                lastSector = sector;
+            }
+
             const hasUrl = !!c.url;
             const isSejongBis = c.source === 'SEJONG_BIS' || c.source === 'DISASTER_CCTV' || c.source === 'FLOOD_CCTV';
             const opacity = hasUrl ? '1' : '0.6';
-            const btnStyle = isSejongBis ? 'background:#5856D6; color:white;' : (hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);');
-            const btnText = c.source === 'FLOOD_CCTV' ? '<i class="fas fa-water"></i> 수위 CCTV 팝업' : (isSejongBis ? '<i class="fas fa-window-restore"></i> 팝업 CCTV 화면' : (hasUrl ? '<i class="fas fa-play"></i> 눌러서 재생' : '<i class="fas fa-link"></i> 링크 대기중'));
-            const sourceLabel = c.source === 'ITS' ? 'ITS' : (c.source === 'SEJONG_BIS' ? '세종교통' : (c.source === 'DISASTER_CCTV' ? '재난' : (c.source === 'FLOOD_CCTV' ? '하천수위' : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접'))));
+            const btnStyle = c.source === 'ITS'
+                ? 'background:#34C759; color:white;'
+                : (c.source === 'FLOOD_CCTV'
+                    ? 'background:#007AFF; color:white;'
+                    : (isSejongBis
+                        ? 'background:#5856D6; color:white;'
+                        : (hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);')));
+            const btnText = c.source === 'ITS'
+                ? '재생'
+                : (c.source === 'FLOOD_CCTV'
+                    ? '보기'
+                    : (isSejongBis
+                        ? '보기'
+                        : (hasUrl ? '재생' : '링크 대기중')));
+            const sourceLabel = c.source === 'ITS' ? 'ITS'
+                : (c.source === 'SEJONG_BIS' ? '세종교통'
+                : (c.source === 'DISASTER_CCTV' ? '재난'
+                : (c.source === 'FLOOD_CCTV' ? '하천수위'
+                : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접'))));
+
             const card = document.createElement('div');
             card.className = 'traffic-card';
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
             card.onclick = () => openCctvUrl(c.url, c.name || 'CCTV 재생', c.source || '');
-            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '북부서'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
+            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '세종청'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${getCctvSectorLabel(sector)} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
         });
     }
@@ -2940,6 +3019,7 @@
         cctvFilter = 'all';
         document.getElementById('cctv-search').value = '';
         renderCctvFilterButtons();
+        renderCctvSectorButtons();
         renderCctvs();
     }
 
