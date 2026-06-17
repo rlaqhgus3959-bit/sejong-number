@@ -1436,6 +1436,91 @@
         { id:4546, station:'북부서', area:'조치원', name:'홍대입구삼거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4546', active:true }
     ];
 
+    // 남부서 대피소 좌표 보강표(사진 위도·경도 자료 반영)
+    // 기존 Firebase에 좌표 없는 남부서 항목이 저장되어 있어도 이 표로 즉시 거리계산·길찾기를 보정합니다.
+    const SOUTH_SHELTER_COORD_MAP = {
+        '수산리마을회관': { lat: 36.542968, lng: 127.228342 },
+        '보람동주민센터': { lat: 36.478837, lng: 127.290355 },
+        '한솔초등학교': { lat: 36.47747300024579, lng: 127.25257345938107 },
+        '고운동주민센터': { lat: 36.51972645938781, lng: 127.23645930391258 },
+        '두루중학교(강당)': { lat: 36.51824489163313, lng: 127.23847935130688 },
+        '도담초등학교': { lat: 36.51179064171833, lng: 127.26247097627275 },
+        '감성초등학교': { lat: 36.442853, lng: 127.288912 },
+        '눌왕1리마을회관': { lat: 36.54430063292092, lng: 127.25801651118894 },
+        '감성리 경로당': { lat: 36.442166608887, lng: 127.290976386201 },
+        '도회 경로당': { lat: 36.46373864945, lng: 127.28031892703 },
+        '금천1리 경로당': { lat: 36.4413085866, lng: 127.31716831928 },
+        '대박리경로당': { lat: 36.47851823371, lng: 127.34380398822 },
+        '도암1리 경로당': { lat: 36.44282257978, lng: 127.27825415991 },
+        '부용2리 경로당': { lat: 36.51211218537, lng: 127.3580331752 },
+        '영곡1리 경로당': { lat: 36.45116676144, lng: 127.26336861807 },
+        '금남면사무소': { lat: 36.46389511991, lng: 127.28036443772 },
+        '금남초등학교': { lat: 36.470714, lng: 127.280364 },
+        '금호중학교': { lat: 36.477608218434, lng: 127.29933566198545 },
+        '봉안리경로당': { lat: 36.499497, lng: 127.222984 },
+        '송문리 경로당': { lat: 36.514245, lng: 127.190007 },
+        '장군면사무소': { lat: 36.49665251195, lng: 127.20570222744696 },
+        '금암리마을회관': { lat: 36.44014343418, lng: 127.21860963943935 },
+        '의랑초등학교': { lat: 36.548112, lng: 127.2018031175 },
+        '장기중학교': { lat: 36.493837336697716, lng: 127.2018031175 },
+        '장기초등학교': { lat: 36.49691642652, lng: 127.20737417921 },
+        '도계리 마을회관': { lat: 36.492203, lng: 127.20737417921 },
+        '한솔동주민센터': { lat: 36.47912459357044, lng: 127.25458465182356 },
+        '가득초등학교': { lat: 36.48752, lng: 127.243091 },
+        '글빛중학교': { lat: 36.488685, lng: 127.298692 },
+        '글벗초등학교': { lat: 36.487693, lng: 127.298147 },
+        '미르초등학교': { lat: 36.47237640064199, lng: 127.25368302583173 },
+        '보람고등학교(강당)': { lat: 36.47739492993545, lng: 127.28405168322954 },
+        '보람중학교': { lat: 36.477787, lng: 127.293159 },
+        '보람초등학교(강당)': { lat: 36.47980166741965, lng: 127.29333621691202 },
+        '새뜸중학교': { lat: 36.483654, lng: 127.265232 },
+        '새뜸초등학교': { lat: 36.48393, lng: 127.267979 },
+        '새롬고등학교': { lat: 36.481431, lng: 127.255369 },
+        '새롬중학교': { lat: 36.483328792234985, lng: 127.24670400677374 },
+        '새롬초등학교': { lat: 36.485256, lng: 127.249586 },
+        '새온중학교': { lat: 36.490621, lng: 127.247054 },
+        '소담고등학교': { lat: 36.482313, lng: 127.303156 },
+        '소담중학교(강당)': { lat: 36.48212542127045, lng: 127.30192387991326 },
+        '소담초등학교(강당)': { lat: 36.483461068988674, lng: 127.30134994021482 },
+        '여울초등학교': { lat: 36.4763, lng: 127.284641 },
+        '참샘초등학교': { lat: 36.479046755636034, lng: 127.25843350899585 },
+        '한솔고등학교': { lat: 36.478554266138595, lng: 127.25283697547123 },
+        '한솔중학교': { lat: 36.47616806814131, lng: 127.25497241613805 },
+        '도담동주민센터': { lat: 36.518651750319286, lng: 127.26374002216758 },
+        '늘봄초등학교(강당)': { lat: 36.51384478210428, lng: 127.25486373265458 },
+        '도담고등학교': { lat: 36.51423452555516, lng: 127.26348193923158 },
+        '도담중학교': { lat: 36.51568185331681, lng: 127.26345787390312 },
+        '성남고등학교(강당)': { lat: 36.496470920723915, lng: 127.25542784240194 },
+        '양지고등학교(강당)': { lat: 36.50951104689897, lng: 127.2688560161502 },
+        '양지중학교(강당)': { lat: 36.508299657288305, lng: 127.26875254149142 },
+        '양지초등학교(강당)': { lat: 36.51837744152568, lng: 127.26044617286136 },
+        '어진중학교': { lat: 36.49811045855029, lng: 127.2547968051123 },
+        '연세초등학교': { lat: 36.50561355603753, lng: 127.27282473917599 },
+        '연양초등학교(강당)': { lat: 36.50302376499668, lng: 127.25634790080181 },
+        '아름동주민센터': { lat: 36.51218009231386, lng: 127.24720847952683 },
+        '종촌동주민센터': { lat: 36.5044887765725, lng: 127.247084923453 },
+        '가락초등학교': { lat: 36.515473299995485, lng: 127.23080386296509 },
+        '고운고등학교': { lat: 36.510044150494544, lng: 127.23294460757432 },
+        '고운중학교': { lat: 36.50534238625178, lng: 127.23758074758281 },
+        '고운초등학교(강당)': { lat: 36.504188873322164, lng: 127.23663565161891 },
+        '나래초등학교(강당)': { lat: 36.508991386532415, lng: 127.24669803317661 },
+        '다빛초등학교(강당)': { lat: 36.500299986806894, lng: 127.24406901148234 },
+        '두루고등학교': { lat: 36.516251547618374, lng: 127.22753491023724 },
+        '두루초등학교(강당)': { lat: 36.51952778618339, lng: 127.23854389583676 },
+        '세종과학예술영재학교(체육관)': { lat: 36.52275353534597, lng: 127.24867018118815 },
+        '세종국제고등학교': { lat: 36.52148218772163, lng: 127.2469260044491 },
+        '세종누리학교(강당)': { lat: 36.5254975702011, lng: 127.24297336815262 },
+        '아름고등학교': { lat: 36.51282731560803, lng: 127.2453161615816 },
+        '아름중학교': { lat: 36.51444282250055, lng: 127.24510331534495 },
+        '아름초등학교': { lat: 36.51449157280072, lng: 127.25167276125906 },
+        '온빛초등학교(강당)': { lat: 36.51452501296809, lng: 127.24035564024307 },
+        '으뜸초등학교': { lat: 36.509485974925894, lng: 127.23107965704676 },
+        '종촌고등학교(강당)': { lat: 36.504455351032284, lng: 127.24587096267605 },
+        '종촌중학교(강당)': { lat: 36.50260665244926, lng: 127.24571964273457 },
+        '종촌초등학교(강당)': { lat: 36.5030527924313, lng: 127.24152086440742 },
+    };
+
+
     const ESSENTIAL_CCTV_IDS = ['4547', '4546'];
 
     function extractCctvIdFromText(input = '') {
@@ -1810,12 +1895,41 @@
     // 대피소 속도 개선: 주소 좌표 변환 없이 등록된 위·경도만 사용
     // 사진 자료처럼 위도/경도가 이미 들어간 데이터는 즉시 거리계산·길찾기에 사용됩니다.
     // 좌표가 경도/위도 순서로 들어간 경우도 자동 보정합니다.
+    function getSouthShelterFallbackCoord(item = {}) {
+        const name = String(item.name || '').trim();
+        if (SOUTH_SHELTER_COORD_MAP[name]) return SOUTH_SHELTER_COORD_MAP[name];
+        const compactName = name.replace(/\s+/g, '');
+        const compactAddr = String(item.addr || '').replace(/\s+/g, '');
+        for (const [key, value] of Object.entries(SOUTH_SHELTER_COORD_MAP)) {
+            const compactKey = key.replace(/\s+/g, '');
+            if (compactName === compactKey || compactName.includes(compactKey) || compactKey.includes(compactName)) return value;
+        }
+        const found = SOUTH_SHELTER_ITEMS.find(row => {
+            const rn = String(row.name || '').replace(/\s+/g, '');
+            const ra = String(row.addr || '').replace(/\s+/g, '');
+            return rn === compactName || (compactAddr && ra === compactAddr);
+        });
+        if (found && SOUTH_SHELTER_COORD_MAP[found.name]) return SOUTH_SHELTER_COORD_MAP[found.name];
+        return null;
+    }
+
+    function applyShelterFallbackCoord(row = {}, fallback = null) {
+        if (!fallback) return row;
+        return {
+            ...row,
+            lat: Number(fallback.lat),
+            lng: Number(fallback.lng),
+            coordSource: row.coordSource || '남부서좌표'
+        };
+    }
+
     function normalizeShelterCoordValue(item = {}) {
-        const row = { ...item };
+        let row = { ...item };
+        const fallback = getSouthShelterFallbackCoord(row);
         let lat = Number(row.lat);
         let lng = Number(row.lng);
         const hasPair = Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0);
-        if (!hasPair) return row;
+        if (!hasPair) return applyShelterFallbackCoord(row, fallback);
 
         // 일부 원자료가 위도·경도 칸이 바뀌어 들어온 경우 자동 교정
         if (lat > 120 && lng > 33 && lng < 39) {
@@ -1829,8 +1943,11 @@
             row.lat = Number(lat);
             row.lng = Number(lng);
             row.coordSource = row.coordSource || '등록좌표';
+            return row;
         }
-        return row;
+
+        // 원좌표가 잘못 저장된 경우 남부서 보강좌표로 교체
+        return applyShelterFallbackCoord(row, fallback);
     }
 
     function normalizeShelterKey(item = {}) {
@@ -1845,11 +1962,22 @@
         SOUTH_SHELTER_ITEMS.forEach(item => {
             const candidate = normalizeShelterCoordValue(withStation({ ...item }));
             const key = normalizeShelterKey(candidate);
-            if (!keys.has(key) && !idKeys.has(String(candidate.id || ''))) {
+            const idKey = String(candidate.id || '');
+            const idx = base.findIndex(row => normalizeShelterKey(row) === key || (idKey && String(row.id || '') === idKey));
+            if (idx === -1) {
                 base.push(candidate);
                 keys.add(key);
-                idKeys.add(String(candidate.id || ''));
+                idKeys.add(idKey);
                 changed = true;
+            } else {
+                // Firebase에 과거 좌표 없는 남부서 항목이 저장된 경우, 보강 좌표를 덮어씌움
+                const before = base[idx];
+                const beforeOk = hasValidCoord(before.lat, before.lng);
+                const afterOk = hasValidCoord(candidate.lat, candidate.lng);
+                if (afterOk && (!beforeOk || before.coordSource !== candidate.coordSource)) {
+                    base[idx] = { ...before, lat: candidate.lat, lng: candidate.lng, coordSource: candidate.coordSource || '남부서좌표', station: candidate.station || before.station };
+                    changed = true;
+                }
             }
         });
         return { data: base, changed };
