@@ -3339,11 +3339,12 @@
         data.forEach(item => {
             const station = item.station || '북부서';
             const distHtml = showDistance && typeof item.distance === 'number'
-                ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distanceApprox ? '약 ' : ''}${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'}${item.distanceApprox ? ' <span style="font-size:10px; color:var(--sub); font-weight:600;">(권역기준)</span>' : ''}</div>`
+                ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'} <span style="font-size:10px; color:var(--sub); font-weight:600;">(${item.distanceSourceLabel || '좌표기준'})</span></div>`
                 : '';
 
             const safeName = String(item.name || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             const safeAddr = String(item.addr || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const safeId = String(item.id || '').replace(/'/g, "\'");
             const div = document.createElement('div');
             div.className = 'shelter-card';
             div.innerHTML = `
@@ -3354,7 +3355,7 @@
                 <div class="shelter-cap">수용: ${item.cap || '-'}</div>
                 <div class="shelter-btn-group">
                     <a href="tel:${String(item.tel || '').replace(/[^0-9]/g, '')}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
-                    <button class="shelter-btn" onclick="openKakaoNavi(${Number(item.lat || 0)}, ${Number(item.lng || 0)}, '${safeName}', '${safeAddr}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                    <button class="shelter-btn" onclick="openKakaoNaviById('${safeId}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
                     <div class="admin-actions">
                         <button class="mini-btn" onclick="editShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">수정</button>
                         <button class="mini-btn danger" onclick="deleteShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">삭제</button>
@@ -3438,19 +3439,77 @@
         saveManagedShelters();
     }
 
+    function getShelterById(id) {
+        return getAllShelterData().find(s => String(s.id || '') === String(id));
+    }
+
+    function hasValidCoord(lat, lng) {
+        const y = Number(lat);
+        const x = Number(lng);
+        return Number.isFinite(y) && Number.isFinite(x) && !(y === 0 && x === 0) && y > 33 && y < 39 && x > 124 && x < 132;
+    }
+
+    function buildKakaoRouteUrls(lat, lng, name) {
+        const y = Number(lat);
+        const x = Number(lng);
+        const targetName = encodeURIComponent(name || '대피소');
+        return {
+            webUrl: `https://map.kakao.com/link/to/${targetName},${y},${x}`,
+            mobileAppUrl: `kakaomap://route?ep=${y},${x}&by=CAR`,
+            mobileWebUrl: `https://m.map.kakao.com/scheme/route?ep=${y},${x}&by=CAR`
+        };
+    }
+
     function openKakaoNavi(lat, lng, name, addr = '') {
         const targetName = name || '대피소';
         const targetAddr = addr || name || '세종시 대피소';
-        const validCoord = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && !(Number(lat) === 0 && Number(lng) === 0);
+        const validCoord = hasValidCoord(lat, lng);
         if (!validCoord) {
             window.open(`https://map.kakao.com/link/search/${encodeURIComponent(targetAddr)}`, '_blank');
             return;
         }
+        const urls = buildKakaoRouteUrls(lat, lng, targetName);
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-        const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(targetName)},${lat},${lng}`;
-        if (isMobile) { location.href = appUrl; setTimeout(() => { if (!document.hidden) window.location.href = webUrl; }, 1500); } 
-        else { window.open(webUrl, '_blank'); }
+        if (isMobile) {
+            location.href = urls.mobileAppUrl;
+            setTimeout(() => {
+                if (!document.hidden) window.location.href = urls.mobileWebUrl;
+            }, 1200);
+        } else {
+            window.open(urls.webUrl, '_blank');
+        }
+    }
+
+    async function openKakaoNaviById(id) {
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
+
+        const targetName = item.name || '대피소';
+        const targetAddr = item.addr || item.name || '세종시 대피소';
+        const popup = window.open('', '_blank');
+        if (popup) {
+            popup.document.write(`<meta charset="utf-8"><div style="font-family:Arial,sans-serif;padding:24px;line-height:1.6;"><b>대피소 위치 확인 중...</b><br>${targetName}<br><span style="color:#666;font-size:13px;">정확한 안내를 위해 주소좌표를 먼저 확인합니다.</span></div>`);
+        }
+
+        const geo = await geocodeShelterAddress(item);
+        const known = geo || getKnownShelterCoord(item);
+        if (known && hasValidCoord(known.lat, known.lng)) {
+            const urls = buildKakaoRouteUrls(known.lat, known.lng, targetName);
+            const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+            if (isMobile) {
+                if (popup) popup.location.href = urls.mobileWebUrl;
+                location.href = urls.mobileAppUrl;
+            } else if (popup) {
+                popup.location.href = urls.webUrl;
+            } else {
+                window.open(urls.webUrl, '_blank');
+            }
+            return;
+        }
+
+        const searchUrl = `https://map.kakao.com/link/search/${encodeURIComponent('세종특별자치시 ' + targetAddr)}`;
+        if (popup) popup.location.href = searchUrl;
+        else window.open(searchUrl, '_blank');
     }
 
     function toggleStatus(idx) {
@@ -3832,60 +3891,113 @@
 
 
 
-    // 남부서 대피소는 원본 자료에 위경도가 없어, 가까운순 정렬 시 읍·면·동 중심좌표를 임시 기준으로 사용
-    // 실제 길찾기는 기존처럼 주소 검색으로 열어 정확한 위치를 찾도록 유지
-    const SHELTER_AREA_COORDS = {
-        '한솔동': { lat: 36.4797, lng: 127.2531 },
-        '새롬동': { lat: 36.4850, lng: 127.2515 },
-        '나성동': { lat: 36.4895, lng: 127.2600 },
-        '다정동': { lat: 36.4955, lng: 127.2460 },
-        '도담동': { lat: 36.5155, lng: 127.2620 },
-        '어진동': { lat: 36.5040, lng: 127.2620 },
-        '종촌동': { lat: 36.5045, lng: 127.2470 },
-        '고운동': { lat: 36.5190, lng: 127.2360 },
-        '아름동': { lat: 36.5125, lng: 127.2460 },
-        '보람동': { lat: 36.4785, lng: 127.2890 },
-        '대평동': { lat: 36.4710, lng: 127.2790 },
-        '소담동': { lat: 36.4850, lng: 127.3000 },
-        '반곡동': { lat: 36.4970, lng: 127.3100 },
-        '집현동': { lat: 36.5020, lng: 127.3230 },
-        '해밀동': { lat: 36.5280, lng: 127.2660 },
-        '산울동': { lat: 36.5380, lng: 127.2650 },
-        '연기면': { lat: 36.5450, lng: 127.2880 },
-        '금남면': { lat: 36.4630, lng: 127.2870 },
-        '장군면': { lat: 36.4990, lng: 127.2080 },
-        '연서면': { lat: 36.5880, lng: 127.2700 },
-        '연동면': { lat: 36.5590, lng: 127.3270 },
-        '부강면': { lat: 36.5290, lng: 127.3700 },
-        '조치원읍': { lat: 36.6040, lng: 127.2980 },
-        '조치원': { lat: 36.6040, lng: 127.2980 },
-        '전의면': { lat: 36.6810, lng: 127.2000 },
-        '전동면': { lat: 36.6570, lng: 127.2640 },
-        '소정면': { lat: 36.7230, lng: 127.1600 }
-    };
+    // 대피소 거리·길찾기 개선
+    // - 좌표가 없는 남부서 대피소는 주소 좌표 변환을 먼저 시도
+    // - 성공하면 카카오 길찾기 바로가기와 가까운순 정렬에 사용
+    // - 실패한 항목은 부정확한 권역거리 표시를 하지 않음
+    const SHELTER_GEOCODE_CACHE_KEY = 'sejongShelterGeocodeCacheV4';
+    let shelterGeocodeCache = {};
+    try {
+        shelterGeocodeCache = JSON.parse(localStorage.getItem(SHELTER_GEOCODE_CACHE_KEY) || '{}') || {};
+    } catch (e) {
+        shelterGeocodeCache = {};
+    }
 
-    function getShelterCoordForDistance(s) {
+    function shelterCacheKey(s = {}) {
+        return String(s.id || `${s.name || ''}|${s.addr || ''}|${s.area || ''}`).trim();
+    }
+
+    function normalizeShelterQuery(s = {}) {
+        const addr = String(s.addr || '').replace(/^세종특별자치시\s*/, '').trim();
+        const name = String(s.name || '').trim();
+        const area = String(s.area || '').trim();
+        const base = addr || `${area} ${name}`;
+        return `세종특별자치시 ${base} ${name}`.replace(/\s+/g, ' ').trim();
+    }
+
+    function isSejongCoord(lat, lng) {
+        const y = Number(lat);
+        const x = Number(lng);
+        return Number.isFinite(y) && Number.isFinite(x) && y >= 36.40 && y <= 36.75 && x >= 127.12 && x <= 127.43;
+    }
+
+    function getKnownShelterCoord(s = {}) {
+        const key = shelterCacheKey(s);
+        const cached = shelterGeocodeCache[key];
+        if (cached && isSejongCoord(cached.lat, cached.lng)) {
+            return { lat: Number(cached.lat), lng: Number(cached.lng), source: 'geocode', label: '주소좌표' };
+        }
+
         const lat = Number(s.lat);
         const lng = Number(s.lng);
-        if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
-            return { lat, lng, approx: false };
-        }
-        const text = `${s.area || ''} ${s.addr || ''} ${s.name || ''}`;
-        const key = Object.keys(SHELTER_AREA_COORDS).find(k => text.includes(k));
-        if (key) return { ...SHELTER_AREA_COORDS[key], approx: true };
+        if (hasValidCoord(lat, lng)) return { lat, lng, source: 'data', label: '등록좌표' };
         return null;
     }
 
+    async function geocodeShelterAddress(s = {}) {
+        const key = shelterCacheKey(s);
+        const cached = shelterGeocodeCache[key];
+        if (cached && isSejongCoord(cached.lat, cached.lng)) {
+            return { lat: Number(cached.lat), lng: Number(cached.lng), source: 'geocode', label: '주소좌표' };
+        }
+
+        const query = normalizeShelterQuery(s);
+        if (!query || query.length < 6) return null;
+
+        const urls = [
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kr&accept-language=ko&q=${encodeURIComponent(query)}`,
+            `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=kr&accept-language=ko&q=${encodeURIComponent('세종 ' + (s.name || '') + ' ' + (s.addr || ''))}`
+        ];
+
+        for (const url of urls) {
+            try {
+                const res = await fetch(url, { headers: { 'Accept': 'application/json' } });
+                if (!res.ok) continue;
+                const arr = await res.json();
+                if (!Array.isArray(arr) || !arr.length) continue;
+                const lat = Number(arr[0].lat);
+                const lng = Number(arr[0].lon);
+                if (!isSejongCoord(lat, lng)) continue;
+                shelterGeocodeCache[key] = { lat, lng, query, name: s.name || '', addr: s.addr || '', ts: Date.now() };
+                localStorage.setItem(SHELTER_GEOCODE_CACHE_KEY, JSON.stringify(shelterGeocodeCache));
+                return { lat, lng, source: 'geocode', label: '주소좌표' };
+            } catch (e) {
+                console.warn('대피소 주소 좌표 변환 실패:', query, e);
+            }
+        }
+        return null;
+    }
+
+    async function getShelterCoordForDistance(s) {
+        // 이미 주소좌표 캐시가 있으면 캐시를 우선 사용
+        const key = shelterCacheKey(s);
+        const cached = shelterGeocodeCache[key];
+        if (cached && isSejongCoord(cached.lat, cached.lng)) {
+            return { lat: Number(cached.lat), lng: Number(cached.lng), source: 'geocode', label: '주소좌표' };
+        }
+
+        // 모든 대피소는 주소좌표 변환을 먼저 시도하고, 실패 시 기존 등록좌표를 보조로 사용
+        const geo = await geocodeShelterAddress(s);
+        if (geo) return geo;
+
+        const known = getKnownShelterCoord(s);
+        return known;
+    }
+
+    function wait(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
     // 현위치를 받아 전체 대피소를 가까운 순으로 표시
-    function sortByDistance(btn) {
+    async function sortByDistance(btn) {
         document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+        if (btn) btn.classList.add('active');
 
         const container = document.getElementById('shelter-list');
         container.innerHTML = `
             <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--sub); font-size:12px; line-height:1.6;">
                 <i class="fas fa-spinner fa-spin"></i> 현위치 확인 중...<br>
-                <span style="font-size:11px;">브라우저 위치 권한을 허용하면 가까운 대피소 순으로 정렬됩니다.</span>
+                <span style="font-size:11px;">위치 권한을 허용하면 주소 좌표를 확인한 뒤 가까운 대피소 순으로 정렬합니다.</span>
             </div>`;
 
         if (!navigator.geolocation) {
@@ -3897,15 +4009,13 @@
         }
 
         navigator.geolocation.getCurrentPosition(
-            (position) => {
+            async (position) => {
                 const myLat = position.coords.latitude;
                 const myLng = position.coords.longitude;
 
                 let sourceData = getAllShelterData();
                 const forcedStation = scopeStation();
-                if (forcedStation) {
-                    sourceData = sourceData.filter(s => (s.station || '북부서') === forcedStation);
-                }
+                if (forcedStation) sourceData = sourceData.filter(s => (s.station || '북부서') === forcedStation);
                 if (shelterFilter === '북부서' || shelterFilter === '남부서') {
                     sourceData = sourceData.filter(s => (s.station || '북부서') === shelterFilter);
                 } else if (String(shelterFilter).startsWith('area:')) {
@@ -3913,26 +4023,42 @@
                     sourceData = sourceData.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
                 }
                 const search = (document.getElementById('shelter-search')?.value || '').toLowerCase();
-                if (search) {
-                    sourceData = sourceData.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+                if (search) sourceData = sourceData.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+
+                const resolved = [];
+                const unresolved = [];
+                for (let i = 0; i < sourceData.length; i++) {
+                    const s = sourceData[i];
+                    container.innerHTML = `
+                        <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--sub); font-size:12px; line-height:1.6;">
+                            <i class="fas fa-spinner fa-spin"></i> 대피소 좌표 확인 중... ${i + 1}/${sourceData.length}<br>
+                            <span style="font-size:11px;">최초 1회는 주소 좌표 변환 때문에 조금 걸릴 수 있습니다.</span>
+                        </div>`;
+                    const coord = await getShelterCoordForDistance(s);
+                    if (coord && hasValidCoord(coord.lat, coord.lng)) {
+                        resolved.push({
+                            ...s,
+                            lat: coord.lat,
+                            lng: coord.lng,
+                            distance: getDistance(myLat, myLng, coord.lat, coord.lng),
+                            distanceSource: coord.source,
+                            distanceSourceLabel: coord.label || '좌표기준'
+                        });
+                    } else {
+                        unresolved.push(s);
+                    }
+                    // 외부 주소검색 과다 호출 방지
+                    if (i < sourceData.length - 1 && (!shelterGeocodeCache[shelterCacheKey(s)])) await wait(120);
                 }
 
-                const sortedData = sourceData
-                    .map(s => {
-                        const coord = getShelterCoordForDistance(s);
-                        if (!coord) return null;
-                        return { ...s, distance: getDistance(myLat, myLng, coord.lat, coord.lng), distanceApprox: coord.approx };
-                    })
-                    .filter(Boolean)
-                    .sort((a, b) => a.distance - b.distance);
-
+                const sortedData = resolved.sort((a, b) => a.distance - b.distance);
                 renderShelterCards(sortedData, true);
 
-                const approxCount = sortedData.filter(s => s.distanceApprox).length;
+                const geocodedCount = sortedData.filter(s => s.distanceSource === 'geocode').length;
                 container.insertAdjacentHTML('afterbegin', `
                     <div style="grid-column:1/-1; background:var(--card-elevated); border-radius:14px; padding:10px; text-align:center; color:var(--blue); font-size:12px; font-weight:700; margin-bottom:4px; line-height:1.5;">
                         현위치 기준 가까운 대피소 순으로 표시 중<br>
-                        <span style="font-size:11px; color:var(--sub); font-weight:600;">남부서 대피소 ${approxCount}개는 좌표 미등록으로 읍·면·동 기준 근사거리 적용</span>
+                        <span style="font-size:11px; color:var(--sub); font-weight:600;">주소좌표 ${geocodedCount}개 / 등록좌표 ${sortedData.length - geocodedCount}개 적용${unresolved.length ? ` · 좌표확인 불가 ${unresolved.length}개 제외` : ''}</span>
                     </div>`);
             },
             (error) => {
@@ -3950,6 +4076,7 @@
             { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 }
         );
     }
+
 </script>
 
 </body>
