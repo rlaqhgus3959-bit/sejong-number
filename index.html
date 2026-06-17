@@ -3339,7 +3339,7 @@
         data.forEach(item => {
             const station = item.station || '북부서';
             const distHtml = showDistance && typeof item.distance === 'number'
-                ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'}</div>`
+                ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distanceApprox ? '약 ' : ''}${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'}${item.distanceApprox ? ' <span style="font-size:10px; color:var(--sub); font-weight:600;">(권역기준)</span>' : ''}</div>`
                 : '';
 
             const safeName = String(item.name || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
@@ -3830,6 +3830,52 @@
         return R * c;
     }
 
+
+
+    // 남부서 대피소는 원본 자료에 위경도가 없어, 가까운순 정렬 시 읍·면·동 중심좌표를 임시 기준으로 사용
+    // 실제 길찾기는 기존처럼 주소 검색으로 열어 정확한 위치를 찾도록 유지
+    const SHELTER_AREA_COORDS = {
+        '한솔동': { lat: 36.4797, lng: 127.2531 },
+        '새롬동': { lat: 36.4850, lng: 127.2515 },
+        '나성동': { lat: 36.4895, lng: 127.2600 },
+        '다정동': { lat: 36.4955, lng: 127.2460 },
+        '도담동': { lat: 36.5155, lng: 127.2620 },
+        '어진동': { lat: 36.5040, lng: 127.2620 },
+        '종촌동': { lat: 36.5045, lng: 127.2470 },
+        '고운동': { lat: 36.5190, lng: 127.2360 },
+        '아름동': { lat: 36.5125, lng: 127.2460 },
+        '보람동': { lat: 36.4785, lng: 127.2890 },
+        '대평동': { lat: 36.4710, lng: 127.2790 },
+        '소담동': { lat: 36.4850, lng: 127.3000 },
+        '반곡동': { lat: 36.4970, lng: 127.3100 },
+        '집현동': { lat: 36.5020, lng: 127.3230 },
+        '해밀동': { lat: 36.5280, lng: 127.2660 },
+        '산울동': { lat: 36.5380, lng: 127.2650 },
+        '연기면': { lat: 36.5450, lng: 127.2880 },
+        '금남면': { lat: 36.4630, lng: 127.2870 },
+        '장군면': { lat: 36.4990, lng: 127.2080 },
+        '연서면': { lat: 36.5880, lng: 127.2700 },
+        '연동면': { lat: 36.5590, lng: 127.3270 },
+        '부강면': { lat: 36.5290, lng: 127.3700 },
+        '조치원읍': { lat: 36.6040, lng: 127.2980 },
+        '조치원': { lat: 36.6040, lng: 127.2980 },
+        '전의면': { lat: 36.6810, lng: 127.2000 },
+        '전동면': { lat: 36.6570, lng: 127.2640 },
+        '소정면': { lat: 36.7230, lng: 127.1600 }
+    };
+
+    function getShelterCoordForDistance(s) {
+        const lat = Number(s.lat);
+        const lng = Number(s.lng);
+        if (Number.isFinite(lat) && Number.isFinite(lng) && !(lat === 0 && lng === 0)) {
+            return { lat, lng, approx: false };
+        }
+        const text = `${s.area || ''} ${s.addr || ''} ${s.name || ''}`;
+        const key = Object.keys(SHELTER_AREA_COORDS).find(k => text.includes(k));
+        if (key) return { ...SHELTER_AREA_COORDS[key], approx: true };
+        return null;
+    }
+
     // 현위치를 받아 전체 대피소를 가까운 순으로 표시
     function sortByDistance(btn) {
         document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
@@ -3866,16 +3912,27 @@
                     const key = String(shelterFilter).replace('area:', '');
                     sourceData = sourceData.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
                 }
+                const search = (document.getElementById('shelter-search')?.value || '').toLowerCase();
+                if (search) {
+                    sourceData = sourceData.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+                }
+
                 const sortedData = sourceData
-                    .filter(s => Number(s.lat) && Number(s.lng))
-                    .map(s => ({ ...s, distance: getDistance(myLat, myLng, s.lat, s.lng) }))
+                    .map(s => {
+                        const coord = getShelterCoordForDistance(s);
+                        if (!coord) return null;
+                        return { ...s, distance: getDistance(myLat, myLng, coord.lat, coord.lng), distanceApprox: coord.approx };
+                    })
+                    .filter(Boolean)
                     .sort((a, b) => a.distance - b.distance);
 
                 renderShelterCards(sortedData, true);
 
+                const approxCount = sortedData.filter(s => s.distanceApprox).length;
                 container.insertAdjacentHTML('afterbegin', `
-                    <div style="grid-column:1/-1; background:var(--card-elevated); border-radius:14px; padding:10px; text-align:center; color:var(--blue); font-size:12px; font-weight:700; margin-bottom:4px;">
-                        현위치 기준 가까운 대피소 순으로 표시 중
+                    <div style="grid-column:1/-1; background:var(--card-elevated); border-radius:14px; padding:10px; text-align:center; color:var(--blue); font-size:12px; font-weight:700; margin-bottom:4px; line-height:1.5;">
+                        현위치 기준 가까운 대피소 순으로 표시 중<br>
+                        <span style="font-size:11px; color:var(--sub); font-weight:600;">남부서 대피소 ${approxCount}개는 좌표 미등록으로 읍·면·동 기준 근사거리 적용</span>
                     </div>`);
             },
             (error) => {
