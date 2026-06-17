@@ -516,7 +516,7 @@
             <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
                 <div style="min-width:0;">
                     <div id="cctv-player-badge" style="display:inline-flex; align-items:center; gap:5px; background:#007AFF; color:white; border-radius:999px; padding:4px 9px; font-size:11px; font-weight:900; margin-bottom:7px;">
-                        CCTV
+                        <i class="fas fa-video"></i> CCTV
                     </div>
                     <div id="cctv-player-title" style="font-size:17px; font-weight:900; line-height:1.25; word-break:keep-all;">CCTV 재생</div>
                     <div id="cctv-player-guide" style="font-size:12px; color:#cfcfcf; margin-top:6px; line-height:1.45; word-break:keep-all;">
@@ -533,8 +533,12 @@
         </div>
 
         <div style="display:flex; gap:8px;">
-            <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">외부창 열기</button>
-            <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">닫기</button>
+            <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
+                <i class="fas fa-up-right-from-square"></i> 외부창 열기
+            </button>
+            <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
+                <i class="fas fa-xmark"></i> 닫기
+            </button>
         </div>
         <div id="cctv-player-note" style="font-size:11px; color:#ddd; line-height:1.45; text-align:center; word-break:keep-all; padding:0 4px;">
             * 원본 사이트의 보안정책으로 내부 팝업 표시가 차단되면 외부창에서 확인하세요.
@@ -709,6 +713,722 @@
         { area:'소정', name:'소정면 소정1리 경로당', addr:'소정면 학교말길 1', cap:'29명', tel:'044-301-6044', lat:36.7175, lng:127.1545 },
         { area:'소정', name:'소정면 운당2리 경로당', addr:'소정면 운당너머말길 29', cap:'25명', tel:'044-301-6044', lat:36.7255, lng:127.1455 }
     ];
+
+
+    // 남부서 대피소 추가 명단(사진 자료 기준) - 기존 북부서 대피소는 수정하지 않고 남부서만 병합
+    const SOUTH_SHELTER_ITEMS = [
+        {
+                "id": "south-shelter-yeongi-susan",
+                "station": "남부서",
+                "area": "연기면",
+                "name": "수산리마을회관",
+                "addr": "연기면 수산길 2",
+                "cap": "48명",
+                "tel": "010-5420-5821"
+        },
+        {
+                "id": "south-shelter-boram-community",
+                "station": "남부서",
+                "area": "보람동",
+                "name": "보람동주민센터",
+                "addr": "호려울로 42 (보람동)",
+                "cap": "296명",
+                "tel": "044-301-6710"
+        },
+        {
+                "id": "south-shelter-hansol-es",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "한솔초등학교",
+                "addr": "누리로 32 (한솔동)",
+                "cap": "218명",
+                "tel": "044-410-4303"
+        },
+        {
+                "id": "south-shelter-goun-community",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "고운동주민센터",
+                "addr": "마음로 284 (고운동)",
+                "cap": "263명",
+                "tel": "044-301-6614"
+        },
+        {
+                "id": "south-shelter-duru-ms",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "두루중학교(강당)",
+                "addr": "만남로 211 (고운동)",
+                "cap": "194명",
+                "tel": "044-903-3100"
+        },
+        {
+                "id": "south-shelter-dodam-es",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "도담초등학교",
+                "addr": "보람로 33 (도담동)",
+                "cap": "240명",
+                "tel": "044-410-0103"
+        },
+        {
+                "id": "south-shelter-geumnam-gamseong-es",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "감성초등학교",
+                "addr": "금남면 감성길 6",
+                "cap": "180명",
+                "tel": "044-866-8892"
+        },
+        {
+                "id": "south-shelter-yeongi-neulwang1",
+                "station": "남부서",
+                "area": "연기면",
+                "name": "눌왕1리마을회관",
+                "addr": "연기면 원왕길 8-3",
+                "cap": "15명",
+                "tel": "044-865-3076"
+        },
+        {
+                "id": "south-shelter-geumnam-gamseong-ri",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "감성리 경로당",
+                "addr": "금남면 감성길 45",
+                "cap": "21명",
+                "tel": "010-7765-8677"
+        },
+        {
+                "id": "south-shelter-geumnam-dohoe",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "도회 경로당",
+                "addr": "금남면 용포로 57",
+                "cap": "17명",
+                "tel": "044-863-9538"
+        },
+        {
+                "id": "south-shelter-geumnam-geumcheon1",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "금천1리 경로당",
+                "addr": "금남면 금천1길 18-4",
+                "cap": "23명",
+                "tel": "044-866-6291"
+        },
+        {
+                "id": "south-shelter-geumnam-daebak",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "대박리경로당",
+                "addr": "금남면 대박길 3",
+                "cap": "24명",
+                "tel": "011-720-3555"
+        },
+        {
+                "id": "south-shelter-geumnam-doam1",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "도암1리 경로당",
+                "addr": "금남면 도암1길 8-5",
+                "cap": "24명",
+                "tel": "041-866-9081"
+        },
+        {
+                "id": "south-shelter-geumnam-buyong2",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "부용2리 경로당",
+                "addr": "금남면 부용길 16-5",
+                "cap": "23명",
+                "tel": "044-300-3625"
+        },
+        {
+                "id": "south-shelter-geumnam-yeonggok1",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "영곡1리 경로당",
+                "addr": "금남면 성덕영곡길 196",
+                "cap": "24명",
+                "tel": "041-866-8482"
+        },
+        {
+                "id": "south-shelter-geumnam-office",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "금남면사무소",
+                "addr": "금남면 용포로 57",
+                "cap": "58명",
+                "tel": "044-301-5510"
+        },
+        {
+                "id": "south-shelter-geumnam-es",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "금남초등학교",
+                "addr": "금남면 금남구즉로 62",
+                "cap": "210명",
+                "tel": "044-866-7052"
+        },
+        {
+                "id": "south-shelter-geumho-ms",
+                "station": "남부서",
+                "area": "금남면",
+                "name": "금호중학교",
+                "addr": "금남면 금남구즉로 196",
+                "cap": "178명",
+                "tel": "041-866-7800"
+        },
+        {
+                "id": "south-shelter-janggun-bongan",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "봉안리경로당",
+                "addr": "장군면 월현윗길 7",
+                "cap": "37명",
+                "tel": "044-857-1274"
+        },
+        {
+                "id": "south-shelter-janggun-songmun",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "송문리 경로당",
+                "addr": "장군면 송문송정길 95",
+                "cap": "50명",
+                "tel": "044-300-3625"
+        },
+        {
+                "id": "south-shelter-janggun-office",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "장군면사무소",
+                "addr": "장군면 장척로 400-1",
+                "cap": "59명",
+                "tel": "044-301-5644"
+        },
+        {
+                "id": "south-shelter-janggun-geumam",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "금암리마을회관",
+                "addr": "장군면 정자말길 37",
+                "cap": "46명",
+                "tel": "010-4123-2751"
+        },
+        {
+                "id": "south-shelter-uirang-es",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "의랑초등학교",
+                "addr": "장군면 태산길 50-1",
+                "cap": "663명",
+                "tel": "044-852-6871"
+        },
+        {
+                "id": "south-shelter-janggi-ms",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "장기중학교",
+                "addr": "장군면 장척로 359",
+                "cap": "228명",
+                "tel": "044-857-1033"
+        },
+        {
+                "id": "south-shelter-janggi-es",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "장기초등학교",
+                "addr": "장군면 장척로 398-9",
+                "cap": "269명",
+                "tel": "044-858-4066"
+        },
+        {
+                "id": "south-shelter-janggun-dogye",
+                "station": "남부서",
+                "area": "장군면",
+                "name": "도계리 마을회관",
+                "addr": "장군면 장기초교길 13",
+                "cap": "97명",
+                "tel": "044-300-3625"
+        },
+        {
+                "id": "south-shelter-hansol-community",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "한솔동주민센터",
+                "addr": "노을3로 85 (한솔동)",
+                "cap": "86명",
+                "tel": "044-301-6110"
+        },
+        {
+                "id": "south-shelter-gadeuk-es",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "가득초등학교",
+                "addr": "세종로 941 (새롬동)",
+                "cap": "50명",
+                "tel": "044-999-7603"
+        },
+        {
+                "id": "south-shelter-geulbit-ms",
+                "station": "남부서",
+                "area": "소담동",
+                "name": "글빛중학교",
+                "addr": "소담4로 33 (소담동)",
+                "cap": "199명",
+                "tel": "044-999-6903"
+        },
+        {
+                "id": "south-shelter-geulbeot-es",
+                "station": "남부서",
+                "area": "소담동",
+                "name": "글벗초등학교",
+                "addr": "소담로 121 (소담동)",
+                "cap": "194명",
+                "tel": "044-999-5305"
+        },
+        {
+                "id": "south-shelter-mir-es",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "미르초등학교",
+                "addr": "나리로 26-16 (한솔동)",
+                "cap": "206명",
+                "tel": "044-998-2703"
+        },
+        {
+                "id": "south-shelter-boram-hs",
+                "station": "남부서",
+                "area": "보람동",
+                "name": "보람고등학교(강당)",
+                "addr": "한누리대로 2176 (보람동)",
+                "cap": "252명",
+                "tel": "044-999-7100"
+        },
+        {
+                "id": "south-shelter-boram-ms",
+                "station": "남부서",
+                "area": "보람동",
+                "name": "보람중학교",
+                "addr": "남세종로 423 (보람동)",
+                "cap": "219명",
+                "tel": "044-999-6403"
+        },
+        {
+                "id": "south-shelter-boram-es",
+                "station": "남부서",
+                "area": "보람동",
+                "name": "보람초등학교(강당)",
+                "addr": "보람동로 39 (보람동)",
+                "cap": "249명",
+                "tel": "044-868-4743"
+        },
+        {
+                "id": "south-shelter-saetteum-ms",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "새뜸중학교",
+                "addr": "새롬중앙로 62-12 (새롬동)",
+                "cap": "166명",
+                "tel": "044-999-5905"
+        },
+        {
+                "id": "south-shelter-saetteum-es",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "새뜸초등학교",
+                "addr": "새롬남로 75 (새롬동)",
+                "cap": "200명",
+                "tel": "044-999-7403"
+        },
+        {
+                "id": "south-shelter-saerom-hs",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "새롬고등학교",
+                "addr": "새롬서로 68 (새롬동)",
+                "cap": "231명",
+                "tel": "044-999-6303"
+        },
+        {
+                "id": "south-shelter-saerom-ms",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "새롬중학교",
+                "addr": "어울로 41 (새롬동)",
+                "cap": "180명",
+                "tel": "044-998-2651"
+        },
+        {
+                "id": "south-shelter-saerom-es",
+                "station": "남부서",
+                "area": "새롬동",
+                "name": "새롬초등학교",
+                "addr": "새롬중앙1로 27 (새롬동)",
+                "cap": "245명",
+                "tel": "044-999-5600"
+        },
+        {
+                "id": "south-shelter-saeon-ms",
+                "station": "남부서",
+                "area": "다정동",
+                "name": "새온중학교",
+                "addr": "다정서로 12 (다정동)",
+                "cap": "200명",
+                "tel": "044-999-6504"
+        },
+        {
+                "id": "south-shelter-sodam-hs",
+                "station": "남부서",
+                "area": "소담동",
+                "name": "소담고등학교",
+                "addr": "남세종로 326 (소담동)",
+                "cap": "274명",
+                "tel": "044-902-2200"
+        },
+        {
+                "id": "south-shelter-sodam-ms",
+                "station": "남부서",
+                "area": "소담동",
+                "name": "소담중학교(강당)",
+                "addr": "남세종로 340 (소담동)",
+                "cap": "182명",
+                "tel": "044-905-0200"
+        },
+        {
+                "id": "south-shelter-sodam-es",
+                "station": "남부서",
+                "area": "소담동",
+                "name": "소담초등학교(강당)",
+                "addr": "남세종로 326 (소담동)",
+                "cap": "289명",
+                "tel": "044-861-7300"
+        },
+        {
+                "id": "south-shelter-yeoul-es",
+                "station": "남부서",
+                "area": "보람동",
+                "name": "여울초등학교",
+                "addr": "남세종로 504-12 (보람동)",
+                "cap": "244명",
+                "tel": "044-999-5905"
+        },
+        {
+                "id": "south-shelter-chamsaem-es",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "참샘초등학교",
+                "addr": "노을1로 29 (한솔동)",
+                "cap": "200명",
+                "tel": "044-868-3782"
+        },
+        {
+                "id": "south-shelter-hansol-hs",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "한솔고등학교",
+                "addr": "누리로 34 (한솔동)",
+                "cap": "214명",
+                "tel": "044-410-4100"
+        },
+        {
+                "id": "south-shelter-hansol-ms",
+                "station": "남부서",
+                "area": "한솔동",
+                "name": "한솔중학교",
+                "addr": "나리로 43 (한솔동)",
+                "cap": "280명",
+                "tel": "044-868-1735"
+        },
+        {
+                "id": "south-shelter-dodam-community",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "도담동주민센터",
+                "addr": "보듬8로 45 (도담동)",
+                "cap": "522명",
+                "tel": "044-301-6210"
+        },
+        {
+                "id": "south-shelter-neulbom-es",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "늘봄초등학교(강당)",
+                "addr": "다솜1로 183 (도담동)",
+                "cap": "230명",
+                "tel": "044-903-3400"
+        },
+        {
+                "id": "south-shelter-dodam-hs",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "도담고등학교",
+                "addr": "보듬4로 41 (도담동)",
+                "cap": "274명",
+                "tel": "044-410-0300"
+        },
+        {
+                "id": "south-shelter-dodam-ms",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "도담중학교",
+                "addr": "보람로 80 (도담동)",
+                "cap": "272명",
+                "tel": "044-410-0200"
+        },
+        {
+                "id": "south-shelter-seongnam-hs",
+                "station": "남부서",
+                "area": "어진동",
+                "name": "성남고등학교(강당)",
+                "addr": "다솜로 22 (어진동)",
+                "cap": "191명",
+                "tel": "044-860-3700"
+        },
+        {
+                "id": "south-shelter-yangji-hs",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "양지고등학교(강당)",
+                "addr": "갈매로 518 (도담동)",
+                "cap": "266명",
+                "tel": "044-903-2000"
+        },
+        {
+                "id": "south-shelter-yangji-ms",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "양지중학교(강당)",
+                "addr": "갈매로 512 (도담동)",
+                "cap": "266명",
+                "tel": "044-703-3015"
+        },
+        {
+                "id": "south-shelter-yangji-es",
+                "station": "남부서",
+                "area": "도담동",
+                "name": "양지초등학교(강당)",
+                "addr": "보듬8로 11 (도담동)",
+                "cap": "188명",
+                "tel": "044-867-9053"
+        },
+        {
+                "id": "south-shelter-eojin-ms",
+                "station": "남부서",
+                "area": "어진동",
+                "name": "어진중학교",
+                "addr": "다솜로 10 (어진동)",
+                "cap": "172명",
+                "tel": "044-410-0700"
+        },
+        {
+                "id": "south-shelter-yeonsei-es",
+                "station": "남부서",
+                "area": "어진동",
+                "name": "연세초등학교",
+                "addr": "다솜로 290 (어진동)",
+                "cap": "136명",
+                "tel": "044-860-6500"
+        },
+        {
+                "id": "south-shelter-yeonyang-es",
+                "station": "남부서",
+                "area": "어진동",
+                "name": "연양초등학교(강당)",
+                "addr": "도움3로 37 (어진동)",
+                "cap": "160명",
+                "tel": "044-998-4205"
+        },
+        {
+                "id": "south-shelter-areum-community",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "아름동주민센터",
+                "addr": "보듬3로 114 (아름동)",
+                "cap": "88명",
+                "tel": "044-301-6310"
+        },
+        {
+                "id": "south-shelter-jongchon-community",
+                "station": "남부서",
+                "area": "종촌동",
+                "name": "종촌동주민센터",
+                "addr": "도움3로 125 (종촌동)",
+                "cap": "416명",
+                "tel": "044-301-6410"
+        },
+        {
+                "id": "south-shelter-garak-es",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "가락초등학교",
+                "addr": "마음로 208 (고운동)",
+                "cap": "209명",
+                "tel": "044-903-1205"
+        },
+        {
+                "id": "south-shelter-goun-hs",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "고운고등학교",
+                "addr": "마음안로 93 (고운동)",
+                "cap": "187명",
+                "tel": "044-903-2310"
+        },
+        {
+                "id": "south-shelter-goun-ms",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "고운중학교",
+                "addr": "만남로 65 (고운동)",
+                "cap": "376명",
+                "tel": "044-903-3300"
+        },
+        {
+                "id": "south-shelter-goun-es",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "고운초등학교(강당)",
+                "addr": "만남로 45 (고운동)",
+                "cap": "259명",
+                "tel": "044-903-4306"
+        },
+        {
+                "id": "south-shelter-narae-es",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "나래초등학교(강당)",
+                "addr": "달빛1로 108 (아름동)",
+                "cap": "152명",
+                "tel": "044-867-8061"
+        },
+        {
+                "id": "south-shelter-dabit-es",
+                "station": "남부서",
+                "area": "종촌동",
+                "name": "다빛초등학교(강당)",
+                "addr": "달빛1로 7 (종촌동)",
+                "cap": "236명",
+                "tel": "044-903-3504"
+        },
+        {
+                "id": "south-shelter-duru-hs",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "두루고등학교",
+                "addr": "마음안1로 53 (고운동)",
+                "cap": "189명",
+                "tel": "044-903-2200"
+        },
+        {
+                "id": "south-shelter-duru-es",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "두루초등학교(강당)",
+                "addr": "만남로 227 (고운동)",
+                "cap": "253명",
+                "tel": "044-903-2700"
+        },
+        {
+                "id": "south-shelter-science-art-school",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "세종과학예술영재학교(체육관)",
+                "addr": "달빛1로 265 (아름동)",
+                "cap": "176명",
+                "tel": "044-903-1106"
+        },
+        {
+                "id": "south-shelter-international-hs",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "세종국제고등학교",
+                "addr": "달빛1로 251 (아름동)",
+                "cap": "1682명",
+                "tel": "044-410-0511"
+        },
+        {
+                "id": "south-shelter-nuri-school",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "세종누리학교(강당)",
+                "addr": "만남로 326-14 (고운동)",
+                "cap": "207명",
+                "tel": "044-410-2100"
+        },
+        {
+                "id": "south-shelter-areum-hs",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "아름고등학교",
+                "addr": "달빛1로 151 (아름동)",
+                "cap": "285명",
+                "tel": "044-868-6071"
+        },
+        {
+                "id": "south-shelter-areum-ms",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "아름중학교",
+                "addr": "달빛1로 167 (아름동)",
+                "cap": "187명",
+                "tel": "044-867-9371"
+        },
+        {
+                "id": "south-shelter-areum-es",
+                "station": "남부서",
+                "area": "아름동",
+                "name": "아름초등학교",
+                "addr": "달빛로 174 (아름동)",
+                "cap": "173명",
+                "tel": "044-998-1845"
+        },
+        {
+                "id": "south-shelter-onbit-es",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "온빛초등학교(강당)",
+                "addr": "만남로 174 (고운동)",
+                "cap": "261명",
+                "tel": "044-903-3700"
+        },
+        {
+                "id": "south-shelter-eutteum-es",
+                "station": "남부서",
+                "area": "고운동",
+                "name": "으뜸초등학교",
+                "addr": "마음로 132 (고운동)",
+                "cap": "202명",
+                "tel": "044-903-2507"
+        },
+        {
+                "id": "south-shelter-jongchon-hs",
+                "station": "남부서",
+                "area": "종촌동",
+                "name": "종촌고등학교(강당)",
+                "addr": "달빛1로 60 (종촌동)",
+                "cap": "244명",
+                "tel": "044-903-2100"
+        },
+        {
+                "id": "south-shelter-jongchon-ms",
+                "station": "남부서",
+                "area": "종촌동",
+                "name": "종촌중학교(강당)",
+                "addr": "도움1로 126 (종촌동)",
+                "cap": "223명",
+                "tel": "044-903-3200"
+        },
+        {
+                "id": "south-shelter-jongchon-es",
+                "station": "남부서",
+                "area": "종촌동",
+                "name": "종촌초등학교(강당)",
+                "addr": "도움1로 160 (종촌동)",
+                "cap": "194명",
+                "tel": "044-903-3600"
+        }
+];
 
 
     const defaultCctvData = [
@@ -1025,15 +1745,24 @@
         return fetchSelectedItsCctv();
     }
 
+    const SOUTH_ROAD_CONTROL_ITEMS = [
+        { id:'south-flood-road-1', station:'남부서', grade:'가', type:'하상도로', area:'감성동', addr:'감성동 74 (1번 국도 아래 교차로)', name:'감성교차로 하상도로', status:0 },
+        { id:'south-flood-road-2', station:'남부서', grade:'가', type:'기타', area:'장군면', addr:'장군면 금암리 387', name:'한국영상대 진입로', status:0 },
+        { id:'south-flood-road-3', station:'남부서', grade:'가', type:'기타', area:'금남면', addr:'금남면 남곡리 584', name:'(구)에보리선데이, 금강사우나 앞', status:0 },
+        { id:'south-flood-road-4', station:'남부서', grade:'가', type:'기타', area:'금남면', addr:'금남면 남곡리 571', name:'부용창고', status:0 },
+        { id:'south-flood-road-5', station:'남부서', grade:'나', type:'96지방도', area:'가람동', addr:'가람동 974', name:'송암교 밑 금송로', status:0 }
+    ];
+
     const defaultData = [
-        { id:1, area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, area:'전의', name:'전의면 북암천', status:2 },
-        { id:3, area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, area:'조치원', name:'송하한정식 앞', status:2 },
-        { id:5, area:'부강', name:'부용가교', status:2 }, { id:6, area:'전의', name:'소정리 광암교 붕괴', status:2 },
-        { id:7, area:'전의', name:'전동면 청람리', status:0 }, { id:8, area:'조치원', name:'내창천', status:0 },
-        { id:9, area:'조치원', name:'봉암하상도로', status:0 }, { id:10, area:'전의', name:'유천리 양안지하차도', status:0 },
-        { id:11, area:'전의', name:'청송농공단지 앞', status:0 }, { id:12, area:'조치원', name:'서창역~신안2리', status:0 },
-        { id:13, area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, area:'전의', name:'소정면사무소 앞', status:0 },
-        { id:15, area:'전의', name:'전의중학교 앞', status:0 }, { id:16, area:'조치원', name:'욱일지하차도', status:0 }
+        { id:1, station:'북부서', area:'조치원', name:'조치원읍 세월교', status:2 }, { id:2, station:'북부서', area:'전의', name:'전의면 북암천', status:2 },
+        { id:3, station:'북부서', area:'조치원', name:'서창리, 신안리', status:1 }, { id:4, station:'북부서', area:'조치원', name:'송하한정식 앞', status:2 },
+        { id:5, station:'북부서', area:'부강', name:'부용가교', status:2 }, { id:6, station:'북부서', area:'전의', name:'소정리 광암교 붕괴', status:2 },
+        { id:7, station:'북부서', area:'전의', name:'전동면 청람리', status:0 }, { id:8, station:'북부서', area:'조치원', name:'내창천', status:0 },
+        { id:9, station:'북부서', area:'조치원', name:'봉암하상도로', status:0 }, { id:10, station:'북부서', area:'전의', name:'유천리 양안지하차도', status:0 },
+        { id:11, station:'북부서', area:'전의', name:'청송농공단지 앞', status:0 }, { id:12, station:'북부서', area:'조치원', name:'서창역~신안2리', status:0 },
+        { id:13, station:'북부서', area:'조치원', name:'봉산리 야구장 입구', status:0 }, { id:14, station:'북부서', area:'전의', name:'소정면사무소 앞', status:0 },
+        { id:15, station:'북부서', area:'전의', name:'전의중학교 앞', status:0 }, { id:16, station:'북부서', area:'조치원', name:'욱일지하차도', status:0 },
+        ...SOUTH_ROAD_CONTROL_ITEMS
     ];
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
@@ -1075,6 +1804,43 @@
 
     function withStation(item) {
         return { ...item, station: item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''} ${item.addr || ''}`) };
+    }
+
+    function normalizeShelterKey(item = {}) {
+        return `${item.station || ''}|${item.name || ''}|${item.addr || ''}`.replace(/\s+/g, '').toLowerCase();
+    }
+
+    function mergeSouthShelters(rows = []) {
+        const base = Array.isArray(rows) ? rows.map(item => withStation(item)) : [];
+        const keys = new Set(base.map(normalizeShelterKey));
+        const idKeys = new Set(base.map(item => String(item.id || '')));
+        let changed = false;
+        SOUTH_SHELTER_ITEMS.forEach(item => {
+            const candidate = withStation({ ...item });
+            const key = normalizeShelterKey(candidate);
+            if (!keys.has(key) && !idKeys.has(String(candidate.id || ''))) {
+                base.push(candidate);
+                keys.add(key);
+                idKeys.add(String(candidate.id || ''));
+                changed = true;
+            }
+        });
+        return { data: base, changed };
+    }
+
+    function mergeSouthRoadControls(rows = []) {
+        const base = Array.isArray(rows) ? rows.map(item => withStation(item)) : [];
+        const keys = new Set(base.map(item => String(item.id || `${item.station || ''}-${item.area || ''}-${item.name || ''}`)));
+        let changed = false;
+        SOUTH_ROAD_CONTROL_ITEMS.forEach(item => {
+            const key = String(item.id);
+            const nameExists = base.some(row => row.station === '남부서' && row.name === item.name && row.addr === item.addr);
+            if (!keys.has(key) && !nameExists) {
+                base.push(withStation({ ...item }));
+                changed = true;
+            }
+        });
+        return { data: base, changed };
     }
 
     const NORTH_AREAS = NORTH_FULL_NAMES.map(name => ({ label: name, key: name.replace(/(읍|면)$/, '') }));
@@ -1358,19 +2124,31 @@
         db.ref('trafficData').on('value', (snapshot) => {
             const data = snapshot.val();
             if(data) {
-                trafficData = data.map(item => withStation(item));
+                const merged = mergeSouthRoadControls(data);
+                trafficData = merged.data;
+                if (merged.changed) {
+                    db.ref('trafficData').set(trafficData);
+                    return;
+                }
                 render();
                 document.getElementById('sync-status').classList.add('live');
             } else {
-                db.ref('trafficData').set(defaultData.map(item => ({ ...item, station: '북부서' })));
+                db.ref('trafficData').set(defaultData.map(item => withStation(item)));
             }
         });
         db.ref('shelterManagedData').on('value', (snapshot) => {
             const data = snapshot.val();
             if (Array.isArray(data)) {
-                managedShelterData = data.map((item, idx) => withStation({ ...item, id: item.id || `shelter-${idx}` }));
+                const baseShelters = data.map((item, idx) => withStation({ ...item, id: item.id || `shelter-${idx}` }));
+                const merged = mergeSouthShelters(baseShelters);
+                managedShelterData = merged.data;
+                if (merged.changed) {
+                    db.ref('shelterManagedData').set(managedShelterData);
+                    return;
+                }
             } else {
-                managedShelterData = shelterData.map((item, idx) => withStation({ ...item, id: item.id || `base-shelter-${idx}` }));
+                const baseShelters = shelterData.map((item, idx) => withStation({ ...item, id: item.id || `base-shelter-${idx}` }));
+                managedShelterData = mergeSouthShelters(baseShelters).data;
                 db.ref('shelterManagedData').set(managedShelterData);
             }
             renderShelters();
@@ -2539,8 +3317,9 @@
     }
 
     function getAllShelterData() {
-        if (managedShelterData && managedShelterData.length) return managedShelterData.map(withStation);
-        return shelterData.map((s, idx) => withStation({ ...s, id: s.id || `base-shelter-${idx}` })).concat(shelterExtraData.map(withStation));
+        if (managedShelterData && managedShelterData.length) return mergeSouthShelters(managedShelterData.map(withStation)).data;
+        const base = shelterData.map((s, idx) => withStation({ ...s, id: s.id || `base-shelter-${idx}` })).concat(shelterExtraData.map(withStation));
+        return mergeSouthShelters(base).data;
     }
 
     function saveManagedShelters() {
@@ -2563,7 +3342,8 @@
                 ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'}</div>`
                 : '';
 
-            const safeName = String(item.name || '').replace(/'/g, "\\'");
+            const safeName = String(item.name || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const safeAddr = String(item.addr || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             const div = document.createElement('div');
             div.className = 'shelter-card';
             div.innerHTML = `
@@ -2574,7 +3354,7 @@
                 <div class="shelter-cap">수용: ${item.cap || '-'}</div>
                 <div class="shelter-btn-group">
                     <a href="tel:${String(item.tel || '').replace(/[^0-9]/g, '')}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
-                    <button class="shelter-btn" onclick="openKakaoNavi(${Number(item.lat || 0)}, ${Number(item.lng || 0)}, '${safeName}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                    <button class="shelter-btn" onclick="openKakaoNavi(${Number(item.lat || 0)}, ${Number(item.lng || 0)}, '${safeName}', '${safeAddr}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
                     <div class="admin-actions">
                         <button class="mini-btn" onclick="editShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">수정</button>
                         <button class="mini-btn danger" onclick="deleteShelterLocation('${String(item.id || '').replace(/'/g, "\'")}')">삭제</button>
@@ -2658,10 +3438,17 @@
         saveManagedShelters();
     }
 
-    function openKakaoNavi(lat, lng, name) {
+    function openKakaoNavi(lat, lng, name, addr = '') {
+        const targetName = name || '대피소';
+        const targetAddr = addr || name || '세종시 대피소';
+        const validCoord = Number.isFinite(Number(lat)) && Number.isFinite(Number(lng)) && !(Number(lat) === 0 && Number(lng) === 0);
+        if (!validCoord) {
+            window.open(`https://map.kakao.com/link/search/${encodeURIComponent(targetAddr)}`, '_blank');
+            return;
+        }
         const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
         const appUrl = `kakaomap://route?ep=${lat},${lng}&by=CAR`;
-        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(name)},${lat},${lng}`;
+        const webUrl = `https://map.kakao.com/link/to/${encodeURIComponent(targetName)},${lat},${lng}`;
         if (isMobile) { location.href = appUrl; setTimeout(() => { if (!document.hidden) window.location.href = webUrl; }, 1500); } 
         else { window.open(webUrl, '_blank'); }
     }
@@ -2719,13 +3506,14 @@
                 const key = String(currFilter).replace('area:', '');
                 if(!areaMatches(`${item.area || ''} ${item.name || ''}`, key)) return;
             }
-            if(searchVal && !(`${item.name || ''} ${item.area || ''} ${station}`.toLowerCase().includes(searchVal))) return;
+            if(searchVal && !(`${item.name || ''} ${item.area || ''} ${item.addr || ''} ${item.type || ''} ${item.grade || ''} ${station}`.toLowerCase().includes(searchVal))) return;
 
             visibleTotal++;
             if(item.status === 2) banCnt++;
             const div = document.createElement('div');
             div.className = 'traffic-card';
-            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${item.area}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
+            const trafficMeta = [item.area, item.addr, item.type ? `구분 ${item.type}` : '', item.grade ? `등급 ${item.grade}` : ''].filter(Boolean).join(' · ');
+            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px; line-height:1.4;">${trafficMeta}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
             container.appendChild(div);
         });
         document.getElementById('cnt-total').innerText = visibleTotal;
@@ -3025,7 +3813,7 @@
 
     function resetData() {
         if (!isAdmin) return;
-        if(confirm('도로통제 데이터를 초기화하시겠습니까?')) db.ref('trafficData').set(defaultData.map(item => ({ ...item, station: '북부서' })));
+        if(confirm('도로통제 데이터를 초기화하시겠습니까?')) db.ref('trafficData').set(defaultData.map(item => withStation(item)));
     }
 
     // --- 현위치 기반 대피소 가까운순 정렬 ---
