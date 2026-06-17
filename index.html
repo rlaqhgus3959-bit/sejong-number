@@ -490,7 +490,7 @@
             </div>
             <div style="margin-top:12px; font-size:12px; color:var(--sub); font-weight:800;">CCTV 섹터</div>
             <div class="filter-group" id="cctv-sector-filter-group" style="margin-top:6px;"></div>
-            <div style="margin-top:10px; font-size:12px; color:var(--sub); font-weight:800;">관할·지역</div>
+            <div style="margin-top:10px; font-size:12px; color:var(--sub); font-weight:800;">관할</div>
             <div class="filter-group" id="cctv-filter-group" style="margin-top:6px;"></div>
         </div>
         <div class="list-container" id="cctv-list"></div>
@@ -1614,7 +1614,7 @@
     // 개별 신도심 CCTV 항목은 삭제하고, 도심 전체 화면 1개 카드만 표시합니다.
     const SEJONG_TRAFFIC_CCTV_URL = 'https://bis.sejong.go.kr/web/atms/atms_map.view?type=1';
     const SEJONG_CORE_CCTV_PRESETS = [
-        { id:'sejong-bis-downtown-all', station:'남부서', area:'도심권', name:'도심 전체 CCTV', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도심전체' }
+        { id:'sejong-bis-downtown-all', station:'공통', area:'도심권', name:'도심 전체 CCTV', url:SEJONG_TRAFFIC_CCTV_URL, active:true, source:'SEJONG_BIS', type:'도심전체' }
     ];
 
 
@@ -1692,6 +1692,27 @@
         return Array.isArray(data) ? data : (data ? [data] : []);
     }
 
+    // ITS 교통 CCTV 관할 재분류 기준
+    // 아래 지점명은 북부서, 그 외 ITS CCTV는 남부서로 표시합니다.
+    const NORTH_ITS_CCTV_KEYWORDS = [
+        '세종곡교촌삼거리', '세종운당교차로', '세종육교삼거리', '행정삼거리',
+        '남풍세ic교차로', '천안풍세교차로', '남풍세', '남풍세ic',
+        '신흥교', '풍세교', '풍세전체', '호정1교', '월암교',
+        '전동교차로', '석곡교', '전의교차로', '미곡리',
+        '조천3교', '조천4교', '양안지하차도', '번암사거리', '상리사거리',
+        '홍대입구삼거리', '청주오송삼거리', '세종여고교차로', '욱일교차로',
+        '초천1교', '서창사거리'
+    ];
+
+    function compactCctvName(s = '') {
+        return String(s || '').toLowerCase().replace(/\s+/g, '').replace(/[\[\]\(\)\-_,.]/g, '');
+    }
+
+    function getItsCctvStationByName(name = '') {
+        const key = compactCctvName(name);
+        return NORTH_ITS_CCTV_KEYWORDS.some(v => key.includes(compactCctvName(v))) ? '북부서' : '남부서';
+    }
+
     function mapItsCctvItem(item, areaKey = '조치원') {
         const areaInfo = SEJONG_ITS_CCTV_AREAS[areaKey] || SEJONG_ITS_CCTV_AREAS['조치원'];
         const name = String(item.cctvname || item.name || `ITS ${areaInfo.label} CCTV`).replace(/^\[?CCTV\]?\s*/i, '').trim();
@@ -1702,7 +1723,7 @@
         const ctype = item.cctvtype || item.type || '';
         return withStation({
             id: `its-${name}-${coordx}-${coordy}`.replace(/\s+/g, '_'),
-            station: areaInfo.station,
+            station: getItsCctvStationByName(name),
             area: areaKey,
             name: name || `ITS ${areaInfo.label} CCTV`,
             url,
@@ -2140,11 +2161,32 @@
         return 'manual';
     }
 
+    function isCommonCctvForBoth(c = {}) {
+        const sector = getCctvSectorValue(c);
+        return sector === 'river' || sector === 'downtown';
+    }
+
+    function normalizeCctvStationForRules(c = {}) {
+        const sector = getCctvSectorValue(c);
+        if (String(c.source || '') === 'ITS') {
+            return { ...c, station: getItsCctvStationByName(c.name || '') };
+        }
+        if (sector === 'river' || sector === 'downtown') {
+            return { ...c, station: '공통' };
+        }
+        return c;
+    }
+
+    function cctvMatchesStation(c = {}, station = '') {
+        if (!station) return true;
+        if (isCommonCctvForBoth(c)) return true;
+        return String(c.station || '') === station;
+    }
+
     function getCctvSectorLabel(value) {
         const labels = {
             all: '전체',
             its: 'ITS 교통',
-            sejong_bis: '세종교통',
             downtown: '도심 전체',
             river: '하천수위'
         };
@@ -2155,7 +2197,6 @@
         return [
             ['all', '전체'],
             ['its', 'ITS 교통'],
-            ['sejong_bis', '세종교통'],
             ['downtown', '도심 전체'],
             ['river', '하천수위']
         ];
@@ -2186,7 +2227,9 @@
             ...(typeof SEJONG_CORE_CCTV_PRESETS !== 'undefined' && Array.isArray(SEJONG_CORE_CCTV_PRESETS) ? SEJONG_CORE_CCTV_PRESETS : []),
             ...(typeof SEJONG_RIVER_CCTV_PRESETS !== 'undefined' && Array.isArray(SEJONG_RIVER_CCTV_PRESETS) ? SEJONG_RIVER_CCTV_PRESETS : [])
         ];
-        return sanitizeCctvData([...(cctvData || []), ...presetItems]).filter(isAllowedCctvItem);
+        return sanitizeCctvData([...(cctvData || []), ...presetItems])
+            .map(normalizeCctvStationForRules)
+            .filter(isAllowedCctvItem);
     }
 
     function renderCctvSectorButtons() {
@@ -2203,14 +2246,8 @@
         const wrap = document.getElementById('cctv-filter-group');
         if (!wrap) return;
         let html = `<button class="filter-btn${cctvFilter === 'all' ? ' active' : ''}" onclick="setCctvFilter('all', this)">전체</button>`;
-        if (globalScope === 'all') {
-            html += `<button class="filter-btn${cctvFilter === 'north' ? ' active' : ''}" onclick="setCctvFilter('north', this)">북부서</button>`;
-            html += `<button class="filter-btn${cctvFilter === 'south' ? ' active' : ''}" onclick="setCctvFilter('south', this)">남부서</button>`;
-        }
-        getAreasForScope().forEach(a => {
-            const val = `area:${a.key}`;
-            html += `<button class="filter-btn${cctvFilter === val ? ' active' : ''}" onclick="setCctvFilter('${val}', this)">${a.label}</button>`;
-        });
+        html += `<button class="filter-btn${cctvFilter === 'north' ? ' active' : ''}" onclick="setCctvFilter('north', this)">북부서</button>`;
+        html += `<button class="filter-btn${cctvFilter === 'south' ? ' active' : ''}" onclick="setCctvFilter('south', this)">남부서</button>`;
         wrap.innerHTML = html;
     }
 
@@ -3227,6 +3264,40 @@
             return m ? m[0] : null;
         }
 
+        function formatNowTime() {
+            const d = new Date();
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            const min = String(d.getMinutes()).padStart(2, '0');
+            return `${y}-${m}-${day} ${h}:${min}`;
+        }
+
+        function extractSpecialRegion(item) {
+            if (!item || typeof item === 'string') {
+                const t = String(item || '');
+                const afterColon = t.split(/[:：]/).slice(1).join(':');
+                if (afterColon) return cleanText(afterColon).slice(0, 100) || '지역 정보 없음';
+                const seg = t.split(':')[0] || '';
+                return cleanText(seg.replace(/(호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|태풍|폭풍해일|지진해일)(주의보|경보).*/, '')) || '지역 정보 없음';
+            }
+            const regionKeys = ['region', 'area', 'areaName', 'regName', 'regUp', 'regUpKo', 'target', 'stnKo', 'wrnArea', 'loc', 'location'];
+            for (const k of regionKeys) {
+                if (item[k]) return cleanText(item[k]);
+            }
+            const allItemText = itemText(item);
+            const regionPart = allItemText.match(/(?:주의보|경보)\s*[:：]\s*([^\n]+)/);
+            if (regionPart && regionPart[1]) return cleanText(regionPart[1]).slice(0, 100);
+            const vals = Object.entries(item)
+                .filter(([k, v]) => v !== null && v !== undefined && !/^tm|seq|stn|num|code|cnt$/i.test(k))
+                .map(([k, v]) => cleanText(v))
+                .filter(Boolean);
+            const hit = vals.find(v => /세종|대전|충남|충북|서울|경기|강원|전북|전남|경북|경남|제주|울산|부산|대구|광주|인천|독도|흑산도|홍도/.test(v));
+            if (hit) return hit.length > 80 ? hit.slice(0, 80) + '…' : hit;
+            return '지역 정보 없음';
+        }
+
         function buildUrl(path, params = {}) {
             const url = new URL(API_BASE + path);
             url.searchParams.set('serviceKey', SERVICE_KEY);
@@ -3325,10 +3396,13 @@
             let recentHtml = '';
             if (listItems && listItems.length > 0) {
                 recentHtml = listItems.slice(0, 5).map(item => {
-                    if (typeof item === 'string') return `📌 ${item}`;
+                    if (typeof item === 'string') {
+                        return `📌 ${item}<br><span style="color:var(--sub); font-size:12px;">지역: ${extractSpecialRegion(item)}</span>`;
+                    }
                     const title = item.title || itemText(item) || '제목 없음';
                     const tmFc = formatKmaTime(item.tmFc);
-                    return `📌 ${title}<br><span style="color:var(--sub); font-size:12px;">발표시각: ${tmFc}</span>`;
+                    const region = extractSpecialRegion(item);
+                    return `📌 ${title}<br><span style="color:var(--sub); font-size:12px;">지역: ${region}<br>발표시간: ${tmFc}</span>`;
                 }).join('<br><br>');
             } else {
                 recentHtml = `<span style="color:var(--sub);">최근 기상특보 목록 없음</span>`;
@@ -3337,7 +3411,11 @@
             contentEl.innerHTML = `
                 ${mainHtml}
                 <div class="info-group">
-                    <span class="info-label">최근 발표시각</span>
+                    <span class="info-label">현재시간</span>
+                    <div class="info-val time">${formatNowTime()}</div>
+                </div>
+                <div class="info-group">
+                    <span class="info-label">최근 발표시간</span>
                     <div class="info-val time">${latestTime || '확인불가'}</div>
                 </div>
                 <div class="info-group">
@@ -3896,10 +3974,10 @@
         const search = (document.getElementById('cctv-search')?.value || '').toLowerCase();
         let data = getCctvMasterData();
         const forcedStation = scopeStation();
-        if (forcedStation) data = data.filter(c => c.station === forcedStation);
+        if (forcedStation) data = data.filter(c => cctvMatchesStation(c, forcedStation));
 
-        if (cctvFilter === 'north') data = data.filter(c => c.station === '북부서');
-        else if (cctvFilter === 'south') data = data.filter(c => c.station === '남부서');
+        if (cctvFilter === 'north') data = data.filter(c => cctvMatchesStation(c, '북부서'));
+        else if (cctvFilter === 'south') data = data.filter(c => cctvMatchesStation(c, '남부서'));
         else if (String(cctvFilter).startsWith('area:')) {
             const key = String(cctvFilter).replace('area:', '');
             data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, key));
@@ -3913,7 +3991,7 @@
             data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''} ${c.source || ''} ${c.type || ''}`.toLowerCase().includes(search));
         }
 
-        const sectorOrder = ['its','sejong_bis','downtown','river'];
+        const sectorOrder = ['its','downtown','river'];
         data = data.slice().sort((a, b) => {
             const sa = getCctvSectorValue(a);
             const sb = getCctvSectorValue(b);
