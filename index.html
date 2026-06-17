@@ -360,7 +360,7 @@
                 <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
             </div>
             <div style="margin-top:8px; font-size:11px; color:var(--sub);">
-                * 일누적 강수량은 기상청 초단기실황 RN1(1시간 강수량)을 Firebase에 시간별 저장 후 오늘 00시부터 합산합니다.
+                * 일누적 강수량은 기상청 초단기실황 RN1(1시간 강수량)을 Firebase에 시간별 저장 후 오늘 00시부터 합산합니다.<br>* 최신 실황 기준시각을 자동 탐색하고, 강수량은 3분마다 자동 갱신합니다.
             </div>
         </div>
 
@@ -2313,6 +2313,7 @@
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
         refreshAll();
+        startRainAutoRefresh();
         db.ref('trafficData').on('value', (snapshot) => {
             const data = snapshot.val();
             if(data) {
@@ -2470,10 +2471,67 @@
         return `${String(hour).padStart(2, '0')}00`;
     }
 
+    let ultraNcstBaseCache = { key: '', base: null, checkedAt: 0 };
+    let rainAutoRefreshTimer = null;
+    let isRainFetching = false;
+
+    function getUltraNcstBaseCandidates() {
+        const now = getKstDate();
+        const candidates = [];
+        const start = new Date(now);
+        // 기존 45분 대기 방식은 실제 비가 올 때 체감 반영이 늦어 20분부터 최신 시각을 우선 시도한다.
+        if (now.getMinutes() < 20) start.setHours(start.getHours() - 1);
+        for (let i = 0; i < 4; i++) {
+            const d = new Date(start);
+            d.setHours(start.getHours() - i);
+            candidates.push({ baseDate: kmaDateString(d), baseTime: kmaTimeString(d.getHours()) });
+        }
+        return candidates;
+    }
+
     function getUltraNcstBase() {
-        const d = getKstDate();
-        if (d.getMinutes() < 45) d.setHours(d.getHours() - 1);
-        return { baseDate: kmaDateString(d), baseTime: kmaTimeString(d.getHours()) };
+        const candidates = getUltraNcstBaseCandidates();
+        return candidates[0];
+    }
+
+    async function getBestUltraNcstBase() {
+        const candidates = getUltraNcstBaseCandidates();
+        const cacheKey = candidates.map(b => `${b.baseDate}${b.baseTime}`).join('|');
+        const now = Date.now();
+        if (ultraNcstBaseCache.key === cacheKey && ultraNcstBaseCache.base && now - ultraNcstBaseCache.checkedAt < 180000) {
+            return ultraNcstBaseCache.base;
+        }
+
+        const probeArea = SEJONG_WEATHER_AREAS.find(a => a.name === '조치원읍') || SEJONG_WEATHER_AREAS[0];
+        for (const base of candidates) {
+            try {
+                const data = await fetchKmaShortJson('getUltraSrtNcst', {
+                    base_date: base.baseDate,
+                    base_time: base.baseTime,
+                    nx: String(probeArea.nx),
+                    ny: String(probeArea.ny)
+                });
+                const items = data?.response?.body?.items?.item || [];
+                const arr = Array.isArray(items) ? items : [items];
+                if (arr.length && arr.some(item => item && item.category === 'RN1')) {
+                    ultraNcstBaseCache = { key: cacheKey, base, checkedAt: now };
+                    return base;
+                }
+            } catch (e) {
+                console.warn('강수 최신 기준시각 확인 실패:', base, e);
+            }
+        }
+        const fallback = candidates[candidates.length - 1];
+        ultraNcstBaseCache = { key: cacheKey, base: fallback, checkedAt: now };
+        return fallback;
+    }
+
+    function startRainAutoRefresh() {
+        if (rainAutoRefreshTimer) clearInterval(rainAutoRefreshTimer);
+        rainAutoRefreshTimer = setInterval(() => {
+            if (document.hidden || isRainFetching) return;
+            fetchDetailRain(true);
+        }, 180000);
     }
 
     function getVilageFcstBase() {
@@ -2637,14 +2695,16 @@
         }
     }
 
-    async function fetchDetailRain() {
+    async function fetchDetailRain(silent = false) {
+        if (isRainFetching && silent) return;
+        isRainFetching = true;
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
-        const base = getUltraNcstBase();
+        const base = await getBestUltraNcstBase();
         const filterLabel = getSectionFilterLabel('rain');
 
         try {
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 수신 및 일누적 계산중...</div>`;
+            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 최신 실황 확인중...</div>`;
 
             const hourlyRows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
                 const data = await fetchKmaShortJson('getUltraSrtNcst', {
@@ -2696,18 +2756,22 @@
                 html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 강수 자료 없음</div>`;
             }
 
+            const recvTime = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 RN1 누적</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · ${base.baseDate} ${base.baseTime}</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 초단기실황 RN1</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 기준 ${base.baseDate} ${base.baseTime}</div>
+                <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${recvTime} · 3분 자동갱신</div>
             </div>`;
 
             gridEl.innerHTML = html;
             avgRainEl.innerText = `${avg.toFixed(1)} mm`;
+            isRainFetching = false;
         } catch (e) {
             console.error('공공데이터 강수량 수신 실패:', e);
             avgRainEl.innerText = '오류';
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 강수량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
+            isRainFetching = false;
         }
     }
 
@@ -3277,8 +3341,6 @@
         function extractSpecialRegion(item) {
             if (!item || typeof item === 'string') {
                 const t = String(item || '');
-                const afterColon = t.split(/[:：]/).slice(1).join(':');
-                if (afterColon) return cleanText(afterColon).slice(0, 100) || '지역 정보 없음';
                 const seg = t.split(':')[0] || '';
                 return cleanText(seg.replace(/(호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|태풍|폭풍해일|지진해일)(주의보|경보).*/, '')) || '지역 정보 없음';
             }
@@ -3286,9 +3348,6 @@
             for (const k of regionKeys) {
                 if (item[k]) return cleanText(item[k]);
             }
-            const allItemText = itemText(item);
-            const regionPart = allItemText.match(/(?:주의보|경보)\s*[:：]\s*([^\n]+)/);
-            if (regionPart && regionPart[1]) return cleanText(regionPart[1]).slice(0, 100);
             const vals = Object.entries(item)
                 .filter(([k, v]) => v !== null && v !== undefined && !/^tm|seq|stn|num|code|cnt$/i.test(k))
                 .map(([k, v]) => cleanText(v))
@@ -3577,7 +3636,6 @@
 
             const safeName = String(item.name || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             const safeAddr = String(item.addr || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
-            const safeId = String(item.id || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
             const div = document.createElement('div');
             div.className = 'shelter-card';
             div.innerHTML = `
