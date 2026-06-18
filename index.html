@@ -2092,7 +2092,7 @@
     function filterRowsByOffice(rows, section) {
         const forcedStation = scopeStation();
         let result = Array.isArray(rows) ? rows : [];
-        if (forcedStation) result = result.filter(row => (row.office || getOfficeByAreaName(row.name || row.area)) === forcedStation);
+        if (forcedStation) result = result.filter(row => ((row.office === '전체' && section === 'forest') || (row.office || getOfficeByAreaName(row.name || row.area)) === forcedStation));
 
         const type = weatherOfficeFilters[section] || 'all';
         if (type === 'all') return result;
@@ -3065,40 +3065,42 @@
         if (!gridEl || !statusEl) return;
 
         const API_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
-        const API_BASE = 'https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch';
+        const API_BASE_EMD = 'https://apis.data.go.kr/1400377/forestPoint/forestPointListEmdSearch';
+        const API_BASE_SIGUNGU = 'https://apis.data.go.kr/1400377/forestPoint/forestPointListSigunguSearch';
         const CACHE_PATH = 'forestRiskCache/sejong';
         const CACHE_MAX_AGE_MS = 3 * 60 * 60 * 1000; // 산불위험예보는 3시간 주기라 3시간 캐시
         const FOREST_SEJONG_URL = 'https://forestfire.nifos.go.kr/mobile/jsp/fireGrade.jsp?cd=36&cdName=%EC%84%B8%EC%A2%85%ED%8A%B9%EB%B3%84%EC%9E%90%EC%B9%98%EC%8B%9C';
+        const FOREST_CURRENT_URL = 'https://forestfire.nifos.go.kr/sys/gis/crntFfdIdx.do?location=current';
         const filterLabel = getSectionFilterLabel('forest');
 
         const forestAreas = [
-            { name:'조치원읍', office:'북부서', code:'36110250' },
-            { name:'연기면', office:'남부서', code:'36110310' },
-            { name:'연동면', office:'북부서', code:'36110320' },
-            { name:'부강면', office:'북부서', code:'36110330' },
-            { name:'금남면', office:'남부서', code:'36110340' },
-            { name:'장군면', office:'남부서', code:'36110350' },
-            { name:'연서면', office:'북부서', code:'36110360' },
-            { name:'전의면', office:'북부서', code:'36110370' },
-            { name:'전동면', office:'북부서', code:'36110380' },
-            { name:'소정면', office:'북부서', code:'36110390' },
-            { name:'반곡동', office:'남부서', code:'36110101' },
-            { name:'소담동', office:'남부서', code:'36110102' },
-            { name:'보람동', office:'남부서', code:'36110103' },
-            { name:'대평동', office:'남부서', code:'36110104' },
-            { name:'가람동', office:'남부서', code:'36110105' },
-            { name:'한솔동', office:'남부서', code:'36110106' },
-            { name:'나성동', office:'남부서', code:'36110107' },
-            { name:'새롬동', office:'남부서', code:'36110108' },
-            { name:'다정동', office:'남부서', code:'36110109' },
-            { name:'어진동', office:'남부서', code:'36110110' },
-            { name:'종촌동', office:'남부서', code:'36110111' },
-            { name:'고운동', office:'남부서', code:'36110112' },
-            { name:'아름동', office:'남부서', code:'36110113' },
-            { name:'도담동', office:'남부서', code:'36110114' },
-            { name:'산울동', office:'남부서', code:'36110115' },
-            { name:'해밀동', office:'남부서', code:'36110116' },
-            { name:'집현동', office:'남부서', code:'36110117' }
+            { name:'조치원읍', office:'북부서', code:'3611025000' },
+            { name:'연기면', office:'남부서', code:'3611031000' },
+            { name:'연동면', office:'북부서', code:'3611032000' },
+            { name:'부강면', office:'북부서', code:'3611033000' },
+            { name:'금남면', office:'남부서', code:'3611034000' },
+            { name:'장군면', office:'남부서', code:'3611035000' },
+            { name:'연서면', office:'북부서', code:'3611036000' },
+            { name:'전의면', office:'북부서', code:'3611037000' },
+            { name:'전동면', office:'북부서', code:'3611038000' },
+            { name:'소정면', office:'북부서', code:'3611039000' },
+            { name:'반곡동', office:'남부서', code:'3611010100' },
+            { name:'소담동', office:'남부서', code:'3611010200' },
+            { name:'보람동', office:'남부서', code:'3611010300' },
+            { name:'대평동', office:'남부서', code:'3611010400' },
+            { name:'가람동', office:'남부서', code:'3611010500' },
+            { name:'한솔동', office:'남부서', code:'3611010600' },
+            { name:'나성동', office:'남부서', code:'3611010700' },
+            { name:'새롬동', office:'남부서', code:'3611010800' },
+            { name:'다정동', office:'남부서', code:'3611010900' },
+            { name:'어진동', office:'남부서', code:'3611011000' },
+            { name:'종촌동', office:'남부서', code:'3611011100' },
+            { name:'고운동', office:'남부서', code:'3611011200' },
+            { name:'아름동', office:'남부서', code:'3611011300' },
+            { name:'도담동', office:'남부서', code:'3611011400' },
+            { name:'산울동', office:'남부서', code:'3611011500' },
+            { name:'해밀동', office:'남부서', code:'3611011600' },
+            { name:'집현동', office:'남부서', code:'3611011700' }
         ];
 
         const parseNum = (v) => {
@@ -3165,7 +3167,7 @@
             }
         };
 
-        const buildApiUrl = (areaCodes) => {
+        const buildApiUrl = (areaCodes, level = 'emd') => {
             const params = new URLSearchParams();
             params.set('serviceKey', API_KEY);
             params.set('pageNo', '1');
@@ -3174,7 +3176,12 @@
             params.set('excludeForecast', '1'); // 현재값 기준, 72시간 예측값 제외
             params.set('_type', 'json');
             params.set('_', String(Date.now()));
-            return `${API_BASE}?${params.toString()}`;
+            if (level === 'sigungu') {
+                params.set('upplocalcd', '36'); // 세종특별자치시 상위코드
+                return `${API_BASE_SIGUNGU}?${params.toString()}`;
+            }
+            params.set('upplocalcd', '36110'); // 세종시 읍·면·동 상위코드
+            return `${API_BASE_EMD}?${params.toString()}`;
         };
 
         const parseForestApiText = (text) => {
@@ -3228,8 +3235,10 @@
                 const mean = parseNum(item?.meanavg ?? item?.mean ?? item?.avg);
                 if (max === null && mean === null) return false;
                 const emd = String(item.emd || item.emdNm || item.localAreaNm || item.addr || '');
-                const code = String(item.localArea || item.localAreaCode || item.emdCd || item.code || '');
-                if (code && code.includes(area.code)) return true;
+                const code = String(item.localArea || item.localAreaCode || item.emdCd || item.code || '').replace(/\D/g, '');
+                const areaCode = String(area.code || '').replace(/\D/g, '');
+                const areaShort = areaCode.slice(0, 8);
+                if (code && (code.includes(areaCode) || areaCode.includes(code) || (areaShort && code.includes(areaShort)))) return true;
                 if (emd && emd.includes(area.name)) return true;
                 return false;
             });
@@ -3249,26 +3258,97 @@
             throw lastError || new Error('산불 API 수신 실패');
         };
 
+        const parseOfficialMountainRows = (text) => {
+            const plain = String(text || '')
+                .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+                .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+                .replace(/<[^>]+>/g, ' ')
+                .replace(/ /g, ' ')
+                .replace(/\s+/g, ' ')
+                .trim();
+            const rows = [];
+            const re = /세종\s+([가-힣A-Za-z0-9·()\-]+)\s+(\d{1,3}(?:\.\d+)?)\s+(\d{1,3}(?:\.\d+)?)\s+(-?\d{1,3}(?:\.\d+)?)\s+(-?\d{1,3}(?:\.\d+)?)/g;
+            let m;
+            while ((m = re.exec(plain)) !== null) {
+                const val = parseNum(m[2]);
+                if (val === null) continue;
+                rows.push({
+                    name: m[1],
+                    office: '남부서',
+                    code: `official-${m[1]}`,
+                    max: val,
+                    mean: val,
+                    min: null,
+                    std: null,
+                    status: '산림청현재값',
+                    source: '국가산불위험예보시스템'
+                });
+            }
+            return rows;
+        };
+
+        const fetchOfficialMountainRows = async () => {
+            let lastError = null;
+            for (const url of makeProxyUrls(FOREST_CURRENT_URL)) {
+                try {
+                    const text = await fetchTextWithTimeout(url, 6500);
+                    const rows = parseOfficialMountainRows(text);
+                    if (rows.length) return rows;
+                } catch(e) {
+                    lastError = e;
+                }
+            }
+            throw lastError || new Error('산림청 현재산불위험지수 파싱 실패');
+        };
+
         const fetchDetailRowsFast = async () => {
-            // 1차: 세종 전체 코드를 한 번에 조회합니다. 성공하면 27번 호출보다 훨씬 빠릅니다.
+            // 1차: 읍·면·동 법정동 10자리 코드로 세종 전체를 한 번에 조회합니다.
             try {
-                const items = await fetchApiItems(buildApiUrl(forestAreas.map(a => a.code)), 8000);
+                const items = await fetchApiItems(buildApiUrl(forestAreas.map(a => a.code), 'emd'), 8000);
                 const rows = forestAreas.map(area => itemToRow(area, matchItemForArea(items, area), '현재값'));
                 if (rows.some(r => r.max !== null || r.mean !== null)) return rows;
             } catch(e) {
-                console.warn('산불 전체 묶음 조회 실패, 개별 조회로 보조:', e);
+                console.warn('산불 읍면동 묶음 조회 실패, 시군구·공식현재값으로 보조:', e);
             }
 
-            // 2차: 묶음 조회가 실패한 경우에만 개별 조회합니다. 이 작업은 3시간 캐시 갱신 때만 실행됩니다.
+            // 2차: 시군구 단위 세종시 대표값을 조회합니다.
+            try {
+                const items = await fetchApiItems(buildApiUrl('36110', 'sigungu'), 6500);
+                const item = Array.isArray(items) ? items.find(i => parseNum(i?.maxi) !== null || parseNum(i?.meanavg ?? i?.mean ?? i?.avg) !== null) : null;
+                if (item) {
+                    const base = itemToRow({ name:'세종시', office:'전체', code:'36110' }, item, '시군구대표값');
+                    if (base.max !== null || base.mean !== null) return [base];
+                }
+            } catch(e) {
+                console.warn('산불 시군구 대표값 조회 실패, 산림청 현재화면으로 보조:', e);
+            }
+
+            // 3차: 산림청 현재산불위험지수 화면의 세종 산명값을 파싱합니다.
+            try {
+                const officialRows = await fetchOfficialMountainRows();
+                if (officialRows.length) return officialRows;
+            } catch(e) {
+                console.warn('산림청 현재산불위험지수 보조조회 실패:', e);
+            }
+
+            // 4차: 묶음 조회가 실패한 경우에만 개별 조회합니다. 이 작업은 3시간 캐시 갱신 때만 실행됩니다.
             const fetchOneArea = async (area) => {
                 try {
-                    const items = await fetchApiItems(buildApiUrl(area.code), 5000);
+                    const items = await fetchApiItems(buildApiUrl(area.code, 'emd'), 5000);
                     return itemToRow(area, matchItemForArea(items, area) || items[0], '현재값');
                 } catch(e) {
                     return { name:area.name, office:area.office, code:area.code, max:null, mean:null, min:null, std:null, status:'미제공', error:e.message };
                 }
             };
-            return await mapLimit(forestAreas, 8, fetchOneArea);
+            const rows = await mapLimit(forestAreas, 8, fetchOneArea);
+            if (rows.some(r => r.max !== null || r.mean !== null)) return rows;
+            try {
+                const officialRows = await fetchOfficialMountainRows();
+                if (officialRows.length) return officialRows;
+            } catch(e) {
+                console.warn('개별조회 후 산림청 현재화면 보조조회 실패:', e);
+            }
+            return rows;
         };
 
         const parseRepresentativeValue = (text) => {
