@@ -131,8 +131,13 @@
         .rain-val.snowing { color: var(--snow); }
 
         .rain-avg-box { text-align: center; margin-bottom: 16px; padding-bottom: 16px; border-bottom: 1px solid var(--line); }
-        .rain-avg-val { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 4px; letter-spacing:-1px;}
-        .snow-avg-val { font-size: 28px; font-weight: 800; color: var(--snow); margin-top: 4px; letter-spacing:-1px;}
+        .rain-summary-grid { display:grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap:8px; margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid var(--line); }
+        .rain-summary-card { background:var(--card-elevated); border:1px solid var(--line); border-radius:14px; padding:12px 8px; text-align:center; min-width:0; }
+        .rain-summary-label { font-size:11px; color:var(--sub); font-weight:800; margin-bottom:5px; word-break:keep-all; }
+        .rain-avg-val { font-size:24px; font-weight: 900; color: var(--blue); margin-top: 4px; letter-spacing:-1px; line-height:1.15; word-break:keep-all;}
+        .rain-max-val { font-size:17px; font-weight: 900; color: var(--blue); margin-top: 4px; letter-spacing:-0.5px; line-height:1.25; word-break:keep-all;}
+        .snow-avg-val { font-size:24px; font-weight: 900; color: var(--snow); margin-top: 4px; letter-spacing:-1px; line-height:1.15; word-break:keep-all;}
+        .snow-max-val { font-size:17px; font-weight: 900; color: var(--snow); margin-top: 4px; letter-spacing:-0.5px; line-height:1.25; word-break:keep-all;}
 
         .shelter-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(125px, 1fr)); gap: 8px; }
         .shelter-card {
@@ -240,9 +245,13 @@
         }
         .live { color: var(--green) !important; }
 
-        .forest-body { display: flex; justify-content: space-between; align-items: center; padding: 5px; }
-        .forest-status { font-size: 24px; font-weight: 800; color: var(--text); display: flex; align-items: center; gap: 10px; }
+        .forest-body { display:block; padding: 5px; }
+        .forest-status { font-size: 24px; font-weight: 800; color: var(--text); width:100%; }
+        .forest-summary-grid { width:100%; display:grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap:8px; }
+        .forest-summary-card { background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px; min-width:0; text-align:center; }
+        .forest-link-card { display:flex; flex-direction:column; align-items:center; justify-content:center; text-decoration:none; color:var(--forest); }
         .forest-link-btn { font-size: 12px; font-weight:700; color: var(--forest); background: rgba(52, 199, 89, 0.15); padding: 6px 12px; border-radius: 14px; text-decoration: none; }
+        @media (max-width: 430px) { .forest-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap:6px; } .forest-summary-card { padding:9px 4px; } }
 
         /* 비상연락망 모달 (iOS Bottom Sheet 스타일) */
         #contact-modal {
@@ -379,9 +388,15 @@
 
         <div class="filter-group" id="rain-office-filters" style="margin-bottom:15px;"></div>
 
-        <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">선택 관할 일누적 강수 평균</div>
-            <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+        <div class="rain-summary-grid">
+            <div class="rain-summary-card">
+                <div class="rain-summary-label">선택 관할 일누적 강수 평균</div>
+                <div class="rain-avg-val" id="avg-rain-val">- mm</div>
+            </div>
+            <div class="rain-summary-card">
+                <div class="rain-summary-label">가장 비 많이 내린 지역</div>
+                <div class="rain-max-val" id="max-rain-area-val">-</div>
+            </div>
         </div>
         <div class="rain-grid" id="rain-grid"></div>
     </div>
@@ -390,7 +405,7 @@
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
         <div class="ah-title">
-            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 적설량(공공데이터)
+            <i class="fas fa-snowflake" style="color:var(--snow)"></i> 지역별 적설량
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleSnowInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -403,7 +418,6 @@
                 <b style="color:var(--text);">적 설 량 :</b> 현재 쌓여 있는 적설<br>
                 <b style="color:var(--text);">최심적설량 :</b> 임의의 기간동안 쌓여 있는 적설 중 가장 높은 값
             </div>
-            <div style="font-size:11px; margin-bottom:8px; color:var(--sub);">* 공공데이터포털 기상청 단기예보 SNO(1시간 신적설) 예보값 기준</div>
             <div>
                 <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
                 <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
@@ -412,9 +426,15 @@
 
         <div class="filter-group" id="snow-office-filters" style="margin-bottom:15px;"></div>
 
-        <div class="rain-avg-box">
-            <div style="font-size:12px; color:var(--sub); font-weight:600;">선택 관할 예보 적설 평균</div>
-            <div class="snow-avg-val" id="avg-snow-val">- cm</div>
+        <div class="rain-summary-grid">
+            <div class="rain-summary-card">
+                <div class="rain-summary-label">선택 관할 적설 평균</div>
+                <div class="snow-avg-val" id="avg-snow-val">- cm</div>
+            </div>
+            <div class="rain-summary-card">
+                <div class="rain-summary-label">가장 눈 많이 내린 지역</div>
+                <div class="snow-max-val" id="max-snow-area-val">-</div>
+            </div>
         </div>
         <div class="rain-grid" id="snow-grid"></div>
     </div>
@@ -433,7 +453,6 @@
                     <i class="fas fa-spinner fa-spin"></i> API 연결 중...
                 </div>
             </div>
-            <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-link-btn">산림청 보기</a>
         </div>
         <div class="filter-group" id="forest-office-filters" style="margin-bottom:15px;"></div>
         <div class="rain-grid" id="forest-grid"></div>
@@ -2057,9 +2076,10 @@
     }
 
     function getSectionFilterLabel(section) {
-        const forced = scopeStation();
         const type = weatherOfficeFilters[section] || 'all';
         if (String(type).startsWith('area:')) return String(type).replace('area:', '');
+        if (['rain', 'snow', 'forest'].includes(section)) return officeFilterLabel(type);
+        const forced = scopeStation();
         if (forced && type === 'all') return forced;
         return officeFilterLabel(type);
     }
@@ -2071,7 +2091,7 @@
     }
 
     function filterRowsByOffice(rows, section) {
-        const forcedStation = scopeStation();
+        const forcedStation = ['rain', 'snow', 'forest'].includes(section) ? null : scopeStation();
         let result = Array.isArray(rows) ? rows : [];
         if (forcedStation) result = result.filter(row => (row.office || getOfficeByAreaName(row.name || row.area)) === forcedStation);
 
@@ -2100,8 +2120,8 @@
         if (!wrap) return;
         const active = weatherOfficeFilters[section] || 'all';
 
-        // 산불위험지수는 요청사항에 맞춰 구분을 전체 → 북부서 → 남부서 3개만 표시
-        if (section === 'forest') {
+        // 강수량·적설량·산불위험지수는 요청사항에 맞춰 전체 → 북부서 → 남부서만 표시
+        if (['rain', 'snow', 'forest'].includes(section)) {
             let html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
             html += `<button class="filter-btn${active === 'north' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'north', this)">북부서</button>`;
             html += `<button class="filter-btn${active === 'south' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'south', this)">남부서</button>`;
@@ -2712,6 +2732,7 @@
         isRainFetching = true;
         const gridEl = document.getElementById('rain-grid');
         const avgRainEl = document.getElementById('avg-rain-val');
+        const maxRainEl = document.getElementById('max-rain-area-val');
         const base = await getBestUltraNcstBase();
         const filterLabel = getSectionFilterLabel('rain');
 
@@ -2741,6 +2762,7 @@
             const valid = displayRows.filter(r => !r.error);
             const total = valid.reduce((sum, r) => sum + Number(r.dailyRain || 0), 0);
             const avg = valid.length ? total / valid.length : 0;
+            const maxRainRow = valid.length ? valid.reduce((max, r) => Number(r.dailyRain || 0) > Number(max.dailyRain || 0) ? r : max, valid[0]) : null;
 
             let html = '';
             displayRows.forEach(row => {
@@ -2778,10 +2800,12 @@
 
             gridEl.innerHTML = html;
             avgRainEl.innerText = `${avg.toFixed(1)} mm`;
+            if (maxRainEl) maxRainEl.innerText = maxRainRow ? `${maxRainRow.name} ${Number(maxRainRow.dailyRain || 0).toFixed(1)}mm` : '-';
             isRainFetching = false;
         } catch (e) {
             console.error('공공데이터 강수량 수신 실패:', e);
             avgRainEl.innerText = '오류';
+            if (maxRainEl) maxRainEl.innerText = '오류';
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 강수량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
             isRainFetching = false;
         }
@@ -2791,6 +2815,7 @@
     async function fetchDetailSnow() {
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
+        const maxSnowEl = document.getElementById('max-snow-area-val');
         const base = getVilageFcstBase();
         const currentKey = getCurrentFcstKey();
         const filterLabel = getSectionFilterLabel('snow');
@@ -2822,6 +2847,7 @@
             const valid = displayRows.filter(r => !r.error);
             const total = valid.reduce((sum, r) => sum + Number(r.snow || 0), 0);
             const avg = valid.length ? total / valid.length : 0;
+            const maxSnowRow = valid.length ? valid.reduce((max, r) => Number(r.snow || 0) > Number(max.snow || 0) ? r : max, valid[0]) : null;
 
             let html = '';
             displayRows.forEach(row => {
@@ -2853,9 +2879,11 @@
 
             gridEl.innerHTML = html;
             avgSnowEl.innerText = `${avg.toFixed(1)} cm`;
+            if (maxSnowEl) maxSnowEl.innerText = maxSnowRow ? `${maxSnowRow.name} ${Number(maxSnowRow.snow || 0).toFixed(1)}cm` : '-';
         } catch (e) {
             console.error('공공데이터 적설량 수신 실패:', e);
             avgSnowEl.innerText = '오류';
+            if (maxSnowEl) maxSnowEl.innerText = '오류';
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 적설량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
         }
     }
@@ -3236,22 +3264,27 @@
             const state = stateText ? ` · ${escapeHtml(stateText)}` : '';
 
             statusEl.innerHTML = `
-                <div style="width:100%; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;">
-                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                <div class="forest-summary-grid">
+                    <div class="forest-summary-card">
                         <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">${escapeHtml(avgTitle)}</div>
                         <div style="font-size:17px; font-weight:900; color:${avgLevel.color}; line-height:1.15;">${avgValue}</div>
                         <div style="font-size:10px; color:${avgLevel.color}; margin-top:2px; font-weight:700;">${avgLevel.text}</div>
                     </div>
-                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                    <div class="forest-summary-card">
                         <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">최고 지역</div>
                         <div style="font-size:13px; font-weight:900; color:${maxLevel.color}; line-height:1.25; word-break:keep-all;">${maxValue}</div>
                         <div style="font-size:10px; color:${maxLevel.color}; margin-top:2px; font-weight:700;">${maxLevel.text}</div>
                     </div>
-                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                    <div class="forest-summary-card">
                         <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">미제공</div>
                         <div style="font-size:17px; font-weight:900; color:${missingCount > 0 ? 'var(--orange)' : 'var(--forest)'}; line-height:1.15;">${missingValue}</div>
                         <div style="font-size:10px; color:var(--sub); margin-top:2px; font-weight:700;">API 기준</div>
                     </div>
+                    <a href="https://forestfire.nifos.go.kr" target="_blank" class="forest-summary-card forest-link-card">
+                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">외부 확인</div>
+                        <div style="font-size:13px; font-weight:900; color:var(--forest); line-height:1.25; word-break:keep-all;">산림청 보기</div>
+                        <div style="font-size:10px; color:var(--forest); margin-top:2px; font-weight:700;">새 창</div>
+                    </a>
                 </div>`;
         };
 
