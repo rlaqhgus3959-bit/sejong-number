@@ -2321,8 +2321,12 @@
     }
 
     function setGlobalScope(scope, btn) {
+        // 상단 큰 관할 버튼 기준으로 전 화면을 즉시 재필터링
         globalScope = scope;
+        document.body.setAttribute('data-global-scope', globalScope);
         syncGlobalScopeButtons();
+
+        // 하위 필터는 '전체'로 돌리고, 실제 표시 범위는 globalScope에서 강제 적용
         weatherOfficeFilters.rain = 'all';
         weatherOfficeFilters.snow = 'all';
         weatherOfficeFilters.forest = 'all';
@@ -2330,6 +2334,7 @@
         cctvFilter = 'all';
         cctvSectorFilter = 'all';
         shelterFilter = '전체';
+
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
         render();
@@ -2341,6 +2346,7 @@
     }
 
     window.onload = () => { 
+        document.body.setAttribute('data-global-scope', globalScope);
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
         refreshAll();
