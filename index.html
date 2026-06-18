@@ -2087,17 +2087,17 @@
         const wrap = document.getElementById(`${section}-office-filters`);
         if (!wrap) return;
         const active = weatherOfficeFilters[section] || 'all';
-        let html = buttonHtml('전체', 'all', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
-        // 세종청 화면에서는 서별 전체 선택도 가능, 북부서/남부서 화면에서는 행정구역만 표시
-        if (globalScope === 'all') {
-            html += buttonHtml('북부서', 'north', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
-            html += buttonHtml('남부서', 'south', `setWeatherOfficeFilter.bind(null, '${section}')`, active);
+
+        // 산불위험지수는 요청사항에 맞춰 구분을 전체 → 북부서 → 남부서 3개만 표시
+        if (section === 'forest') {
+            let html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
+            html += `<button class="filter-btn${active === 'north' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'north', this)">북부서</button>`;
+            html += `<button class="filter-btn${active === 'south' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'south', this)">남부서</button>`;
+            wrap.innerHTML = html;
+            return;
         }
-        getAreasForScope().forEach(a => {
-            html += buttonHtml(a.label, `area:${a.key}`, `setWeatherOfficeFilter.bind(null, '${section}')`, active);
-        });
-        // bind 문자열은 inline onclick에서 호환성이 떨어져 직접 문자열로 다시 구성
-        html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
+
+        let html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
         if (globalScope === 'all') {
             html += `<button class="filter-btn${active === 'north' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'north', this)">북부서</button>`;
             html += `<button class="filter-btn${active === 'south' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'south', this)">남부서</button>`;
@@ -3170,19 +3170,22 @@
 
             rows.forEach(row => {
                 const level = getLevel(row.max);
-                if (row.status === '미제공') missingCount++;
-                if (row.mean !== null && !isNaN(row.mean)) {
-                    totalMean += Number(row.mean);
+                const meanCandidate = row.mean !== null && row.mean !== undefined && !isNaN(row.mean) ? Number(row.mean)
+                    : (row.max !== null && row.max !== undefined && !isNaN(row.max) ? Number(row.max) : null);
+
+                if (row.status === '미제공' || row.max === null || row.max === undefined || isNaN(row.max)) missingCount++;
+                if (meanCandidate !== null) {
+                    totalMean += meanCandidate;
                     countMean++;
                 }
-                if (row.max !== null && !isNaN(row.max) && Number(row.max) > maxVal) {
+                if (row.max !== null && row.max !== undefined && !isNaN(row.max) && Number(row.max) > maxVal) {
                     maxVal = Number(row.max);
                     maxName = row.name;
                 }
 
                 const detailText = row.status === '미제공'
                     ? 'API 미제공'
-                    : `평균 ${Math.round(row.mean ?? row.max)}${row.min !== null ? ` · 최저 ${Math.round(row.min)}` : ''}`;
+                    : `평균 ${Math.round(meanCandidate ?? row.max)}${row.min !== null && row.min !== undefined ? ` · 최저 ${Math.round(row.min)}` : ''}`;
 
                 html += `<div class="rain-cell">
                     <div class="rain-loc">${escapeHtml(row.name)}</div>
@@ -3211,23 +3214,43 @@
 
             gridEl.innerHTML = html;
 
-            const repLevel = representative && representative.value !== null && representative.value !== undefined ? getLevel(representative.value) : null;
             const avg = countMean > 0 ? Math.round(totalMean / countMean) : null;
-            const avgLevel = avg !== null ? getLevel(avg) : null;
-            const maxTxt = maxVal >= 0 ? `<span style="font-size:11px; color:var(--sub); margin-left:6px;">최고 ${escapeHtml(maxName)} ${Math.round(maxVal)}</span>` : '';
-            const missTxt = missingCount > 0 ? `<span style="font-size:11px; color:var(--orange); margin-left:6px;">미제공 ${missingCount}</span>` : '';
-            const staleTxt = isStale ? `<span style="font-size:11px; color:var(--orange); margin-left:6px;">갱신필요</span>` : '';
-            const state = stateText ? `<span style="font-size:11px; color:var(--blue); margin-left:6px;">${escapeHtml(stateText)}</span>` : '';
+            const avgLevel = avg !== null ? getLevel(avg) : { text:'미제공', color:'var(--orange)', value:'-' };
+            const maxLevel = maxVal >= 0 ? getLevel(maxVal) : { text:'미제공', color:'var(--orange)', value:'-' };
+            const avgTitle = filterLabel === '전체' ? '전체평균' : `${filterLabel} 평균`;
+            const avgValue = avg !== null ? `${avg}` : '-';
+            const maxValue = maxVal >= 0 ? `${escapeHtml(maxName)} ${Math.round(maxVal)}` : '미제공';
+            const missingValue = `${missingCount}개`;
+            const updateValue = updatedAt ? fmtTime(updatedAt) : '미제공';
+            const staleText = isStale ? '갱신필요' : '정상';
+            const state = stateText ? ` · ${escapeHtml(stateText)}` : '';
 
-            if (globalScope === 'all' && weatherOfficeFilters.forest === 'all' && repLevel) {
-                statusEl.innerHTML = `<span style="color:${repLevel.color};">세종 대표 ${repLevel.value} · ${repLevel.text}</span>${maxTxt}${missTxt}${staleTxt}${state}<div style="font-size:10px; color:var(--sub); margin-top:2px;">대표값은 국가산불위험예보시스템, 지역 카드는 공공데이터 캐시값</div>`;
-            } else if (avg !== null) {
-                statusEl.innerHTML = `<span style="color:${avgLevel.color};">${escapeHtml(filterLabel)} 기준 ${avg} · ${avgLevel.text}</span>${maxTxt}${missTxt}${staleTxt}${state}<div style="font-size:10px; color:var(--sub); margin-top:2px;">관할 기준값은 제공지역 평균(meanavg), 지역 카드는 최고값(maxi)</div>`;
-            } else if (representative?.levelText) {
-                statusEl.innerHTML = `<span style="color:var(--forest);">세종 대표 ${escapeHtml(representative.levelText)}</span>${missTxt}${staleTxt}${state}`;
-            } else {
-                statusEl.innerHTML = `<span style="color:var(--orange);">산불위험지수 미제공</span>${staleTxt}${state}`;
-            }
+            statusEl.innerHTML = `
+                <div style="width:100%; display:grid; grid-template-columns:repeat(auto-fit, minmax(105px, 1fr)); gap:8px;">
+                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">${escapeHtml(avgTitle)}</div>
+                        <div style="font-size:17px; font-weight:900; color:${avgLevel.color}; line-height:1.15;">${avgValue}</div>
+                        <div style="font-size:10px; color:${avgLevel.color}; margin-top:2px; font-weight:700;">${avgLevel.text}</div>
+                    </div>
+                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">최고 지역</div>
+                        <div style="font-size:13px; font-weight:900; color:${maxLevel.color}; line-height:1.25; word-break:keep-all;">${maxValue}</div>
+                        <div style="font-size:10px; color:${maxLevel.color}; margin-top:2px; font-weight:700;">${maxLevel.text}</div>
+                    </div>
+                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">미제공</div>
+                        <div style="font-size:17px; font-weight:900; color:${missingCount > 0 ? 'var(--orange)' : 'var(--forest)'}; line-height:1.15;">${missingValue}</div>
+                        <div style="font-size:10px; color:var(--sub); margin-top:2px; font-weight:700;">API 기준</div>
+                    </div>
+                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
+                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">갱신시간</div>
+                        <div style="font-size:13px; font-weight:900; color:${isStale ? 'var(--orange)' : 'var(--text)'}; line-height:1.25;">${escapeHtml(updateValue)}</div>
+                        <div style="font-size:10px; color:${isStale ? 'var(--orange)' : 'var(--forest)'}; margin-top:2px; font-weight:700;">${staleText}${state}</div>
+                    </div>
+                </div>
+                <div style="width:100%; font-size:10px; color:var(--sub); margin-top:6px; line-height:1.4;">
+                    구분: ${escapeHtml(filterLabel)} · 지역카드는 최고값(maxi), 평균은 meanavg 기준
+                </div>`;
         };
 
         const refreshForestCache = async (oldCache = null) => {
