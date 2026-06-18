@@ -558,7 +558,7 @@
             </div>
         </div>
 
-        <div id="cctv-player-screen" style="flex:1; min-height:0; background:#000; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:8px; box-shadow:0 12px 30px rgba(0,0,0,0.35); overflow:hidden;">
+        <div id="cctv-player-screen" style="flex:1; min-height:0; background:#000; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:8px; box-shadow:0 12px 30px rgba(0,0,0,0.35); overflow:hidden; position:relative;">
             <video id="cctv-player-video" controls autoplay muted playsinline style="width:100%; height:100%; max-height:72vh; background:#000; border-radius:12px; object-fit:contain;"></video>
             <iframe id="cctv-player-frame" src="about:blank" style="display:none; width:100%; height:100%; min-height:62vh; border:0; background:#fff; border-radius:12px;" allowfullscreen></iframe>
         </div>
@@ -4193,6 +4193,7 @@
         if (currentHls) { currentHls.destroy(); currentHls = null; }
         if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.style.display = 'block'; }
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        resetCctvFrameDisplay();
         if (modal) modal.style.display = 'none';
     }
 
@@ -4208,12 +4209,56 @@
         if (guideEl) guideEl.innerText = guideText || '영상이 바로 보이지 않으면 아래 외부창 열기를 눌러 확인하세요.';
     }
 
+    function resetCctvFrameDisplay() {
+        const screen = document.getElementById('cctv-player-screen');
+        const frame = document.getElementById('cctv-player-frame');
+        if (screen) {
+            screen.style.padding = '8px';
+            screen.style.background = '#000';
+        }
+        if (frame) {
+            frame.style.position = '';
+            frame.style.left = '';
+            frame.style.top = '';
+            frame.style.width = '100%';
+            frame.style.height = '100%';
+            frame.style.minHeight = '62vh';
+            frame.style.borderRadius = '12px';
+            frame.style.transform = '';
+            frame.style.transformOrigin = '';
+        }
+    }
+
+    function applySejongBisCleanView() {
+        const screen = document.getElementById('cctv-player-screen');
+        const frame = document.getElementById('cctv-player-frame');
+        // 외부 사이트 내부 HTML은 직접 수정할 수 없어서,
+        // iframe을 위로 올려 상단 기관 로고/메뉴 영역을 보이지 않게 잘라냅니다.
+        const cutTop = window.innerWidth <= 600 ? 92 : 108;
+        if (screen) {
+            screen.style.padding = '0';
+            screen.style.background = '#101010';
+        }
+        if (frame) {
+            frame.style.position = 'absolute';
+            frame.style.left = '0';
+            frame.style.top = `-${cutTop}px`;
+            frame.style.width = '100%';
+            frame.style.height = `calc(100% + ${cutTop}px)`;
+            frame.style.minHeight = `calc(62vh + ${cutTop}px)`;
+            frame.style.borderRadius = '18px';
+            frame.style.transform = 'scale(1.01)';
+            frame.style.transformOrigin = 'top center';
+        }
+    }
+
     function playCctvInModal(url, title = 'CCTV 재생') {
         currentCctvUrl = url;
         const modal = document.getElementById('cctv-player-modal');
         const video = document.getElementById('cctv-player-video');
         const frame = document.getElementById('cctv-player-frame');
         if (!modal || !video) return window.open(url, '_blank', 'noopener,noreferrer');
+        resetCctvFrameDisplay();
         setCctvModalInfo(title, '영상 재생', 'ITS 등 직접 영상주소는 이 화면에서 바로 재생됩니다. 자동재생이 막히면 재생 버튼을 누르세요.', '#34C759');
         modal.style.display = 'block';
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
@@ -4261,9 +4306,11 @@
         } else if (source === 'SEJONG_BIS') {
             badgeText = '세종 교통 CCTV';
             badgeColor = '#5856D6';
-            guideText = '세종시 교통정보시스템 CCTV 화면입니다. 영상이 바로 안 보이면 지도에서 해당 CCTV 아이콘을 누르세요.';
+            guideText = '상단 기관 로고·메뉴 영역은 숨기고 CCTV 지도 영역을 크게 표시합니다. 영상이 바로 안 보이면 지도에서 해당 CCTV 아이콘을 누르세요.';
         }
 
+        resetCctvFrameDisplay();
+        if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') applySejongBisCleanView();
         setCctvModalInfo(title, badgeText, guideText, badgeColor);
         if (currentHls) { currentHls.destroy(); currentHls = null; }
         if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.style.display = 'none'; }
