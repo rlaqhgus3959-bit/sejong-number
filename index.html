@@ -2107,6 +2107,11 @@
         return result;
     }
 
+    function getWeatherTargetAreas(section) {
+        // 상단 관할 선택과 각 항목의 하위 필터를 먼저 반영한 뒤 API를 호출해 속도를 줄인다.
+        return filterRowsByOffice(SEJONG_WEATHER_AREAS, section);
+    }
+
     function buttonHtml(label, value, fnName, activeValue, extraStyle = '') {
         const active = value === activeValue ? ' active' : '';
         const safeLabel = String(label).replace(/'/g, "\'");
@@ -2119,8 +2124,17 @@
         if (!wrap) return;
         const active = weatherOfficeFilters[section] || 'all';
 
-        // 강수량·적설량·산불위험지수는 요청사항에 맞춰 전체 → 북부서 → 남부서만 표시
+        // 강수량·적설량·산불위험지수는 전체 화면에서는 전체 → 북부서 → 남부서,
+        // 상단 관할을 누른 경우에는 해당 관할만 보이게 표시한다.
         if (['rain', 'snow', 'forest'].includes(section)) {
+            if (globalScope === 'north') {
+                wrap.innerHTML = `<button class="filter-btn active" onclick="setWeatherOfficeFilter('${section}', 'all', this)">북부서</button>`;
+                return;
+            }
+            if (globalScope === 'south') {
+                wrap.innerHTML = `<button class="filter-btn active" onclick="setWeatherOfficeFilter('${section}', 'all', this)">남부서</button>`;
+                return;
+            }
             let html = `<button class="filter-btn${active === 'all' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'all', this)">전체</button>`;
             html += `<button class="filter-btn${active === 'north' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'north', this)">북부서</button>`;
             html += `<button class="filter-btn${active === 'south' ? ' active' : ''}" onclick="setWeatherOfficeFilter('${section}', 'south', this)">남부서</button>`;
@@ -2276,6 +2290,14 @@
     function renderCctvFilterButtons() {
         const wrap = document.getElementById('cctv-filter-group');
         if (!wrap) return;
+        if (globalScope === 'north') {
+            wrap.innerHTML = `<button class="filter-btn active" onclick="setCctvFilter('all', this)">북부서</button>`;
+            return;
+        }
+        if (globalScope === 'south') {
+            wrap.innerHTML = `<button class="filter-btn active" onclick="setCctvFilter('all', this)">남부서</button>`;
+            return;
+        }
         let html = `<button class="filter-btn${cctvFilter === 'all' ? ' active' : ''}" onclick="setCctvFilter('all', this)">전체</button>`;
         html += `<button class="filter-btn${cctvFilter === 'north' ? ' active' : ''}" onclick="setCctvFilter('north', this)">북부서</button>`;
         html += `<button class="filter-btn${cctvFilter === 'south' ? ' active' : ''}" onclick="setCctvFilter('south', this)">남부서</button>`;
@@ -2350,7 +2372,7 @@
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
         refreshAll();
-        startRainAutoRefresh();
+        startWeatherAutoRefresh();
         db.ref('trafficData').on('value', (snapshot) => {
             const data = snapshot.val();
             if(data) {
@@ -2510,7 +2532,11 @@
 
     let ultraNcstBaseCache = { key: '', base: null, checkedAt: 0 };
     let rainAutoRefreshTimer = null;
+    let snowAutoRefreshTimer = null;
+    let specialAutoRefreshTimer = null;
     let isRainFetching = false;
+    let isSnowFetching = false;
+    let isSpecialFetching = false;
 
     function getUltraNcstBaseCandidates() {
         const now = getKstDate();
@@ -2569,6 +2595,28 @@
             if (document.hidden || isRainFetching) return;
             fetchDetailRain(true);
         }, 60000);
+    }
+
+    function startSnowAutoRefresh() {
+        if (snowAutoRefreshTimer) clearInterval(snowAutoRefreshTimer);
+        snowAutoRefreshTimer = setInterval(() => {
+            if (document.hidden || isSnowFetching) return;
+            fetchDetailSnow(true);
+        }, 60000);
+    }
+
+    function startSpecialAutoRefresh() {
+        if (specialAutoRefreshTimer) clearInterval(specialAutoRefreshTimer);
+        specialAutoRefreshTimer = setInterval(() => {
+            if (document.hidden || isSpecialFetching) return;
+            autoFetchSpecial(true);
+        }, 60000);
+    }
+
+    function startWeatherAutoRefresh() {
+        startRainAutoRefresh();
+        startSnowAutoRefresh();
+        startSpecialAutoRefresh();
     }
 
     function getVilageFcstBase() {
@@ -2811,9 +2859,10 @@
         try {
             if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 최신 실황 확인중...</div>`;
 
+            const targetAreas = getWeatherTargetAreas('rain');
             const gridTargets = [];
             const gridTargetMap = {};
-            SEJONG_WEATHER_AREAS.forEach(area => {
+            targetAreas.forEach(area => {
                 const key = `${area.nx}_${area.ny}`;
                 if (!gridTargetMap[key]) {
                     gridTargetMap[key] = { nx: area.nx, ny: area.ny, key };
@@ -2843,7 +2892,7 @@
 
             const gridResultMap = {};
             gridResults.forEach(row => { if (row && row.key) gridResultMap[row.key] = row; });
-            const hourlyRows = SEJONG_WEATHER_AREAS.map(area => {
+            const hourlyRows = targetAreas.map(area => {
                 const key = `${area.nx}_${area.ny}`;
                 const result = gridResultMap[key];
                 if (!result || result.error) return { ...area, error: true };
@@ -2905,7 +2954,9 @@
     }
 
 
-    async function fetchDetailSnow() {
+    async function fetchDetailSnow(silent = false) {
+        if (isSnowFetching && silent) return;
+        isSnowFetching = true;
         const gridEl = document.getElementById('snow-grid');
         const avgSnowEl = document.getElementById('avg-snow-val');
         const maxSnowEl = document.getElementById('max-snow-area-val');
@@ -2914,15 +2965,26 @@
         const filterLabel = getSectionFilterLabel('snow');
 
         try {
-            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 적설량 수신중...</div>`;
+            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 적설량 빠른 수신중...</div>`;
 
-            const rows = await mapLimit(SEJONG_WEATHER_AREAS, 5, async (area) => {
-                const data = await fetchKmaShortJson('getVilageFcst', {
+            const targetAreas = getWeatherTargetAreas('snow');
+            const gridTargets = [];
+            const gridTargetMap = {};
+            targetAreas.forEach(area => {
+                const key = `${area.nx}_${area.ny}`;
+                if (!gridTargetMap[key]) {
+                    gridTargetMap[key] = { nx: area.nx, ny: area.ny, key };
+                    gridTargets.push(gridTargetMap[key]);
+                }
+            });
+
+            const gridResults = await mapLimit(gridTargets, 10, async (target) => {
+                const data = await fetchKmaShortJsonFast('getVilageFcst', {
                     base_date: base.baseDate,
                     base_time: base.baseTime,
-                    nx: String(area.nx),
-                    ny: String(area.ny)
-                });
+                    nx: String(target.nx),
+                    ny: String(target.ny)
+                }, 4500);
                 const items = data?.response?.body?.items?.item || [];
                 const arr = Array.isArray(items) ? items : [items];
                 const snowItems = arr
@@ -2933,7 +2995,16 @@
                 const raw = picked?.fcstValue ?? '적설없음';
                 const snowVal = parseKmaNumber(raw, 0.5);
                 const fcstTime = picked ? `${picked.fcstDate} ${picked.fcstTime}` : '확인불가';
-                return { ...area, snow: snowVal, raw, fcstTime };
+                return { ...target, snow: snowVal, raw, fcstTime };
+            });
+
+            const gridResultMap = {};
+            gridResults.forEach(row => { if (row && row.key) gridResultMap[row.key] = row; });
+            const rows = targetAreas.map(area => {
+                const key = `${area.nx}_${area.ny}`;
+                const result = gridResultMap[key];
+                if (!result || result.error) return { ...area, error: true };
+                return { ...area, snow: result.snow, raw: result.raw, fcstTime: result.fcstTime };
             });
 
             const displayRows = filterRowsByOffice(rows, 'snow');
@@ -2964,20 +3035,24 @@
                 html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 적설 자료 없음</div>`;
             }
 
+            const recvTime = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 단기예보</div>
-                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · ${base.baseDate} ${base.baseTime}</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 단기예보 SNO</div>
+                <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 기준 ${base.baseDate} ${base.baseTime}</div>
+                <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${recvTime} · 1분 자동갱신</div>
             </div>`;
 
             gridEl.innerHTML = html;
             avgSnowEl.innerText = `${avg.toFixed(1)} cm`;
             if (maxSnowEl) maxSnowEl.innerText = maxSnowRow ? `${maxSnowRow.name} ${Number(maxSnowRow.snow || 0).toFixed(1)}cm` : '-';
+            isSnowFetching = false;
         } catch (e) {
             console.error('공공데이터 적설량 수신 실패:', e);
             avgSnowEl.innerText = '오류';
             if (maxSnowEl) maxSnowEl.innerText = '오류';
             gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--orange); font-size:12px; line-height:1.5;">공공데이터포털 적설량 수신 실패<br><span style="color:var(--sub); font-size:11px;">기상청_단기예보 조회서비스 활용신청 또는 인증키를 확인하세요.</span></div>`;
+            isSnowFetching = false;
         }
     }
 
@@ -3433,7 +3508,9 @@
     }
 
 
-    async function autoFetchSpecial() {
+    async function autoFetchSpecial(silent = false) {
+        if (isSpecialFetching && silent) return;
+        isSpecialFetching = true;
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
 
@@ -3508,6 +3585,27 @@
             return '지역 정보 없음';
         }
 
+        function getSpecialScopeLabel() {
+            return scopeStation() || '세종';
+        }
+
+        function specialTextMatchesScope(text) {
+            if (globalScope === 'all') return true;
+            const station = scopeStation();
+            if (!station) return true;
+            const names = station === '북부서' ? NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES) : SOUTH_FULL_NAMES;
+            const t = String(text || '');
+            if (names.some(n => t.includes(n) || t.includes(n.replace(/(읍|면|동)$/,'')))) return true;
+            // 세종시 전역으로 발효된 특보는 북부서·남부서 모두에 해당
+            if (t.includes('세종') && !NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES, SOUTH_FULL_NAMES).some(n => t.includes(n))) return true;
+            return false;
+        }
+
+        function filterSpecialListByScope(items) {
+            if (!Array.isArray(items)) return [];
+            return items.filter(item => specialTextMatchesScope(typeof item === 'string' ? item : itemText(item)));
+        }
+
         function buildUrl(path, params = {}) {
             const url = new URL(API_BASE + path);
             url.searchParams.set('serviceKey', SERVICE_KEY);
@@ -3522,21 +3620,37 @@
             return url.toString();
         }
 
-        async function fetchTextWithFallback(urls) {
-            let lastError = null;
-            for (const url of urls) {
-                try {
-                    const res = await fetch(url, { cache: 'no-store' });
-                    const text = await res.text();
-                    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                    if (!text || text.trim().length < 10) throw new Error('응답 내용 없음');
-                    return text;
-                } catch (e) {
-                    lastError = e;
-                    console.warn('기상특보 호출 실패:', url, e);
-                }
-            }
-            throw lastError || new Error('전체 호출 실패');
+        async function fetchTextWithFallback(urls, timeoutMs = 4500) {
+            return new Promise((resolve, reject) => {
+                let finished = false;
+                let pending = urls.length;
+                let lastError = null;
+                const controllers = [];
+                urls.forEach((url) => {
+                    const controller = new AbortController();
+                    controllers.push(controller);
+                    const timer = setTimeout(() => controller.abort(), timeoutMs);
+                    fetch(url, { cache: 'no-store', signal: controller.signal })
+                        .then(res => {
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            return res.text();
+                        })
+                        .then(text => {
+                            if (!text || text.trim().length < 10) throw new Error('응답 내용 없음');
+                            if (finished) return;
+                            finished = true;
+                            clearTimeout(timer);
+                            controllers.forEach(c => { if (c !== controller) c.abort(); });
+                            resolve(text);
+                        })
+                        .catch(e => {
+                            clearTimeout(timer);
+                            lastError = e;
+                            pending -= 1;
+                            if (!finished && pending === 0) reject(lastError || new Error('전체 호출 실패'));
+                        });
+                });
+            });
         }
 
         async function fetchJsonWithFallback(url) {
@@ -3566,15 +3680,18 @@
         }
 
         function renderSpecial({ sourceName, latestTime, sejongTexts, allTexts, listItems }) {
-            const alertName = sejongTexts.map(findAlertName).find(Boolean);
+            const scopeLabel = getSpecialScopeLabel();
+            const scopedSejongTexts = filterSpecialListByScope(sejongTexts || []);
+            const scopedAllTexts = filterSpecialListByScope(allTexts || []);
+            const scopedListItems = filterSpecialListByScope(listItems || []);
+            const alertName = scopedSejongTexts.map(findAlertName).find(Boolean);
             const hasSejongAlert = !!alertName;
 
             if (hasSejongAlert) {
-                headerStatusEl.innerText = `세종: ${alertName}`;
+                headerStatusEl.innerText = `${scopeLabel}: ${alertName}`;
                 headerStatusEl.className = 'sejong-summary warn';
             } else {
-                // 세종에 발효된 특보가 없으면 이것을 기상특보 메인에 명확히 표시
-                headerStatusEl.innerText = '세종: 특보 없음';
+                headerStatusEl.innerText = `${scopeLabel}: 특보 없음`;
                 headerStatusEl.className = 'sejong-summary safe';
             }
 
@@ -3582,30 +3699,30 @@
                 ? `<div class="weather-main-box warn">
                         <i class="fas fa-triangle-exclamation" style="font-size:22px;"></i>
                         <div>
-                            <div class="weather-main-title">세종 ${alertName}</div>
-                            <div class="weather-main-sub">세종 지역 기상특보 발효 중</div>
+                            <div class="weather-main-title">${scopeLabel} ${alertName}</div>
+                            <div class="weather-main-sub">${scopeLabel} 관련 기상특보 발효 중</div>
                         </div>
                    </div>`
                 : `<div class="weather-main-box safe">
                         <i class="fas fa-check-circle" style="font-size:22px;"></i>
                         <div>
-                            <div class="weather-main-title">세종 특보 없음</div>
-                            <div class="weather-main-sub">현재 세종 지역에 발효된 기상특보가 없습니다.</div>
+                            <div class="weather-main-title">${scopeLabel} 특보 없음</div>
+                            <div class="weather-main-sub">현재 ${scopeLabel} 관련 기상특보가 없습니다.</div>
                         </div>
                    </div>`;
 
             let currentHtml = '';
-            if (sejongTexts.length > 0) {
-                currentHtml = sejongTexts.slice(0, 10).map(t => `🚨 ${t}`).join('<br><br>');
-            } else if (allTexts.length > 0) {
-                currentHtml = `<i class='fas fa-check-circle' style='color:var(--green)'></i> 세종 지역 기상특보 없음<br><br><span style="color:var(--sub); font-size:12px;">전국 또는 타 지역 특보는 아래 목록에서 확인 가능합니다.</span>`;
+            if (scopedSejongTexts.length > 0) {
+                currentHtml = scopedSejongTexts.slice(0, 10).map(t => `🚨 ${t}`).join('<br><br>');
+            } else if (scopedAllTexts.length > 0) {
+                currentHtml = `<i class='fas fa-check-circle' style='color:var(--green)'></i> ${scopeLabel} 관련 현재 특보 없음<br><br><span style="color:var(--sub); font-size:12px;">최근 목록은 아래에서 확인 가능합니다.</span>`;
             } else {
-                currentHtml = `<i class='fas fa-check-circle' style='color:var(--green)'></i> 현재 발효 중인 특보 없음 또는 자료 없음`;
+                currentHtml = `<i class='fas fa-check-circle' style='color:var(--green)'></i> ${scopeLabel} 관련 특보 없음 또는 자료 없음`;
             }
 
             let recentHtml = '';
-            if (listItems && listItems.length > 0) {
-                recentHtml = listItems.slice(0, 5).map(item => {
+            if (scopedListItems && scopedListItems.length > 0) {
+                recentHtml = scopedListItems.slice(0, 5).map(item => {
                     if (typeof item === 'string') {
                         return `📌 ${item}<br><span style="color:var(--sub); font-size:12px;">지역: ${extractSpecialRegion(item)}</span>`;
                     }
@@ -3615,7 +3732,7 @@
                     return `📌 ${title}<br><span style="color:var(--sub); font-size:12px;">지역: ${region}<br>발표시간: ${tmFc}</span>`;
                 }).join('<br><br>');
             } else {
-                recentHtml = `<span style="color:var(--sub);">최근 기상특보 목록 없음</span>`;
+                recentHtml = `<span style="color:var(--sub);">${scopeLabel} 관련 최근 기상특보 목록 없음</span>`;
             }
 
             contentEl.innerHTML = `
@@ -3629,7 +3746,7 @@
                     <div class="info-val time">${latestTime || '확인불가'}</div>
                 </div>
                 <div class="info-group">
-                    <span class="info-label">세종 특보현황</span>
+                    <span class="info-label">${scopeLabel} 특보현황</span>
                     <div class="info-val content">${currentHtml}</div>
                 </div>
                 <div class="info-group">
@@ -3650,28 +3767,31 @@
             let listItems = [];
             let publicErrors = [];
 
-            // 1차: 현재 특보현황
-            try {
-                const statusUrl = buildUrl('/getPwnStatus', { numOfRows: 300 });
-                const statusData = await fetchJsonWithFallback(statusUrl);
-                currentItems = normalizeItems(statusData);
-            } catch (e) {
-                publicErrors.push('특보현황: ' + (e.message || e));
+            const statusUrl = buildUrl('/getPwnStatus', { numOfRows: 300 });
+            const listUrl = buildUrl('/getWthrWrnList', {
+                numOfRows: 80,
+                stnId: '133',
+                fromTmFc: yyyymmdd(from),
+                toTmFc: yyyymmdd(now)
+            });
+
+            // 현재 특보현황과 최근 특보목록을 동시에 호출해 초기 표시 속도를 높임
+            const [statusResult, listResult] = await Promise.allSettled([
+                fetchJsonWithFallback(statusUrl),
+                fetchJsonWithFallback(listUrl)
+            ]);
+
+            if (statusResult.status === 'fulfilled') {
+                currentItems = normalizeItems(statusResult.value);
+            } else {
+                publicErrors.push('특보현황: ' + (statusResult.reason?.message || statusResult.reason));
             }
 
-            // 2차: 최근 특보목록. 실패해도 전체 실패로 처리하지 않음
-            try {
-                const listUrl = buildUrl('/getWthrWrnList', {
-                    numOfRows: 80,
-                    stnId: '133',
-                    fromTmFc: yyyymmdd(from),
-                    toTmFc: yyyymmdd(now)
-                });
-                const listData = await fetchJsonWithFallback(listUrl);
-                listItems = normalizeItems(listData);
+            if (listResult.status === 'fulfilled') {
+                listItems = normalizeItems(listResult.value);
                 listItems.sort((a, b) => String(b.tmFc || '').localeCompare(String(a.tmFc || '')));
-            } catch (e) {
-                publicErrors.push('특보목록: ' + (e.message || e));
+            } else {
+                publicErrors.push('특보목록: ' + (listResult.reason?.message || listResult.reason));
             }
 
             const currentTexts = currentItems.map(itemText).filter(Boolean);
@@ -3736,7 +3856,7 @@
         try {
             headerStatusEl.innerText = '확인중...';
             headerStatusEl.className = 'sejong-summary';
-            contentEl.innerHTML = `<div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상특보 수신중...</div>`;
+            if (!silent) contentEl.innerHTML = `<div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상특보 수신중...</div>`;
 
             try {
                 await tryPublicData();
@@ -3744,11 +3864,12 @@
                 console.warn('공공데이터 기상특보 실패, Weatheri로 대체:', publicErr);
                 await tryWeatheri();
             }
+            isSpecialFetching = false;
         } catch (e) {
             console.error('기상특보 전체 수신 실패:', e);
             headerStatusEl.innerText = '수신 지연';
             headerStatusEl.className = 'sejong-summary warn';
-            contentEl.innerHTML = `
+            if (!silent) contentEl.innerHTML = `
                 <div style="text-align:center; color:var(--orange); padding:10px; font-size:13px; line-height:1.5;">
                     기상특보 수신 지연<br>
                     <span style="color:var(--sub); font-size:11px;">
@@ -3756,6 +3877,7 @@
                         오류: ${String(e.message || e).slice(0, 120)}
                     </span>
                 </div>`;
+            isSpecialFetching = false;
         }
     }
 
