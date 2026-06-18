@@ -3236,7 +3236,7 @@
             const state = stateText ? ` · ${escapeHtml(stateText)}` : '';
 
             statusEl.innerHTML = `
-                <div style="width:100%; display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:8px;">
+                <div style="width:100%; display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:8px;">
                     <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
                         <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">${escapeHtml(avgTitle)}</div>
                         <div style="font-size:17px; font-weight:900; color:${avgLevel.color}; line-height:1.15;">${avgValue}</div>
@@ -3251,11 +3251,6 @@
                         <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">미제공</div>
                         <div style="font-size:17px; font-weight:900; color:${missingCount > 0 ? 'var(--orange)' : 'var(--forest)'}; line-height:1.15;">${missingValue}</div>
                         <div style="font-size:10px; color:var(--sub); margin-top:2px; font-weight:700;">API 기준</div>
-                    </div>
-                    <div style="background:var(--card-elevated); border:1px solid var(--line); border-radius:12px; padding:10px;">
-                        <div style="font-size:10px; color:var(--sub); font-weight:800; margin-bottom:4px;">갱신시간</div>
-                        <div style="font-size:13px; font-weight:900; color:${isStale ? 'var(--orange)' : 'var(--text)'}; line-height:1.25;">${escapeHtml(updateValue)}</div>
-                        <div style="font-size:10px; color:${isStale ? 'var(--orange)' : 'var(--forest)'}; margin-top:2px; font-weight:700;">${staleText}${state}</div>
                     </div>
                 </div>`;
         };
