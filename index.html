@@ -416,7 +416,6 @@
     <div class="accord-content">
         <div class="forest-body" style="margin-bottom: 15px;">
             <div>
-                <div style="font-size:11px; color:var(--sub); margin-bottom:4px; font-weight:600;">공공데이터포털 · 현재값(excludeForecast=1) · 최고값(maxi)</div>
                 <div class="forest-status" id="forest-status-text" style="font-size:16px;">
                     <i class="fas fa-spinner fa-spin"></i> API 연결 중...
                 </div>
@@ -3192,8 +3191,7 @@
                     <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${escapeHtml(row.office)}</div>
                     <div class="rain-val" style="color:${level.color};">${level.value}</div>
                     <div style="font-size:10px; color:${level.color}; margin-top:4px; font-weight:700;">${level.text}</div>
-                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">최고값(maxi)</div>
-                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">${escapeHtml(detailText)}</div>
+                    <div style="font-size:9px; color:var(--sub); margin-top:2px;">최고값 기준</div>
                 </div>`;
             });
 
@@ -3249,7 +3247,7 @@
                     </div>
                 </div>
                 <div style="width:100%; font-size:10px; color:var(--sub); margin-top:6px; line-height:1.4;">
-                    구분: ${escapeHtml(filterLabel)} · 지역카드는 최고값(maxi), 평균은 meanavg 기준
+                    최고값 기준
                 </div>`;
         };
 
