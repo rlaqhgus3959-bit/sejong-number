@@ -392,7 +392,7 @@
                 <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
             </div>
             <div style="margin-top:8px; font-size:11px; color:var(--sub);">
-                * 강수량은 세종시 재난안전대책본부 일간강우량 자료를 우선 표시합니다.<br>* 세종시 자료 수신이 지연될 때만 기상청 AWS 매분 관측값으로 자동 전환합니다.
+                * 강수량은 세종시 재난안전대책본부 일간강우량의 <b>합계</b> 행을 우선 표시합니다.<br>* 세종시 자료 수신이 지연될 때만 기상청 AWS 매분 관측값으로 자동 전환합니다.
             </div>
         </div>
 
@@ -3119,9 +3119,50 @@
         return body;
     }
 
+    // 세종시 페이지의 표 머리글과 '합계' 행을 그대로 1:1로 매칭합니다.
+    function buildSejongDailyRainRows(headers, totals) {
+        const rows = [];
+        headers.forEach((header, index) => {
+            if (index === 0) return;
+            const key = normalizeSejongDailyHeader(header);
+            const mapping = SEJONG_DAILY_RAIN_AREA_MAP[key];
+            if (!mapping) return;
+            rows.push({
+                id: `sejong-daily-${key}`,
+                name: mapping.name,
+                area: mapping.name,
+                office: mapping.office,
+                displayOffice: mapping.office,
+                dailyRain: parseSejongDailyRainNumber(totals[index]),
+                recentRain: null,
+                source: 'SEJONG_DAILY'
+            });
+        });
+        return rows;
+    }
+
+    function parseSejongDailyRainPlainText(text) {
+        const plain = String(text || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\r/g, '\n')
+            .replace(/[\t ]+/g, ' ')
+            .replace(/\n\s+/g, '\n');
+        const lines = plain.split(/\n+/).map(line => line.trim()).filter(Boolean);
+        const headerIndex = lines.findIndex(line => /구\s*분/.test(line) && line.includes('조치원') && line.includes('금남'));
+        if (headerIndex < 0) throw new Error('세종시 일간강우량 표 머리글을 찾지 못했습니다.');
+        const totalIndex = lines.findIndex((line, idx) => idx > headerIndex && /^합계(?:\s|$)/.test(line));
+        if (totalIndex < 0) throw new Error('세종시 일간강우량 합계 행을 찾지 못했습니다.');
+        const headers = lines[headerIndex].split(/\s+/);
+        const totals = lines[totalIndex].split(/\s+/);
+        const rows = buildSejongDailyRainRows(headers, totals);
+        if (!rows.length) throw new Error('세종시 일간강우량 지역값 없음');
+        return rows;
+    }
+
     function parseSejongDailyRainHtml(text) {
         const html = unwrapProxyHtml(text);
-        if (!html || html.length < 300) throw new Error('세종시 일간강우량 응답 없음');
+        if (!html || html.length < 120) throw new Error('세종시 일간강우량 응답 없음');
         if (/접근이\s*차단|access\s*denied|captcha/i.test(html)) throw new Error('세종시 일간강우량 접근 차단');
 
         const doc = new DOMParser().parseFromString(html, 'text/html');
@@ -3130,7 +3171,8 @@
             const textContent = String(t.textContent || '').replace(/\s+/g, ' ');
             return textContent.includes('조치원') && textContent.includes('합계') && (textContent.includes('금남') || textContent.includes('연동'));
         });
-        if (!table) throw new Error('세종시 일간강우량 표를 찾지 못했습니다.');
+
+        if (!table) return parseSejongDailyRainPlainText(html);
 
         const trList = Array.from(table.querySelectorAll('tr'));
         let headerCells = [];
@@ -3148,52 +3190,59 @@
                 break;
             }
         }
-        if (!headerCells.length || !totalCells.length) throw new Error('세종시 일간강우량 합계 행을 찾지 못했습니다.');
+        if (!headerCells.length || !totalCells.length) return parseSejongDailyRainPlainText(html);
 
-        const rows = [];
-        headerCells.forEach((header, index) => {
-            if (index === 0) return;
-            const key = normalizeSejongDailyHeader(header);
-            const mapping = SEJONG_DAILY_RAIN_AREA_MAP[key];
-            if (!mapping) return;
-            const dailyRain = parseSejongDailyRainNumber(totalCells[index]);
-            rows.push({
-                id: `sejong-daily-${key}`,
-                name: mapping.name,
-                area: mapping.name,
-                office: mapping.office,
-                displayOffice: mapping.office,
-                dailyRain,
-                recentRain: null,
-                source: 'SEJONG_DAILY'
-            });
-        });
+        const rows = buildSejongDailyRainRows(headerCells, totalCells);
         if (!rows.length) throw new Error('세종시 일간강우량 지역값 없음');
         return rows;
     }
 
-    async function fetchSejongDailyRainText() {
-        const today = getKstDate();
-        const dateKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
-        const targetUrl = `${SEJONG_DAILY_RAIN_URL}?date=${dateKey}&_=${Date.now()}`;
-        const urls = [
-            targetUrl,
-            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
-            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
-            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-        ];
+    function scoreSejongDailyRainRows(rows) {
+        const values = rows.map(row => Number(row.dailyRain || 0)).filter(Number.isFinite);
+        const nonZero = values.filter(value => value > 0).length;
+        const total = values.reduce((sum, value) => sum + value, 0);
+        // 비가 내리는 날에는 캐시된 0mm 표보다 실제 관측값이 든 표를 우선 사용합니다.
+        return nonZero * 10000 + total;
+    }
 
-        const attempts = urls.map(url => fetchTextWithTimeout(url, 6500)
-            .then(body => {
-                const parsedRows = parseSejongDailyRainHtml(body);
-                return { body, parsedRows, url };
-            }));
-        try {
-            return await Promise.any(attempts);
-        } catch (error) {
-            throw new Error('세종시 일간강우량 수신 실패: ' + (error?.message || '응답 없음'));
-        }
+    function getSejongDailyRainTargetUrls() {
+        const now = getKstDate();
+        const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+        const ymdDash = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
+        const cacheKey = Date.now();
+        // 기본 페이지가 실제 화면의 당일 표를 보여주는 방식이라 이를 우선합니다.
+        // 일부 세종시 서버 변형은 날짜 파라미터명을 다르게 받으므로 보조로 함께 확인합니다.
+        return [
+            `${SEJONG_DAILY_RAIN_URL}?_=${cacheKey}`,
+            `${SEJONG_DAILY_RAIN_URL}?searchDate=${ymdDash}&_=${cacheKey}`,
+            `${SEJONG_DAILY_RAIN_URL}?searchDt=${ymd}&_=${cacheKey}`
+        ];
+    }
+
+    async function fetchSejongDailyRainText() {
+        const targetUrls = getSejongDailyRainTargetUrls();
+        const candidateUrls = [];
+        targetUrls.forEach(targetUrl => {
+            candidateUrls.push(targetUrl);
+            candidateUrls.push(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
+            candidateUrls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
+            candidateUrls.push(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
+        });
+
+        const settled = await Promise.allSettled(candidateUrls.map(async (url, rank) => {
+            const body = await fetchTextWithTimeout(url, 6500);
+            const parsedRows = parseSejongDailyRainHtml(body);
+            return { body, parsedRows, url, rank, score: scoreSejongDailyRainRows(parsedRows) };
+        }));
+
+        const candidates = settled
+            .filter(result => result.status === 'fulfilled')
+            .map(result => result.value);
+        if (!candidates.length) throw new Error('세종시 일간강우량 수신 실패');
+
+        // '합계' 행을 정상적으로 읽은 결과 중, 당일 관측값이 포함된 가장 신선한 결과를 사용합니다.
+        candidates.sort((a, b) => (b.score - a.score) || (a.rank - b.rank));
+        return candidates[0];
     }
 
     function renderSejongDailyRainCards(rowsAll, filterLabel) {
@@ -3222,8 +3271,8 @@
         if (!rows.length) html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 일간 강우량 자료 없음</div>`;
         html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
             <div class="rain-loc" style="color:var(--text);">출처</div>
-            <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시 일간 강우량</div>
-            <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 당일 누적 직접 반영</div>
+            <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시 일간강우량 · 합계</div>
+            <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 조치원·연기면 등 합계값 직접 반영</div>
             <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${receivedAt} · 1분 자동갱신</div>
         </div>`;
 
