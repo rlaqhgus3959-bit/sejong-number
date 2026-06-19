@@ -11,7 +11,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -323,7 +323,13 @@
         }
         .mini-btn.danger { color: var(--red); }
 
-    </style>
+    
+        #cctv-player-modal [id="cctv-retry-button"] { min-width: 0; }
+        @media (max-width: 430px) {
+            #cctv-player-modal > div > div:nth-last-child(2) { gap: 6px !important; }
+            #cctv-player-modal > div > div:nth-last-child(2) button { padding: 12px 7px !important; font-size: 12px !important; }
+        }
+</style>
 </head>
 <body>
 
@@ -564,11 +570,14 @@
         </div>
 
         <div style="display:flex; gap:8px;">
+            <button id="cctv-retry-button" onclick="retryCurrentCctvPlayback()" style="flex:1; background:#34C759; color:white; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
+                재생 다시 시도
+            </button>
             <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                <i class="fas fa-up-right-from-square"></i> 외부창 열기
+                외부창 열기
             </button>
             <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                <i class="fas fa-xmark"></i> 닫기
+                닫기
             </button>
         </div>
         <div id="cctv-player-note" style="font-size:11px; color:#ddd; line-height:1.45; text-align:center; word-break:keep-all; padding:0 4px;">
@@ -1586,6 +1595,14 @@
         return String(item.id || item.url || item.name || Date.now());
     }
 
+    function getItsStreamRank(item = {}) {
+        const value = `${item.cctvformat || item.format || ''} ${item.url || ''}`.toLowerCase();
+        if (/m3u8|hls|mpegurl/.test(value)) return 30;
+        if (/mp4|mov|video/.test(value)) return 20;
+        if (/jpg|jpeg|image/.test(value)) return 10;
+        return 0;
+    }
+
     function sanitizeCctvData(source = []) {
         const arr = Array.isArray(source) ? source.map(withStation) : Object.values(source || {}).map(withStation);
         const map = new Map();
@@ -1600,7 +1617,11 @@
             });
             if (directId && !String(item.url || '').includes('cctvid=')) item.url = makeKakaoCctvUrl(directId);
             if (!item.url || !isDirectCctvUrl(item.url, item)) return;
-            map.set(normalizeCctvKey(item), item);
+            const key = normalizeCctvKey(item);
+            const existing = map.get(key);
+            // 같은 ITS 지점에서 HLS와 MP4/JPEG가 같이 내려오면, iPhone·Android 모두 재생 안정적인 HLS를 우선 보관합니다.
+            if (existing && item.source === 'ITS' && existing.source === 'ITS' && getItsStreamRank(existing) > getItsStreamRank(item)) return;
+            map.set(key, item);
         });
         return Array.from(map.values());
     }
@@ -4180,20 +4201,46 @@
     }
 
     let currentCctvUrl = '';
+    let currentCctvTitle = 'CCTV 재생';
+    let currentCctvFormat = '';
     let currentHls = null;
+    let hlsRetryTimer = null;
+    let hlsRecoveryCount = 0;
 
     function openCurrentCctvExternal() {
         if (currentCctvUrl) window.open(currentCctvUrl, '_blank', 'noopener,noreferrer');
+    }
+
+    function clearHlsRetryTimer() {
+        if (hlsRetryTimer) {
+            clearTimeout(hlsRetryTimer);
+            hlsRetryTimer = null;
+        }
+    }
+
+    function setCctvPlaybackGuide(message) {
+        const guideEl = document.getElementById('cctv-player-guide');
+        if (guideEl && message) guideEl.innerText = message;
     }
 
     function closeCctvPlayer() {
         const modal = document.getElementById('cctv-player-modal');
         const video = document.getElementById('cctv-player-video');
         const frame = document.getElementById('cctv-player-frame');
+        clearHlsRetryTimer();
         if (currentHls) { currentHls.destroy(); currentHls = null; }
-        if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.style.display = 'block'; }
+        if (video) {
+            video.onloadedmetadata = null;
+            video.oncanplay = null;
+            video.onerror = null;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = 'block';
+        }
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         resetCctvFrameDisplay();
+        window.__itsCctvRequestToken = '';
         if (modal) modal.style.display = 'none';
     }
 
@@ -4232,8 +4279,6 @@
     function applySejongBisCleanView() {
         const screen = document.getElementById('cctv-player-screen');
         const frame = document.getElementById('cctv-player-frame');
-        // 외부 사이트 내부 HTML은 직접 수정할 수 없어서,
-        // iframe을 위로 올려 상단 기관 로고/메뉴 영역을 보이지 않게 잘라냅니다.
         const cutTop = window.innerWidth <= 600 ? 92 : 108;
         if (screen) {
             screen.style.padding = '0';
@@ -4252,14 +4297,35 @@
         }
     }
 
-    function playCctvInModal(url, title = 'CCTV 재생') {
+    function isHlsUrl(url = '', format = '') {
+        return /m3u8|application\/vnd\.apple\.mpegurl|application\/x-mpegurl|hls/i.test(`${url} ${format}`);
+    }
+
+    function safePlayCctvVideo(video) {
+        if (!video) return;
+        const result = video.play();
+        if (result && typeof result.catch === 'function') result.catch(() => {});
+    }
+
+    function retryCurrentCctvPlayback() {
+        if (!currentCctvUrl) return;
+        playCctvInModal(currentCctvUrl, currentCctvTitle || 'CCTV 재생', currentCctvFormat || '');
+    }
+
+    function playCctvInModal(url, title = 'CCTV 재생', format = '') {
         currentCctvUrl = url;
+        currentCctvTitle = title || 'CCTV 재생';
+        currentCctvFormat = format || '';
+        hlsRecoveryCount = 0;
+
         const modal = document.getElementById('cctv-player-modal');
         const video = document.getElementById('cctv-player-video');
         const frame = document.getElementById('cctv-player-frame');
         if (!modal || !video) return window.open(url, '_blank', 'noopener,noreferrer');
+
+        clearHlsRetryTimer();
         resetCctvFrameDisplay();
-        setCctvModalInfo(title, '영상 재생', 'ITS 등 직접 영상주소는 이 화면에서 바로 재생됩니다. 자동재생이 막히면 재생 버튼을 누르세요.', '#34C759');
+        setCctvModalInfo(title, 'ITS 영상 재생', 'ITS 영상 연결 중입니다. 잠시 후에도 화면이 없으면 재생 다시 시도를 누르세요.', '#34C759');
         modal.style.display = 'block';
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         video.style.display = 'block';
@@ -4268,20 +4334,81 @@
         video.removeAttribute('src');
         video.load();
 
-        const isHls = /m3u8/i.test(url);
-        if (isHls && window.Hls && Hls.isSupported()) {
-            currentHls = new Hls({ enableWorker: true, lowLatencyMode: true });
-            currentHls.loadSource(url);
-            currentHls.attachMedia(video);
-            currentHls.on(Hls.Events.ERROR, function(event, data) {
-                console.warn('HLS 재생 오류', data);
-            });
-        } else {
+        video.oncanplay = () => setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+        video.onerror = () => setCctvPlaybackGuide('영상 원본이 일시 응답하지 않습니다. 재생 다시 시도를 누르거나 잠시 후 다시 확인하세요.');
+
+        const hlsStream = isHlsUrl(url, format);
+        const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('application/x-mpegURL');
+
+        // iPhone/iPad 등 네이티브 HLS가 가능한 기기는 브라우저 기본 재생을 우선 사용합니다.
+        if (hlsStream && nativeHls) {
+            // iPhone/iPad Safari는 hls.js 대신 네이티브 HLS 재생이 안정적입니다.
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.preload = 'auto';
+            video.muted = true;
             video.src = url;
+            video.load();
+            video.onloadedmetadata = () => safePlayCctvVideo(video);
+            video.oncanplay = () => {
+                setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+                safePlayCctvVideo(video);
+            };
+            safePlayCctvVideo(video);
+            return;
         }
-        video.play().catch(() => {
-            // 모바일 브라우저에서 자동재생이 막히면 사용자가 재생 버튼을 누르면 됨
-        });
+
+        if (hlsStream && window.Hls && Hls.isSupported()) {
+            currentHls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                startPosition: -1,
+                liveSyncDurationCount: 4,
+                liveMaxLatencyDurationCount: 12,
+                maxBufferLength: 20,
+                backBufferLength: 10,
+                manifestLoadingTimeOut: 12000,
+                levelLoadingTimeOut: 12000,
+                fragLoadingTimeOut: 15000,
+                manifestLoadingMaxRetry: 3,
+                levelLoadingMaxRetry: 3,
+                fragLoadingMaxRetry: 3
+            });
+            currentHls.on(Hls.Events.MEDIA_ATTACHED, () => currentHls && currentHls.loadSource(url));
+            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
+                setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+                safePlayCctvVideo(video);
+            });
+            currentHls.on(Hls.Events.ERROR, function(event, data) {
+                console.warn('ITS HLS 재생 오류', data);
+                if (!data || !data.fatal || !currentHls) return;
+
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryCount < 3) {
+                    hlsRecoveryCount += 1;
+                    setCctvPlaybackGuide(`ITS 영상 재연결 중입니다. (${hlsRecoveryCount}/3)`);
+                    clearHlsRetryTimer();
+                    hlsRetryTimer = setTimeout(() => {
+                        if (currentHls) currentHls.startLoad(-1);
+                    }, 1000 * hlsRecoveryCount);
+                    return;
+                }
+                if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryCount < 3) {
+                    hlsRecoveryCount += 1;
+                    setCctvPlaybackGuide(`ITS 영상 복구 중입니다. (${hlsRecoveryCount}/3)`);
+                    currentHls.recoverMediaError();
+                    return;
+                }
+
+                setCctvPlaybackGuide('ITS 영상 원본 연결이 지연되거나 차단되었습니다. 재생 다시 시도를 누르거나 잠시 후 다시 확인하세요.');
+            });
+            currentHls.attachMedia(video);
+            return;
+        }
+
+        // HLS가 아닌 MP4/JPEG 또는 HLS 라이브러리를 불러오지 못한 경우 일반 video 방식으로 재생합니다.
+        video.src = url;
+        video.onloadedmetadata = () => safePlayCctvVideo(video);
+        safePlayCctvVideo(video);
     }
 
     function playCctvPageInModal(url, title = 'CCTV 화면', source = '') {
@@ -4323,7 +4450,7 @@
         playCctvPageInModal(SEJONG_TRAFFIC_CCTV_URL, '세종시 교통정보시스템 CCTV', 'SEJONG_BIS');
     }
 
-    function openCctvUrl(url, title = 'CCTV 재생', source = '') {
+    function openCctvUrl(url, title = 'CCTV 재생', source = '', format = '') {
         if (!url) {
             alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
             return;
@@ -4340,10 +4467,106 @@
             window.open(url, '_blank', 'noopener,noreferrer');
             return;
         }
-        if (/\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(url) || String(url).includes('openapi.its.go.kr') || String(url).includes('cctv')) {
-            playCctvInModal(url, title);
+        if (source === 'ITS' || /\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(url) || String(url).includes('openapi.its.go.kr') || String(url).includes('cctv')) {
+            playCctvInModal(url, title, format);
         } else {
             window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    function itsCoordinatePair(item = {}) {
+        let x = Number(item.coordx || item.x || 0);
+        let y = Number(item.coordy || item.y || 0);
+        // ITS: coordx=경도(127.x), coordy=위도(36.x). 저장 과정에서 뒤집힌 값도 자동 보정합니다.
+        if (x > 0 && y > 0 && x < 90 && y > 100) [x, y] = [y, x];
+        if (!(x >= 124 && x <= 132 && y >= 33 && y <= 39)) return null;
+        return { lng: x, lat: y };
+    }
+
+    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '1') {
+        const point = itsCoordinatePair(item);
+        if (!point) return '';
+        const pad = 0.015;
+        return buildItsCctvUrlForBounds({
+            minX: +(point.lng - pad).toFixed(6), maxX: +(point.lng + pad).toFixed(6),
+            minY: +(point.lat - pad).toFixed(6), maxY: +(point.lat + pad).toFixed(6)
+        }, type, cctvType);
+    }
+
+    function itsCandidateScore(row, target = {}) {
+        const targetName = compactCctvName(target.name || '');
+        const rowName = compactCctvName(row.cctvname || row.name || '');
+        const targetPoint = itsCoordinatePair(target);
+        let rx = Number(row.coordx || row.x || 0);
+        let ry = Number(row.coordy || row.y || 0);
+        if (rx > 0 && ry > 0 && rx < 90 && ry > 100) [rx, ry] = [ry, rx];
+        const nameScore = targetName && rowName === targetName ? 100000 : (targetName && rowName.includes(targetName) ? 60000 : 0);
+        let distancePenalty = 0;
+        if (targetPoint && rx && ry) distancePenalty = Math.hypot(targetPoint.lng - rx, targetPoint.lat - ry) * 100000;
+        const rank = getItsStreamRank({ cctvformat: row.cctvformat || row.format || '', url: row.cctvurl || row.url || '' });
+        return nameScore + rank * 100 - distancePenalty;
+    }
+
+    async function fetchFreshItsCctv(item = {}) {
+        const requests = [
+            ['its', '1'], ['ex', '1'], ['all', '1'], // HLS 우선
+            ['its', '2'], ['ex', '2'], ['all', '2']  // HLS 미제공 지점만 MP4 보완
+        ].map(([type, cctvType]) => buildItsCctvUrlForPoint(item, type, cctvType)).filter(Boolean);
+        if (!requests.length) return null;
+        const results = await Promise.all(requests.map(async (url) => {
+            try {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 8000);
+                const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+                clearTimeout(timer);
+                if (!res.ok) return [];
+                const json = await res.json();
+                return normalizeItsCctvResponse(json);
+            } catch (e) {
+                return [];
+            }
+        }));
+        const rows = results.flat().filter(row => (row.cctvurl || row.url));
+        if (!rows.length) return null;
+        const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
+        if (!best) return null;
+        return mapItsCctvItem(best, item.area || '조치원');
+    }
+
+    async function saveFreshItsCctv(oldItem, freshItem) {
+        if (!freshItem || !freshItem.url) return;
+        const oldKey = normalizeCctvKey(oldItem);
+        const updated = sanitizeCctvData((cctvData || []).map(item => {
+            if (normalizeCctvKey(item) !== oldKey) return item;
+            return { ...item, ...freshItem, id: item.id || freshItem.id, station: item.station || freshItem.station, area: item.area || freshItem.area };
+        }));
+        cctvData = updated;
+        localStorage.setItem('cctvDataBackup', JSON.stringify(updated));
+        try { await db.ref('cctvData').set(updated); } catch (e) { console.warn('ITS CCTV 최신 주소 저장 실패', e); }
+    }
+
+    async function handleCctvCardClick(item = {}) {
+        if (item.source !== 'ITS') {
+            openCctvUrl(item.url, item.name || 'CCTV 재생', item.source || '', item.cctvformat || item.format || '');
+            return;
+        }
+        // 저장된 URL로 즉시 한 번 재생하고, 동시에 API에서 최신 HLS URL을 받아 자동 교체합니다.
+        playCctvInModal(item.url, item.name || 'CCTV 재생', item.cctvformat || item.format || '');
+        setCctvPlaybackGuide('ITS 최신 영상주소를 확인 중입니다. 화면이 잠시 검게 보여도 자동으로 다시 연결합니다.');
+        const requestToken = `${item.id || item.name || ''}|${Date.now()}`;
+        window.__itsCctvRequestToken = requestToken;
+        try {
+            const fresh = await fetchFreshItsCctv(item);
+            if (window.__itsCctvRequestToken !== requestToken) return;
+            if (fresh && fresh.url) {
+                await saveFreshItsCctv(item, fresh);
+                playCctvInModal(fresh.url, item.name || fresh.name || 'CCTV 재생', fresh.cctvformat || fresh.format || '');
+                setCctvPlaybackGuide('최신 ITS 영상주소로 재생 중입니다. 자동재생이 안 되면 화면 중앙 재생 버튼을 한 번 누르세요.');
+                return;
+            }
+            setCctvPlaybackGuide('최신 ITS 영상주소 확인에 실패해 기존 주소로 재생을 시도 중입니다. 잠시 후 재생 다시 시도를 눌러보세요.');
+        } catch (e) {
+            setCctvPlaybackGuide('최신 ITS 영상주소 확인 중 오류가 발생했습니다. 기존 주소로 재생을 시도 중입니다.');
         }
     }
 
@@ -4432,7 +4655,7 @@
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
-            card.onclick = () => openCctvUrl(c.url, c.name || 'CCTV 재생', c.source || '');
+            card.onclick = () => handleCctvCardClick(c);
             card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '세종청'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${getCctvSectorLabel(sector)} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
         });
