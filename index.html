@@ -325,6 +325,10 @@
 
     
         #cctv-player-modal [id="cctv-retry-button"] { min-width: 0; }
+        #cctv-player-loading { display:none; position:absolute; inset:8px; z-index:3; align-items:center; justify-content:center; flex-direction:column; gap:10px; background:#000; color:#fff; border-radius:12px; text-align:center; padding:24px; box-sizing:border-box; }
+        #cctv-player-loading .loader-spin { font-size:30px; color:#34C759; }
+        #cctv-player-loading .loader-title { font-size:15px; font-weight:900; }
+        #cctv-player-loading .loader-text { font-size:12px; color:#cfcfcf; line-height:1.45; }
         @media (max-width: 430px) {
             #cctv-player-modal > div > div:nth-last-child(2) { gap: 6px !important; }
             #cctv-player-modal > div > div:nth-last-child(2) button { padding: 12px 7px !important; font-size: 12px !important; }
@@ -374,7 +378,7 @@
 <div class="accord-section" id="sec-rain">
     <div class="accord-header" onclick="toggleSection('sec-rain')">
         <div class="ah-title">
-            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 세종시 일누적 강수량
+            <i class="fas fa-cloud-showers-heavy" style="color:var(--blue)"></i> 세종시 일간 강우량
             <i class="fas fa-circle-info" style="color:var(--sub); font-size:16px; margin-left:6px; cursor:pointer;" onclick="toggleRainInfo(event)"></i>
         </div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
@@ -388,7 +392,7 @@
                 <span style="color:var(--red); font-weight:bold;">호우경보 :</span> 3시간 누적강우량이 90mm 이상 예상되거나 12시간 누적강우량이 180mm 이상 예상될 때
             </div>
             <div style="margin-top:8px; font-size:11px; color:var(--sub);">
-                * 일누적 강수량은 기상청 초단기실황 RN1(1시간 강수량)을 Firebase에 시간별 저장 후 오늘 00시부터 합산합니다.<br>* 최신 실황 기준시각을 자동 탐색하고, 강수량은 1분마다 자동 갱신합니다.
+                * 강수량은 세종시 재난안전대책본부 일간강우량 자료를 우선 표시합니다.<br>* 세종시 자료 수신이 지연될 때만 기상청 AWS 매분 관측값으로 자동 전환합니다.
             </div>
         </div>
 
@@ -396,7 +400,7 @@
 
         <div class="rain-summary-grid">
             <div class="rain-summary-card">
-                <div class="rain-summary-label">선택 관할 일누적 강수 평균</div>
+                <div class="rain-summary-label">선택 관할 일간 강우 평균</div>
                 <div class="rain-avg-val" id="avg-rain-val">- mm</div>
             </div>
             <div class="rain-summary-card">
@@ -567,6 +571,11 @@
         <div id="cctv-player-screen" style="flex:1; min-height:0; background:#000; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:8px; box-shadow:0 12px 30px rgba(0,0,0,0.35); overflow:hidden; position:relative;">
             <video id="cctv-player-video" controls autoplay muted playsinline style="width:100%; height:100%; max-height:72vh; background:#000; border-radius:12px; object-fit:contain;"></video>
             <iframe id="cctv-player-frame" src="about:blank" style="display:none; width:100%; height:100%; min-height:62vh; border:0; background:#fff; border-radius:12px;" allowfullscreen></iframe>
+            <div id="cctv-player-loading" aria-live="polite">
+                <i class="fas fa-circle-notch fa-spin loader-spin"></i>
+                <div class="loader-title">최신 ITS 영상 연결 중</div>
+                <div class="loader-text" id="cctv-player-loading-text">영상 주소를 확인하고 있습니다.</div>
+            </div>
         </div>
 
         <div style="display:flex; gap:8px;">
@@ -2868,7 +2877,393 @@
         }
     }
 
+    // --- 기상청 AWS 매분 관측 강수량 ---
+    // AWS API 허브 키가 기존 동네예보 키와 다를 경우 이 값만 AWS 매분자료 활용신청 키로 교체하세요.
+    // AWS 매분자료: https://apihub.kma.go.kr/api/typ01/url/awsh.php?var=RN
+    const KMA_AWS_AUTH_KEY = window.KMA_AWS_AUTH_KEY || KMA_SHORT_SERVICE_KEY;
+    const KMA_AWS_RAIN_BASE = 'https://apihub.kma.go.kr/api/typ01/url/awsh.php';
+
+    // 세종권 AWS 관측지점. 공식 지점명/번호 기준으로만 사용합니다.
+    // 관할 구분은 경찰서 필터용이며, 현재 강수값은 해당 AWS 관측지점의 실측값입니다.
+    const SEJONG_AWS_RAIN_STATIONS = [
+        { id:'239', name:'세종',     office:'south', displayOffice:'남부서' },
+        { id:'494', name:'세종고운', office:'south', displayOffice:'남부서' },
+        { id:'496', name:'세종금남', office:'south', displayOffice:'남부서' },
+        { id:'611', name:'세종연서', office:'north', displayOffice:'북부서' },
+        { id:'629', name:'세종전의', office:'north', displayOffice:'북부서' }
+    ];
+
+    function getEffectiveRainScope() {
+        // 상단 세종청/북부서/남부서 선택이 최우선이고, 세종청일 때만 강수량 내부 필터를 반영합니다.
+        if (globalScope === 'north' || globalScope === 'south') return globalScope;
+        const own = weatherOfficeFilters.rain || 'all';
+        return ['north', 'south'].includes(own) ? own : 'all';
+    }
+
+    function getRainAwsStations() {
+        const scope = getEffectiveRainScope();
+        return SEJONG_AWS_RAIN_STATIONS.filter(station => scope === 'all' || station.office === scope);
+    }
+
+    function cleanAwsFieldName(value) {
+        return String(value || '')
+            .replace(/^\s*#?\s*/, '')
+            .trim()
+            .toUpperCase()
+            .replace(/[()\[\]\-\s]/g, '_')
+            .replace(/__+/g, '_');
+    }
+
+    function splitAwsLine(line) {
+        const trimmed = String(line || '').trim();
+        if (!trimmed) return [];
+        if (trimmed.includes(',')) return trimmed.split(',').map(v => v.trim());
+        if (trimmed.includes('\t')) return trimmed.split('\t').map(v => v.trim());
+        return trimmed.split(/\s+/).map(v => v.trim());
+    }
+
+    function parseAwsNumber(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw || /^[-*]+$/.test(raw)) return null;
+        const number = Number(raw.replace(/[^0-9.+-]/g, ''));
+        if (!Number.isFinite(number) || number <= -900) return null;
+        return number;
+    }
+
+    function pickAwsColumn(record, candidates) {
+        for (const candidate of candidates) {
+            if (Object.prototype.hasOwnProperty.call(record, candidate)) return record[candidate];
+        }
+        return undefined;
+    }
+
+    function parseKmaAwsRainText(text) {
+        const raw = String(text || '').trim();
+        if (!raw || raw.startsWith('<!DOCTYPE') || raw.startsWith('<html')) throw new Error('AWS API HTML 응답');
+        if (/인증|auth|permission|error/i.test(raw) && !/RN_DAY|RN_HR1|STN/i.test(raw)) throw new Error('AWS API 인증 또는 응답 오류');
+
+        // 일부 프록시는 JSON 문자열로 감싸서 반환하므로 먼저 풀어냅니다.
+        let normalized = raw;
+        try {
+            const parsed = JSON.parse(raw);
+            if (typeof parsed === 'string') normalized = parsed;
+            else if (parsed && typeof parsed.contents === 'string') normalized = parsed.contents;
+        } catch (_) {}
+
+        const lines = normalized.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        let headerIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+            const upper = lines[i].toUpperCase();
+            if ((/(^|[\s,\t])STN(_ID)?($|[\s,\t])/.test(upper) || /STN[_\s-]?ID/.test(upper)) && (/RN[_\s-]?DAY/.test(upper) || /RN[_\s-]?HR1/.test(upper) || /RN\b/.test(upper))) {
+                headerIndex = i;
+                break;
+            }
+        }
+        if (headerIndex < 0) throw new Error('AWS 강수 컬럼을 찾지 못했습니다.');
+
+        const headers = splitAwsLine(lines[headerIndex]).map(cleanAwsFieldName);
+        const records = [];
+        for (let i = headerIndex + 1; i < lines.length; i++) {
+            const line = lines[i];
+            if (/^(#|\[|\]|<|END|START)/i.test(line)) continue;
+            const values = splitAwsLine(line);
+            if (values.length < Math.max(3, headers.length - 2)) continue;
+            const record = {};
+            headers.forEach((header, idx) => { record[header] = values[idx] ?? ''; });
+            const stationId = String(pickAwsColumn(record, ['STN', 'STN_ID', 'STNID']) ?? '').replace(/\D/g, '');
+            if (!stationId) continue;
+            const rnDay = parseAwsNumber(pickAwsColumn(record, ['RN_DAY', 'RNDAY', 'RN_DAY_MM']));
+            const rnHr1 = parseAwsNumber(pickAwsColumn(record, ['RN_HR1', 'RNHR1', 'RN_1HR', 'RN']));
+            const reSum = parseAwsNumber(pickAwsColumn(record, ['RE_SUM', 'RESUM']));
+            const tm = String(pickAwsColumn(record, ['TM', 'TIME', 'OBS_TM']) ?? '');
+            records.push({ stationId, rnDay, rnHr1, reSum, tm, raw: record });
+        }
+        return records;
+    }
+
+    async function fetchKmaAwsRainText(stationId) {
+        if (!KMA_AWS_AUTH_KEY) throw new Error('AWS 인증키 미설정');
+        const query = new URLSearchParams({
+            var: 'RN',
+            stn: String(stationId),
+            disp: '1',
+            help: '0',
+            authKey: KMA_AWS_AUTH_KEY
+        });
+        const apiUrl = `${KMA_AWS_RAIN_BASE}?${query.toString()}`;
+        const urls = [
+            apiUrl,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(apiUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}`
+        ];
+
+        const attempts = urls.map(url => fetchTextWithTimeout(url, 5500)
+            .then(body => {
+                const parsed = parseKmaAwsRainText(body);
+                if (!parsed.length) throw new Error('AWS 관측값 없음');
+                return { body, parsed };
+            }));
+        try {
+            return await Promise.any(attempts);
+        } catch (error) {
+            throw new Error('AWS 매분자료 수신 실패: ' + (error?.message || '응답 없음'));
+        }
+    }
+
+    async function fetchAwsRainStation(station) {
+        const result = await fetchKmaAwsRainText(station.id);
+        const exact = result.parsed.find(row => String(row.stationId) === String(station.id)) || result.parsed[0];
+        if (!exact) throw new Error(`${station.name} 관측값 없음`);
+        return {
+            ...station,
+            dailyRain: Number(exact.rnDay || 0),
+            recentRain: Number(exact.rnHr1 || 0),
+            rainingMinutes: Number(exact.reSum || 0),
+            observedAt: exact.tm || '',
+            source: 'AWS'
+        };
+    }
+
+    function renderAwsRainCards(rows, filterLabel) {
+        const gridEl = document.getElementById('rain-grid');
+        const avgRainEl = document.getElementById('avg-rain-val');
+        const maxRainEl = document.getElementById('max-rain-area-val');
+        const valid = rows.filter(row => !row.error);
+        const avg = valid.length ? valid.reduce((sum, row) => sum + Number(row.dailyRain || 0), 0) / valid.length : 0;
+        const maxRow = valid.length ? valid.reduce((max, row) => Number(row.dailyRain || 0) > Number(max.dailyRain || 0) ? row : max, valid[0]) : null;
+
+        let html = '';
+        rows.forEach(row => {
+            if (row.error) {
+                html += `<div class="rain-cell"><div class="rain-loc">${row.name}</div><div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${row.displayOffice}</div><div class="rain-val" style="color:var(--orange); font-size:12px;">수신지연</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">AWS 재시도 필요</div></div>`;
+                return;
+            }
+            const daily = Number(row.dailyRain || 0);
+            const recent = Number(row.recentRain || 0);
+            const isRaining = Number(row.rainingMinutes || 0) > 0 || recent > 0;
+            const valClass = daily > 0 ? 'rain-val wet' : 'rain-val';
+            const colorStyle = daily > 0 ? '' : 'color:var(--sub);';
+            html += `<div class="rain-cell">
+                <div class="rain-loc">${row.name}</div>
+                <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${row.displayOffice} · AWS ${row.id}</div>
+                <div class="${valClass}" style="${colorStyle}">${daily.toFixed(1)}<small>mm</small></div>
+                <div style="font-size:10px; color:var(--blue); margin-top:4px; font-weight:700;">최근1시간 ${recent.toFixed(1)}mm</div>
+                <div style="font-size:9px; color:${isRaining ? 'var(--blue)' : 'var(--sub)'}; margin-top:3px; font-weight:700;">${isRaining ? '강수 감지' : '강수 없음'}</div>
+            </div>`;
+        });
+
+        if (!rows.length) html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 AWS 강수 관측지점 없음</div>`;
+        const receivedAt = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+        html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
+            <div class="rain-loc" style="color:var(--text);">출처</div>
+            <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 AWS 매분 관측</div>
+            <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 일강수량 직접 반영</div>
+            <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${receivedAt} · 1분 자동갱신</div>
+        </div>`;
+
+        gridEl.innerHTML = html;
+        avgRainEl.innerText = `${avg.toFixed(1)} mm`;
+        if (maxRainEl) maxRainEl.innerText = maxRow ? `${maxRow.name} ${Number(maxRow.dailyRain || 0).toFixed(1)}mm` : '-';
+    }
+
+
+    // --- 세종시 재난안전대책본부 일간강우량 ---
+    // 세종시가 운영하는 읍·면·동 강우관측망의 당일 누적값을 우선 사용합니다.
+    // 화면은 /rainfallDailyList.do의 "합계" 행을 읽어 북부서·남부서 관할별로 표시합니다.
+    const SEJONG_DAILY_RAIN_URL = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_02/rain/rainfallDailyList.do';
+    const SEJONG_DAILY_RAIN_AREA_MAP = {
+        '조치원': { name:'조치원읍', office:'북부서' },
+        '조치원읍': { name:'조치원읍', office:'북부서' },
+        '연기면': { name:'연기면', office:'남부서' },
+        '연동면': { name:'연동면', office:'북부서' },
+        '부강면': { name:'부강면', office:'북부서' },
+        '금남면': { name:'금남면', office:'남부서' },
+        '장군면': { name:'장군면', office:'남부서' },
+        '연서면': { name:'연서면', office:'북부서' },
+        '전의면': { name:'전의면', office:'북부서' },
+        '전동면': { name:'전동면', office:'북부서' },
+        '소정면': { name:'소정면', office:'북부서' },
+        '1생': { name:'1생활권', office:'남부서' },
+        '1생합계': { name:'1생활권', office:'남부서' },
+        '2생': { name:'2생활권', office:'남부서' },
+        '2생합계': { name:'2생활권', office:'남부서' },
+        '3생': { name:'3생활권', office:'남부서' },
+        '3생합계': { name:'3생활권', office:'남부서' },
+        '6생': { name:'6생활권', office:'남부서' },
+        '6생합계': { name:'6생활권', office:'남부서' }
+    };
+
+    function normalizeSejongDailyHeader(value = '') {
+        return String(value || '')
+            .replace(/\s+/g, '')
+            .replace(/\(.*?\)/g, '')
+            .replace(/[\u00a0\u200b]/g, '')
+            .trim();
+    }
+
+    function parseSejongDailyRainNumber(value) {
+        const raw = String(value ?? '').trim();
+        if (!raw || raw === '-' || raw === '–') return 0;
+        const match = raw.replace(/,/g, '').match(/-?\d+(?:\.\d+)?/);
+        const num = match ? Number(match[0]) : NaN;
+        return Number.isFinite(num) ? num : 0;
+    }
+
+    function unwrapProxyHtml(text) {
+        let body = String(text || '').trim();
+        try {
+            const parsed = JSON.parse(body);
+            if (typeof parsed === 'string') body = parsed;
+            else if (parsed && typeof parsed.contents === 'string') body = parsed.contents;
+        } catch (_) {}
+        return body;
+    }
+
+    function parseSejongDailyRainHtml(text) {
+        const html = unwrapProxyHtml(text);
+        if (!html || html.length < 300) throw new Error('세종시 일간강우량 응답 없음');
+        if (/접근이\s*차단|access\s*denied|captcha/i.test(html)) throw new Error('세종시 일간강우량 접근 차단');
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const tables = Array.from(doc.querySelectorAll('table'));
+        const table = tables.find(t => {
+            const textContent = String(t.textContent || '').replace(/\s+/g, ' ');
+            return textContent.includes('조치원') && textContent.includes('합계') && (textContent.includes('금남') || textContent.includes('연동'));
+        });
+        if (!table) throw new Error('세종시 일간강우량 표를 찾지 못했습니다.');
+
+        const trList = Array.from(table.querySelectorAll('tr'));
+        let headerCells = [];
+        let totalCells = [];
+        for (const tr of trList) {
+            const cells = Array.from(tr.querySelectorAll('th,td')).map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+            if (!cells.length) continue;
+            const joined = cells.join('|');
+            if (!headerCells.length && /구\s*분/.test(joined) && (joined.includes('조치원') || joined.includes('연기면'))) {
+                headerCells = cells;
+                continue;
+            }
+            if (normalizeSejongDailyHeader(cells[0]).includes('합계') && cells.length >= 5) {
+                totalCells = cells;
+                break;
+            }
+        }
+        if (!headerCells.length || !totalCells.length) throw new Error('세종시 일간강우량 합계 행을 찾지 못했습니다.');
+
+        const rows = [];
+        headerCells.forEach((header, index) => {
+            if (index === 0) return;
+            const key = normalizeSejongDailyHeader(header);
+            const mapping = SEJONG_DAILY_RAIN_AREA_MAP[key];
+            if (!mapping) return;
+            const dailyRain = parseSejongDailyRainNumber(totalCells[index]);
+            rows.push({
+                id: `sejong-daily-${key}`,
+                name: mapping.name,
+                area: mapping.name,
+                office: mapping.office,
+                displayOffice: mapping.office,
+                dailyRain,
+                recentRain: null,
+                source: 'SEJONG_DAILY'
+            });
+        });
+        if (!rows.length) throw new Error('세종시 일간강우량 지역값 없음');
+        return rows;
+    }
+
+    async function fetchSejongDailyRainText() {
+        const today = getKstDate();
+        const dateKey = `${today.getFullYear()}${String(today.getMonth() + 1).padStart(2, '0')}${String(today.getDate()).padStart(2, '0')}`;
+        const targetUrl = `${SEJONG_DAILY_RAIN_URL}?date=${dateKey}&_=${Date.now()}`;
+        const urls = [
+            targetUrl,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
+        ];
+
+        const attempts = urls.map(url => fetchTextWithTimeout(url, 6500)
+            .then(body => {
+                const parsedRows = parseSejongDailyRainHtml(body);
+                return { body, parsedRows, url };
+            }));
+        try {
+            return await Promise.any(attempts);
+        } catch (error) {
+            throw new Error('세종시 일간강우량 수신 실패: ' + (error?.message || '응답 없음'));
+        }
+    }
+
+    function renderSejongDailyRainCards(rowsAll, filterLabel) {
+        const gridEl = document.getElementById('rain-grid');
+        const avgRainEl = document.getElementById('avg-rain-val');
+        const maxRainEl = document.getElementById('max-rain-area-val');
+        const rows = filterRowsByOffice(rowsAll, 'rain');
+        const valid = rows.filter(row => !row.error);
+        const avg = valid.length ? valid.reduce((sum, row) => sum + Number(row.dailyRain || 0), 0) / valid.length : 0;
+        const maxRow = valid.length ? valid.reduce((max, row) => Number(row.dailyRain || 0) > Number(max.dailyRain || 0) ? row : max, valid[0]) : null;
+        const receivedAt = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+
+        let html = '';
+        rows.forEach(row => {
+            const daily = Number(row.dailyRain || 0);
+            const valClass = daily > 0 ? 'rain-val wet' : 'rain-val';
+            const colorStyle = daily > 0 ? '' : 'color:var(--sub);';
+            html += `<div class="rain-cell">
+                <div class="rain-loc">${row.name}</div>
+                <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${row.displayOffice}</div>
+                <div class="${valClass}" style="${colorStyle}">${daily.toFixed(1)}<small>mm</small></div>
+                <div style="font-size:10px; color:${daily > 0 ? 'var(--blue)' : 'var(--sub)'}; margin-top:4px; font-weight:700;">${daily > 0 ? '일간 강우 관측' : '강우 없음'}</div>
+            </div>`;
+        });
+
+        if (!rows.length) html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 일간 강우량 자료 없음</div>`;
+        html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
+            <div class="rain-loc" style="color:var(--text);">출처</div>
+            <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시 일간 강우량</div>
+            <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 당일 누적 직접 반영</div>
+            <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${receivedAt} · 1분 자동갱신</div>
+        </div>`;
+
+        gridEl.innerHTML = html;
+        avgRainEl.innerText = `${avg.toFixed(1)} mm`;
+        if (maxRainEl) maxRainEl.innerText = maxRow ? `${maxRow.name} ${Number(maxRow.dailyRain || 0).toFixed(1)}mm` : '-';
+    }
+
     async function fetchDetailRain(silent = false) {
+        if (isRainFetching && silent) return;
+        isRainFetching = true;
+        const gridEl = document.getElementById('rain-grid');
+        try {
+            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 일간 강우량 확인중...</div>`;
+            const result = await fetchSejongDailyRainText();
+            renderSejongDailyRainCards(result.parsedRows, getSectionFilterLabel('rain'));
+            isRainFetching = false;
+        } catch (sejongError) {
+            // 세종시 일간강우량 수신이 늦거나 차단될 경우 기존 기상청 AWS를 보조값으로 사용합니다.
+            console.warn('세종시 일간강우량 수신 실패, AWS 보조값 사용:', sejongError);
+            try {
+                if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 자료 수신지연 · 기상청 AWS 보조값 확인중...</div>`;
+                const stations = getRainAwsStations();
+                const results = await Promise.allSettled(stations.map(fetchAwsRainStation));
+                const rows = results.map((result, index) => result.status === 'fulfilled'
+                    ? result.value
+                    : { ...stations[index], error:true });
+                const successCount = rows.filter(row => !row.error).length;
+                if (!successCount) throw new Error('세종 AWS 관측지점 응답 없음');
+                renderAwsRainCards(rows, getSectionFilterLabel('rain'));
+                isRainFetching = false;
+            } catch (awsError) {
+                console.warn('AWS 매분 강수 수신 실패, RN1 보조값 사용:', awsError);
+                isRainFetching = false;
+                return fetchDetailRainRn1Fallback(silent);
+            }
+        }
+    }
+
+    async function fetchDetailRainRn1Fallback(silent = false) {
         if (isRainFetching && silent) return;
         isRainFetching = true;
         const gridEl = document.getElementById('rain-grid');
@@ -2878,7 +3273,7 @@
         const filterLabel = getSectionFilterLabel('rain');
 
         try {
-            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 공공데이터포털 강수량 최신 실황 확인중...</div>`;
+            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> AWS 수신 실패 · 공공데이터포털 강수량 보조값 확인중...</div>`;
 
             const targetAreas = getWeatherTargetAreas('rain');
             const gridTargets = [];
@@ -2956,7 +3351,7 @@
             const recvTime = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
             html += `<div class="rain-cell" style="background:var(--card); border: 1px solid var(--line);">
                 <div class="rain-loc" style="color:var(--text);">출처</div>
-                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 초단기실황 RN1</div>
+                <div class="rain-val" style="font-size:11px; color:var(--sub);">기상청 초단기실황 RN1 (AWS 보조값)</div>
                 <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 기준 ${base.baseDate} ${base.baseTime}</div>
                 <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${recvTime} · 1분 자동갱신</div>
             </div>`;
@@ -4223,6 +4618,37 @@
         if (guideEl && message) guideEl.innerText = message;
     }
 
+    function setCctvLoading(show, message = '') {
+        const loader = document.getElementById('cctv-player-loading');
+        const loaderText = document.getElementById('cctv-player-loading-text');
+        const video = document.getElementById('cctv-player-video');
+        if (loader) loader.style.display = show ? 'flex' : 'none';
+        if (loaderText && message) loaderText.innerText = message;
+        if (video) {
+            video.style.visibility = show ? 'hidden' : 'visible';
+            video.controls = !show;
+        }
+    }
+
+    function openItsLoadingModal(title = 'CCTV 재생') {
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const frame = document.getElementById('cctv-player-frame');
+        clearHlsRetryTimer();
+        resetCctvFrameDisplay();
+        setCctvModalInfo(title, 'ITS 영상 재생', '최신 ITS 영상주소를 확인한 뒤 재생합니다.', '#34C759');
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = 'block';
+        }
+        if (modal) modal.style.display = 'block';
+        setCctvLoading(true, '영상 주소를 확인하고 있습니다.');
+    }
+
     function closeCctvPlayer() {
         const modal = document.getElementById('cctv-player-modal');
         const video = document.getElementById('cctv-player-video');
@@ -4240,6 +4666,7 @@
         }
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         resetCctvFrameDisplay();
+        setCctvLoading(false);
         window.__itsCctvRequestToken = '';
         if (modal) modal.style.display = 'none';
     }
@@ -4325,7 +4752,7 @@
 
         clearHlsRetryTimer();
         resetCctvFrameDisplay();
-        setCctvModalInfo(title, 'ITS 영상 재생', 'ITS 영상 연결 중입니다. 잠시 후에도 화면이 없으면 재생 다시 시도를 누르세요.', '#34C759');
+        setCctvModalInfo(title, 'ITS 영상 재생', '영상 연결 중입니다.', '#34C759');
         modal.style.display = 'block';
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         video.style.display = 'block';
@@ -4333,16 +4760,26 @@
         video.pause();
         video.removeAttribute('src');
         video.load();
+        setCctvLoading(true, '최신 ITS 영상에 연결하고 있습니다.');
 
-        video.oncanplay = () => setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
-        video.onerror = () => setCctvPlaybackGuide('영상 원본이 일시 응답하지 않습니다. 재생 다시 시도를 누르거나 잠시 후 다시 확인하세요.');
+        const markPlaying = () => {
+            setCctvLoading(false);
+            setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+            safePlayCctvVideo(video);
+        };
+        const markRetrying = (message) => {
+            setCctvLoading(true, message || 'ITS 영상에 다시 연결하고 있습니다.');
+            setCctvPlaybackGuide(message || 'ITS 영상에 다시 연결하고 있습니다.');
+        };
+        video.oncanplay = markPlaying;
+        video.onerror = () => {
+            markRetrying('영상 원본에 다시 연결하고 있습니다.');
+        };
 
         const hlsStream = isHlsUrl(url, format);
         const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('application/x-mpegURL');
 
-        // iPhone/iPad 등 네이티브 HLS가 가능한 기기는 브라우저 기본 재생을 우선 사용합니다.
         if (hlsStream && nativeHls) {
-            // iPhone/iPad Safari는 hls.js 대신 네이티브 HLS 재생이 안정적입니다.
             video.setAttribute('playsinline', '');
             video.setAttribute('webkit-playsinline', '');
             video.preload = 'auto';
@@ -4350,10 +4787,6 @@
             video.src = url;
             video.load();
             video.onloadedmetadata = () => safePlayCctvVideo(video);
-            video.oncanplay = () => {
-                setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
-                safePlayCctvVideo(video);
-            };
             safePlayCctvVideo(video);
             return;
         }
@@ -4367,45 +4800,42 @@
                 liveMaxLatencyDurationCount: 12,
                 maxBufferLength: 20,
                 backBufferLength: 10,
-                manifestLoadingTimeOut: 12000,
-                levelLoadingTimeOut: 12000,
-                fragLoadingTimeOut: 15000,
-                manifestLoadingMaxRetry: 3,
-                levelLoadingMaxRetry: 3,
-                fragLoadingMaxRetry: 3
+                manifestLoadingTimeOut: 9000,
+                levelLoadingTimeOut: 9000,
+                fragLoadingTimeOut: 12000,
+                manifestLoadingMaxRetry: 2,
+                levelLoadingMaxRetry: 2,
+                fragLoadingMaxRetry: 2
             });
             currentHls.on(Hls.Events.MEDIA_ATTACHED, () => currentHls && currentHls.loadSource(url));
-            currentHls.on(Hls.Events.MANIFEST_PARSED, () => {
-                setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
-                safePlayCctvVideo(video);
-            });
+            currentHls.on(Hls.Events.MANIFEST_PARSED, markPlaying);
             currentHls.on(Hls.Events.ERROR, function(event, data) {
                 console.warn('ITS HLS 재생 오류', data);
                 if (!data || !data.fatal || !currentHls) return;
 
-                if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryCount < 3) {
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryCount < 2) {
                     hlsRecoveryCount += 1;
-                    setCctvPlaybackGuide(`ITS 영상 재연결 중입니다. (${hlsRecoveryCount}/3)`);
+                    markRetrying(`ITS 영상 재연결 중입니다. (${hlsRecoveryCount}/2)`);
                     clearHlsRetryTimer();
                     hlsRetryTimer = setTimeout(() => {
                         if (currentHls) currentHls.startLoad(-1);
-                    }, 1000 * hlsRecoveryCount);
+                    }, 800 * hlsRecoveryCount);
                     return;
                 }
-                if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryCount < 3) {
+                if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryCount < 2) {
                     hlsRecoveryCount += 1;
-                    setCctvPlaybackGuide(`ITS 영상 복구 중입니다. (${hlsRecoveryCount}/3)`);
+                    markRetrying(`ITS 영상 복구 중입니다. (${hlsRecoveryCount}/2)`);
                     currentHls.recoverMediaError();
                     return;
                 }
 
-                setCctvPlaybackGuide('ITS 영상 원본 연결이 지연되거나 차단되었습니다. 재생 다시 시도를 누르거나 잠시 후 다시 확인하세요.');
+                setCctvLoading(false);
+                setCctvPlaybackGuide('ITS 영상 연결에 실패했습니다. 재생 다시 시도를 누르거나 외부창에서 확인하세요.');
             });
             currentHls.attachMedia(video);
             return;
         }
 
-        // HLS가 아닌 MP4/JPEG 또는 HLS 라이브러리를 불러오지 못한 경우 일반 video 방식으로 재생합니다.
         video.src = url;
         video.onloadedmetadata = () => safePlayCctvVideo(video);
         safePlayCctvVideo(video);
@@ -4439,6 +4869,7 @@
         resetCctvFrameDisplay();
         if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') applySejongBisCleanView();
         setCctvModalInfo(title, badgeText, guideText, badgeColor);
+        setCctvLoading(false);
         if (currentHls) { currentHls.destroy(); currentHls = null; }
         if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.style.display = 'none'; }
         frame.style.display = 'block';
@@ -4508,29 +4939,38 @@
     }
 
     async function fetchFreshItsCctv(item = {}) {
-        const requests = [
-            ['its', '1'], ['ex', '1'], ['all', '1'], // HLS 우선
-            ['its', '2'], ['ex', '2'], ['all', '2']  // HLS 미제공 지점만 MP4 보완
-        ].map(([type, cctvType]) => buildItsCctvUrlForPoint(item, type, cctvType)).filter(Boolean);
-        if (!requests.length) return null;
-        const results = await Promise.all(requests.map(async (url) => {
+        const requestGroups = [
+            [['its', '1'], ['ex', '1'], ['all', '1']], // HLS 우선
+            [['its', '2'], ['ex', '2'], ['all', '2']]  // HLS 미제공 때만 보조
+        ];
+
+        const fetchRows = async (type, cctvType) => {
+            const url = buildItsCctvUrlForPoint(item, type, cctvType);
+            if (!url) throw new Error('invalid bounds');
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 4500);
             try {
-                const controller = new AbortController();
-                const timer = setTimeout(() => controller.abort(), 8000);
                 const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
-                clearTimeout(timer);
-                if (!res.ok) return [];
+                if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
-                return normalizeItsCctvResponse(json);
-            } catch (e) {
-                return [];
+                const rows = normalizeItsCctvResponse(json).filter(row => row.cctvurl || row.url);
+                if (!rows.length) throw new Error('empty');
+                return rows;
+            } finally {
+                clearTimeout(timer);
             }
-        }));
-        const rows = results.flat().filter(row => (row.cctvurl || row.url));
-        if (!rows.length) return null;
-        const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
-        if (!best) return null;
-        return mapItsCctvItem(best, item.area || '조치원');
+        };
+
+        for (const group of requestGroups) {
+            try {
+                const rows = await Promise.any(group.map(([type, cctvType]) => fetchRows(type, cctvType)));
+                const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
+                if (best) return mapItsCctvItem(best, item.area || '조치원');
+            } catch (e) {
+                // 다음 형식(HLS → MP4)으로 계속 확인
+            }
+        }
+        return null;
     }
 
     async function saveFreshItsCctv(oldItem, freshItem) {
@@ -4550,24 +4990,34 @@
             openCctvUrl(item.url, item.name || 'CCTV 재생', item.source || '', item.cctvformat || item.format || '');
             return;
         }
-        // 저장된 URL로 즉시 한 번 재생하고, 동시에 API에서 최신 HLS URL을 받아 자동 교체합니다.
-        playCctvInModal(item.url, item.name || 'CCTV 재생', item.cctvformat || item.format || '');
-        setCctvPlaybackGuide('ITS 최신 영상주소를 확인 중입니다. 화면이 잠시 검게 보여도 자동으로 다시 연결합니다.');
+
+        // 저장된 오래된 주소를 먼저 비디오에 넣지 않고, 최신 HLS 주소를 먼저 확인합니다.
+        // 그래서 iPhone에서 잠깐 "재생 불가" 아이콘이 뜨는 현상을 막습니다.
+        openItsLoadingModal(item.name || 'CCTV 재생');
         const requestToken = `${item.id || item.name || ''}|${Date.now()}`;
         window.__itsCctvRequestToken = requestToken;
+
+        let selected = null;
         try {
             const fresh = await fetchFreshItsCctv(item);
             if (window.__itsCctvRequestToken !== requestToken) return;
             if (fresh && fresh.url) {
+                selected = fresh;
                 await saveFreshItsCctv(item, fresh);
-                playCctvInModal(fresh.url, item.name || fresh.name || 'CCTV 재생', fresh.cctvformat || fresh.format || '');
-                setCctvPlaybackGuide('최신 ITS 영상주소로 재생 중입니다. 자동재생이 안 되면 화면 중앙 재생 버튼을 한 번 누르세요.');
-                return;
             }
-            setCctvPlaybackGuide('최신 ITS 영상주소 확인에 실패해 기존 주소로 재생을 시도 중입니다. 잠시 후 재생 다시 시도를 눌러보세요.');
         } catch (e) {
-            setCctvPlaybackGuide('최신 ITS 영상주소 확인 중 오류가 발생했습니다. 기존 주소로 재생을 시도 중입니다.');
+            console.warn('ITS 최신 영상주소 확인 실패', e);
         }
+
+        if (window.__itsCctvRequestToken !== requestToken) return;
+        // 최신 주소를 못 받았을 때만 기존 주소를 대체로 사용합니다.
+        selected = selected || item;
+        if (!selected.url) {
+            setCctvLoading(false);
+            setCctvPlaybackGuide('재생할 ITS 영상주소를 찾지 못했습니다. 재생 다시 시도를 눌러주세요.');
+            return;
+        }
+        playCctvInModal(selected.url, item.name || selected.name || 'CCTV 재생', selected.cctvformat || selected.format || item.cctvformat || item.format || '');
     }
 
     function renderCctvs() {
