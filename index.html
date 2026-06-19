@@ -2568,6 +2568,14 @@
     let isSnowFetching = false;
     let isSpecialFetching = false;
 
+    // 세종시 일간강우량은 화면 진입 직후에는 최근 수신값을 즉시 표시하고,
+    // 뒤에서 최신 합계 행만 조용히 갱신해 체감 로딩을 줄입니다.
+    const SEJONG_DAILY_RAIN_CACHE_KEY = 'sejongDailyRainTotalsV4';
+    const SEJONG_DAILY_RAIN_CACHE_FRESH_MS = 55000;
+    const SEJONG_DAILY_RAIN_CACHE_MAX_MS = 15 * 60 * 1000;
+    let sejongDailyRainMemoryCache = null;
+    let sejongDailyRainFetchPromise = null;
+
     function getUltraNcstBaseCandidates() {
         const now = getKstDate();
         const candidates = [];
@@ -3205,13 +3213,16 @@
         return nonZero * 10000 + total;
     }
 
+    function getSejongDailyRainDateKey() {
+        const now = getKstDate();
+        return `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
+    }
+
     function getSejongDailyRainTargetUrls() {
         const now = getKstDate();
         const ymd = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}`;
         const ymdDash = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
         const cacheKey = Date.now();
-        // 기본 페이지가 실제 화면의 당일 표를 보여주는 방식이라 이를 우선합니다.
-        // 일부 세종시 서버 변형은 날짜 파라미터명을 다르게 받으므로 보조로 함께 확인합니다.
         return [
             `${SEJONG_DAILY_RAIN_URL}?_=${cacheKey}`,
             `${SEJONG_DAILY_RAIN_URL}?searchDate=${ymdDash}&_=${cacheKey}`,
@@ -3219,30 +3230,122 @@
         ];
     }
 
+    function getSejongDailyRainCache() {
+        const dateKey = getSejongDailyRainDateKey();
+        let cached = sejongDailyRainMemoryCache;
+        if (!cached) {
+            try {
+                cached = JSON.parse(localStorage.getItem(SEJONG_DAILY_RAIN_CACHE_KEY) || 'null');
+            } catch (_) {
+                cached = null;
+            }
+        }
+        if (!cached || cached.dateKey !== dateKey || !Array.isArray(cached.rows) || !cached.rows.length) return null;
+        const savedAt = Number(cached.savedAt || 0);
+        const age = Date.now() - savedAt;
+        if (!Number.isFinite(age) || age < 0 || age > SEJONG_DAILY_RAIN_CACHE_MAX_MS) return null;
+        sejongDailyRainMemoryCache = cached;
+        return { ...cached, age };
+    }
+
+    function saveSejongDailyRainCache(rows) {
+        const cached = {
+            dateKey: getSejongDailyRainDateKey(),
+            savedAt: Date.now(),
+            rows: Array.isArray(rows) ? rows : []
+        };
+        sejongDailyRainMemoryCache = cached;
+        try {
+            localStorage.setItem(SEJONG_DAILY_RAIN_CACHE_KEY, JSON.stringify(cached));
+        } catch (_) {}
+        return cached;
+    }
+
+    function buildSejongDailyRainProxyUrls(targetUrl) {
+        return [
+            targetUrl,
+            `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
+        ];
+    }
+
+    async function fetchSejongDailyRainCandidate(url, rank, signal) {
+        const res = await fetch(url, { cache: 'no-store', signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const body = await res.text();
+        const parsedRows = parseSejongDailyRainHtml(body);
+        return { body, parsedRows, url, rank, score: scoreSejongDailyRainRows(parsedRows) };
+    }
+
+    // 여러 프록시를 모두 기다리지 않고, 정상적으로 '합계' 행을 읽은 첫 응답으로 즉시 표시합니다.
+    async function fetchFirstSejongDailyRainCandidate(urls, timeoutMs = 4200) {
+        const candidates = urls.map((url, rank) => ({ url, rank }));
+        return new Promise((resolve, reject) => {
+            let finished = false;
+            let pending = candidates.length;
+            let lastError = null;
+            const controllers = [];
+            const timers = [];
+
+            const cancelOthers = (winner) => {
+                timers.forEach(timer => clearTimeout(timer));
+                controllers.forEach(controller => {
+                    if (controller !== winner) controller.abort();
+                });
+            };
+
+            candidates.forEach(({ url, rank }) => {
+                const controller = new AbortController();
+                controllers.push(controller);
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                timers.push(timer);
+
+                fetchSejongDailyRainCandidate(url, rank, controller.signal)
+                    .then(result => {
+                        if (finished) return;
+                        finished = true;
+                        cancelOthers(controller);
+                        resolve(result);
+                    })
+                    .catch(error => {
+                        clearTimeout(timer);
+                        lastError = error;
+                        pending -= 1;
+                        if (!finished && pending === 0) {
+                            reject(lastError || new Error('세종시 일간강우량 수신 실패'));
+                        }
+                    });
+            });
+        });
+    }
+
     async function fetchSejongDailyRainText() {
         const targetUrls = getSejongDailyRainTargetUrls();
-        const candidateUrls = [];
-        targetUrls.forEach(targetUrl => {
-            candidateUrls.push(targetUrl);
-            candidateUrls.push(`https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`);
-            candidateUrls.push(`https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`);
-            candidateUrls.push(`https://corsproxy.io/?${encodeURIComponent(targetUrl)}`);
-        });
 
-        const settled = await Promise.allSettled(candidateUrls.map(async (url, rank) => {
-            const body = await fetchTextWithTimeout(url, 6500);
-            const parsedRows = parseSejongDailyRainHtml(body);
-            return { body, parsedRows, url, rank, score: scoreSejongDailyRainRows(parsedRows) };
-        }));
+        // 기본 당일 페이지가 정상적으로 열리는 경우에는 이 1개 화면만 빠르게 가져옵니다.
+        try {
+            return await fetchFirstSejongDailyRainCandidate(buildSejongDailyRainProxyUrls(targetUrls[0]), 4200);
+        } catch (primaryError) {
+            // 세종시 서버의 날짜 파라미터가 달라지는 경우에만 보조 주소를 시도합니다.
+            const fallbackUrls = targetUrls.slice(1).flatMap(targetUrl => buildSejongDailyRainProxyUrls(targetUrl));
+            if (!fallbackUrls.length) throw primaryError;
+            return fetchFirstSejongDailyRainCandidate(fallbackUrls, 4300);
+        }
+    }
 
-        const candidates = settled
-            .filter(result => result.status === 'fulfilled')
-            .map(result => result.value);
-        if (!candidates.length) throw new Error('세종시 일간강우량 수신 실패');
-
-        // '합계' 행을 정상적으로 읽은 결과 중, 당일 관측값이 포함된 가장 신선한 결과를 사용합니다.
-        candidates.sort((a, b) => (b.score - a.score) || (a.rank - b.rank));
-        return candidates[0];
+    async function fetchSejongDailyRainShared() {
+        if (sejongDailyRainFetchPromise) return sejongDailyRainFetchPromise;
+        sejongDailyRainFetchPromise = fetchSejongDailyRainText()
+            .then(result => {
+                saveSejongDailyRainCache(result.parsedRows);
+                return result;
+            })
+            .finally(() => {
+                sejongDailyRainFetchPromise = null;
+            });
+        return sejongDailyRainFetchPromise;
     }
 
     function renderSejongDailyRainCards(rowsAll, filterLabel) {
@@ -3282,19 +3385,32 @@
     }
 
     async function fetchDetailRain(silent = false) {
-        if (isRainFetching && silent) return;
-        isRainFetching = true;
         const gridEl = document.getElementById('rain-grid');
+        const filterLabel = getSectionFilterLabel('rain');
+        const cached = getSejongDailyRainCache();
+
+        // 재진입·관할 전환 시 최근 데이터는 즉시 다시 그려서 빈 화면·스피너를 없앱니다.
+        if (cached) {
+            renderSejongDailyRainCards(cached.rows, filterLabel);
+            if (cached.age < SEJONG_DAILY_RAIN_CACHE_FRESH_MS) {
+                isRainFetching = false;
+                return;
+            }
+        } else if (!silent) {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 일간 강우량 확인중...</div>`;
+        }
+
+        isRainFetching = true;
         try {
-            if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 일간 강우량 확인중...</div>`;
-            const result = await fetchSejongDailyRainText();
+            // 동시에 들어온 요청은 같은 네트워크 작업을 공유합니다.
+            const result = await fetchSejongDailyRainShared();
             renderSejongDailyRainCards(result.parsedRows, getSectionFilterLabel('rain'));
             isRainFetching = false;
         } catch (sejongError) {
             // 세종시 일간강우량 수신이 늦거나 차단될 경우 기존 기상청 AWS를 보조값으로 사용합니다.
             console.warn('세종시 일간강우량 수신 실패, AWS 보조값 사용:', sejongError);
             try {
-                if (!silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 자료 수신지연 · 기상청 AWS 보조값 확인중...</div>`;
+                if (!cached && !silent) gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 자료 수신지연 · 기상청 AWS 보조값 확인중...</div>`;
                 const stations = getRainAwsStations();
                 const results = await Promise.allSettled(stations.map(fetchAwsRainStation));
                 const rows = results.map((result, index) => result.status === 'fulfilled'
