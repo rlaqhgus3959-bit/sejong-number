@@ -12,6 +12,8 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
+    <link rel="dns-prefetch" href="//openapi.its.go.kr">
+    <link rel="preconnect" href="https://openapi.its.go.kr:9443" crossorigin>
 
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -5092,11 +5094,21 @@
             setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
             safePlayCctvVideo(video);
         };
+        // iPhone Safari는 live HLS에서 canplay 이벤트가 늦게 와도 메타데이터·첫 프레임은 먼저 받는 경우가 많습니다.
+        // 이 시점에 화면을 먼저 열어, 불필요하게 로딩 화면이 오래 남지 않도록 합니다.
+        const revealOnMetadata = () => {
+            if (window.__itsCctvRequestToken && window.__itsCctvActiveToken && window.__itsCctvRequestToken !== window.__itsCctvActiveToken) return;
+            setCctvLoading(false);
+            setCctvPlaybackGuide('ITS CCTV 영상 재생 준비 중입니다.');
+            safePlayCctvVideo(video);
+        };
         const markRetrying = (message) => {
             setCctvLoading(true, message || 'ITS 영상에 다시 연결하고 있습니다.');
             setCctvPlaybackGuide(message || 'ITS 영상에 다시 연결하고 있습니다.');
         };
         video.oncanplay = markPlaying;
+        video.onloadeddata = revealOnMetadata;
+        video.onplaying = markPlaying;
         video.onerror = () => {
             markRetrying('ITS 영상주소를 다시 확인하고 있습니다.');
         };
@@ -5107,11 +5119,14 @@
         if (hlsStream && nativeHls) {
             video.setAttribute('playsinline', '');
             video.setAttribute('webkit-playsinline', '');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
             video.preload = 'auto';
+            video.defaultMuted = true;
             video.muted = true;
+            video.onloadedmetadata = revealOnMetadata;
+            // src 지정만으로 iOS가 즉시 manifest/segment 요청을 시작하므로, 별도 load() 호출로 재시작하지 않습니다.
             video.src = url;
-            video.load();
-            video.onloadedmetadata = () => safePlayCctvVideo(video);
             safePlayCctvVideo(video);
             return;
         }
@@ -5239,10 +5254,9 @@
         return { lng: x, lat: y };
     }
 
-    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '1') {
+    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '1', pad = 0.004) {
         const point = itsCoordinatePair(item);
         if (!point) return '';
-        const pad = 0.015;
         return buildItsCctvUrlForBounds({
             minX: +(point.lng - pad).toFixed(6), maxX: +(point.lng + pad).toFixed(6),
             minY: +(point.lat - pad).toFixed(6), maxY: +(point.lat + pad).toFixed(6)
@@ -5273,7 +5287,7 @@
             const url = buildItsCctvUrlForPoint(item, type, cctvType);
             if (!url) throw new Error('invalid bounds');
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 4500);
+            const timer = setTimeout(() => controller.abort(), 2800);
             try {
                 const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -5341,6 +5355,37 @@
         }
     }
 
+    const itsFreshRequestPool = new Map();
+    const ITS_WARMUP_CACHE_FRESH_MS = 7 * 60 * 1000;
+
+    function fetchFreshItsCctvShared(item = {}) {
+        const key = getItsFastStreamCacheKey(item);
+        if (itsFreshRequestPool.has(key)) return itsFreshRequestPool.get(key);
+        const promise = fetchFreshItsCctv(item).finally(() => itsFreshRequestPool.delete(key));
+        itsFreshRequestPool.set(key, promise);
+        return promise;
+    }
+
+    function prewarmItsCctvStream(item = {}) {
+        if (!item || item.source !== 'ITS') return Promise.resolve(null);
+        const cached = readItsFastStreamCache(item);
+        if (cached && cached.savedAt && (Date.now() - Number(cached.savedAt) < ITS_WARMUP_CACHE_FRESH_MS)) return Promise.resolve(cached);
+        return fetchFreshItsCctvShared(item).then(fresh => {
+            if (fresh && fresh.url) writeItsFastStreamCache(item, fresh);
+            return fresh;
+        }).catch(() => null);
+    }
+
+    function warmVisibleItsCctvStreams(items = []) {
+        const targets = items.filter(item => item && item.source === 'ITS').slice(0, 4);
+        if (!targets.length) return;
+        const run = () => targets.forEach((item, idx) => {
+            setTimeout(() => prewarmItsCctvStream(item), idx * 180);
+        });
+        if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 900 });
+        else setTimeout(run, 250);
+    }
+
     function delay(ms) {
         return new Promise(resolve => setTimeout(resolve, ms));
     }
@@ -5373,16 +5418,21 @@
             setCctvLoading(true, 'ITS 영상주소를 확인하고 있습니다.');
         }
 
-        const freshPromise = fetchFreshItsCctv(item).catch((e) => {
-            console.warn('ITS 최신 영상주소 확인 실패', e);
-            return null;
-        });
+        const cacheAge = cached && cached.savedAt ? (Date.now() - Number(cached.savedAt)) : Infinity;
+        const hasRecentPlayableCache = !!(cached && cached.url && cacheAge < ITS_WARMUP_CACHE_FRESH_MS);
+        // 최근 주소가 있으면 우선 영상 연결에 대역폭을 몰아주고, 주소 갱신은 3.5초 뒤 백그라운드에서 처리합니다.
+        // 캐시가 없거나 오래됐을 때만 최신 주소 요청을 즉시 시작합니다.
+        const freshPromise = (hasRecentPlayableCache ? delay(3500) : Promise.resolve())
+            .then(() => fetchFreshItsCctvShared(item))
+            .catch((e) => {
+                console.warn('ITS 최신 영상주소 확인 실패', e);
+                return null;
+            });
 
-        // 약 1.2초 안에 최신 HLS 주소가 오면 바로 교체합니다.
-        // 그 이후에는 현재 영상 재생을 막지 않고 백그라운드에서 주소만 최신화합니다.
-        const quickFresh = await Promise.race([
+        // 캐시가 없는 경우에만 짧게 최신 HLS 주소를 우선 확인합니다.
+        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
             freshPromise,
-            delay(1200).then(() => null)
+            delay(650).then(() => null)
         ]);
 
         const applyFresh = async (fresh) => {
@@ -5442,6 +5492,10 @@
             return `${a.area || ''} ${a.name || ''}`.localeCompare(`${b.area || ''} ${b.name || ''}`, 'ko');
         });
 
+        // 목록을 연 직후 상단 ITS CCTV 몇 개의 최신 스트림 주소를 미리 캐시합니다.
+        // 사용자가 누를 때 API 재조회 대기시간을 줄이기 위한 백그라운드 작업입니다.
+        warmVisibleItsCctvStreams(data);
+
         container.innerHTML = '';
         if (!data.length) {
             container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">조건에 맞는 CCTV가 없습니다.</div>`;
@@ -5494,6 +5548,8 @@
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
+            // 손가락을 대는 순간 최신 주소 갱신을 시작해 클릭 전 수백 ms를 확보합니다.
+            if (c.source === 'ITS') card.addEventListener('pointerdown', () => prewarmItsCctvStream(c), { passive:true });
             card.onclick = () => handleCctvCardClick(c);
             card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '세종청'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${getCctvSectorLabel(sector)} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
