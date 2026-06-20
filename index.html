@@ -4271,6 +4271,29 @@
             });
         }
 
+        // 최근 목록은 세종특별자치시 관련 발효(발표)·해제 통보만 별도로 표시합니다.
+        // 상단 관할(세종청/북부서/남부서)과 무관하게 세종 전역 통보를 공통으로 보여줍니다.
+        function specialRecordText(item) {
+            return typeof item === 'string'
+                ? item
+                : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`;
+        }
+
+        function isSejongHistorySpecial(item) {
+            const text = specialRecordText(item);
+            if (!/(?:세종특별자치시|세종시|세종)/.test(text)) return false;
+            // 기상청 목록에는 보통 “발표”로 표기되므로 발효와 함께 처리합니다.
+            return /(발표|발효|해제)/.test(text);
+        }
+
+        function displaySejongHistoryRegion(item) {
+            const region = extractSpecialRegion(item);
+            if (!region || region === '지역 정보 확인중' || region === '지역 정보 없음') {
+                return '세종특별자치시';
+            }
+            return region;
+        }
+
         function buildUrl(path, params = {}) {
             const url = new URL(API_BASE + path);
             url.searchParams.set('serviceKey', SERVICE_KEY);
@@ -4344,12 +4367,16 @@
             return data;
         }
 
-        function renderSpecial({ sourceName, latestTime, sejongTexts, allTexts, listItems }) {
+        function renderSpecial({ sourceName, latestTime, sejongTexts, allTexts, listItems, historyItems }) {
             const scopeLabel = getSpecialScopeLabel();
             const scopedSejongTexts = filterSpecialListByScope(sejongTexts || []);
             const scopedAllTexts = filterSpecialListByScope(allTexts || []);
             const scopedListItems = filterSpecialListByScope(listItems || [])
                 .filter(item => !isReleasedSpecial(item));
+            // 최근 기상특보 목록은 세종 발효(발표)·해제 통보만 남깁니다.
+            const sejongHistoryItems = (historyItems || [])
+                .filter(isSejongHistorySpecial)
+                .sort((a, b) => String(b.tmFc || b.tmEf || b.time || '').localeCompare(String(a.tmFc || a.tmEf || a.time || '')));
             const alertName = scopedSejongTexts.map(findAlertName).find(Boolean);
             const hasSejongAlert = !!alertName;
 
@@ -4387,18 +4414,18 @@
             }
 
             let recentHtml = '';
-            if (scopedListItems && scopedListItems.length > 0) {
-                recentHtml = scopedListItems.slice(0, 5).map(item => {
+            if (sejongHistoryItems.length > 0) {
+                recentHtml = sejongHistoryItems.slice(0, 8).map(item => {
                     if (typeof item === 'string') {
-                        return `📌 ${item}<br><span style="color:var(--sub); font-size:12px;">지역: ${extractSpecialRegion(item)}</span>`;
+                        return `📌 ${item}<br><span style="color:var(--sub); font-size:12px;">지역: ${displaySejongHistoryRegion(item)}</span>`;
                     }
                     const title = item.title || itemText(item) || '제목 없음';
                     const tmFc = formatKmaTime(item.tmFc || item.tmEf || item.time);
-                    const region = extractSpecialRegion(item);
+                    const region = displaySejongHistoryRegion(item);
                     return `📌 ${title}<br><span style="color:var(--sub); font-size:12px;">지역: ${region}<br>발표시간: ${tmFc}</span>`;
                 }).join('<br><br>');
             } else {
-                recentHtml = `<span style="color:var(--sub);">${scopeLabel} 관련 최근 발표·유지 특보 없음</span>`;
+                recentHtml = `<span style="color:var(--sub);">세종특별자치시 최근 발효·해제 특보 없음</span>`;
             }
 
             contentEl.innerHTML = `
@@ -4418,7 +4445,7 @@
                 <div class="info-group">
                     <span class="info-label">최근 기상특보 목록</span>
                     <div class="info-val content">${recentHtml}</div>
-                    <div style="font-size:10px; color:var(--sub); margin-top:5px;">※ 현재 발효 중인 특보만 표시</div>
+                    <div style="font-size:10px; color:var(--sub); margin-top:5px;">※ 세종특별자치시 발효(발표)·해제 특보만 표시</div>
                 </div>
                 <div style="font-size:10px; color:var(--sub); margin-top:8px; text-align:right;">
                     출처: ${sourceName}
@@ -4505,7 +4532,8 @@
                     latestTime: rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime(),
                     sejongTexts: [],
                     allTexts: [],
-                    listItems: []
+                    listItems: [],
+                    historyItems: rawListItems
                 });
                 return;
             }
@@ -4515,8 +4543,9 @@
                 latestTime: rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime(),
                 sejongTexts,
                 allTexts,
-                // 최근 목록도 현재 발효 상태인 항목만 사용합니다.
-                listItems: activeStatusItems
+                // 현재 특보현황은 현재 발효 상태만, 최근 목록은 세종 발효·해제 통보 이력만 표시합니다.
+                listItems: activeStatusItems,
+                historyItems: rawListItems
             });
         }
 
@@ -4557,7 +4586,8 @@
                 latestTime,
                 sejongTexts,
                 allTexts: warnings,
-                listItems: warnings.filter(item => !isReleasedSpecial(item))
+                listItems: warnings.filter(item => !isReleasedSpecial(item)),
+                historyItems: []
             });
         }
 
