@@ -4147,23 +4147,102 @@
             return `${y}-${m}-${day} ${h}:${min}`;
         }
 
+        function cleanSpecialRegion(value) {
+            const text = cleanText(value)
+                .replace(/^[oO•·\-\s]+/, '')
+                .replace(/\b(?:발표시간|발효시각|특보번호|제\s*\d+[\-–]\d+호)\b.*$/i, '')
+                .replace(/[\[\]{}]/g, '')
+                .trim();
+            if (!text) return '';
+            if (/^(?:전국|전국\s*일부|해당\s*없음|없음|\*)$/.test(text)) return text;
+            return text.length > 120 ? text.slice(0, 120) + '…' : text;
+        }
+
+        function isReleasedSpecial(item) {
+            const t = typeof item === 'string'
+                ? String(item)
+                : `${item?.title || ''} ${item?.__detailText || ''} ${itemText(item)}`;
+            return /(호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|태풍|폭풍해일|지진해일)?\s*(?:주의보|경보)?\s*해제|특보\s*해제|해제\s*(?:됨|되었|완료)?|특보\s*종료|발효\s*해제|취소/.test(t);
+        }
+
+        function extractSpecialRegionFromText(rawText) {
+            const text = cleanText(rawText);
+            if (!text) return '';
+
+            // 기상특보 통보문에서 가장 흔한 형식: "호우주의보 : 세종특별자치시 ..."
+            const warningParts = [];
+            const warningRe = /(?:o\s*)?(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)?\s*(?:주의보|경보)\s*[:：]\s*([\s\S]*?)(?=\s*(?:o\s*)?(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)?\s*(?:주의보|경보)\s*[:：]|$)/g;
+            let m;
+            while ((m = warningRe.exec(text)) !== null) {
+                const region = cleanSpecialRegion(m[1]);
+                if (region) warningParts.push(region);
+            }
+            if (warningParts.length) return [...new Set(warningParts)].join(' / ');
+
+            const labeled = text.match(/(?:발효\s*지역|해당\s*지역|특보\s*구역|지역)\s*[:：]\s*([^\n\r]+?)(?=(?:\s{2,}|발표시간|발효시각|$))/i);
+            if (labeled?.[1]) return cleanSpecialRegion(labeled[1]);
+
+            // 지역명이 통보문 안에 포함된 경우, 알림 이름과 시간값을 제외한 지역 토막을 사용
+            const hit = text.match(/((?:세종특별자치시|세종시|서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|대전광역시|울산광역시|제주특별자치도|강원특별자치도|전북특별자치도|경기도|강원도|충청북도|충청남도|전라남도|경상북도|경상남도)[^\n\r]*?)(?=\s*(?:발표시간|발효시각|제\s*\d+[\-–]\d+호|\d{4}[.\-]\d{2}[.\-]\d{2}|$))/);
+            return hit?.[1] ? cleanSpecialRegion(hit[1]) : '';
+        }
+
         function extractSpecialRegion(item) {
             if (!item || typeof item === 'string') {
-                const t = String(item || '');
-                const seg = t.split(':')[0] || '';
-                return cleanText(seg.replace(/(호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|태풍|폭풍해일|지진해일)(주의보|경보).*/, '')) || '지역 정보 없음';
+                const fromText = extractSpecialRegionFromText(String(item || ''));
+                return fromText || '지역 정보 확인중';
             }
+            if (item.__detailRegion) return item.__detailRegion;
             const regionKeys = ['region', 'area', 'areaName', 'regName', 'regUp', 'regUpKo', 'target', 'stnKo', 'wrnArea', 'loc', 'location'];
             for (const k of regionKeys) {
-                if (item[k]) return cleanText(item[k]);
+                if (item[k]) {
+                    const region = cleanSpecialRegion(item[k]);
+                    if (region) return region;
+                }
             }
-            const vals = Object.entries(item)
-                .filter(([k, v]) => v !== null && v !== undefined && !/^tm|seq|stn|num|code|cnt$/i.test(k))
-                .map(([k, v]) => cleanText(v))
-                .filter(Boolean);
-            const hit = vals.find(v => /세종|대전|충남|충북|서울|경기|강원|전북|전남|경북|경남|제주|울산|부산|대구|광주|인천|독도|흑산도|홍도/.test(v));
-            if (hit) return hit.length > 80 ? hit.slice(0, 80) + '…' : hit;
-            return '지역 정보 없음';
+            const fromDetail = extractSpecialRegionFromText(item.__detailText || '');
+            if (fromDetail) return fromDetail;
+            const fromItem = extractSpecialRegionFromText(itemText(item));
+            return fromItem || '지역 정보 확인중';
+        }
+
+        function normalizeSpecialTime(value) {
+            return String(value || '').replace(/[^0-9]/g, '').slice(0, 12);
+        }
+
+        function specialNoticeNumber(value) {
+            const m = String(value || '').match(/제\s*\d{1,2}[\-–]\d{1,3}\s*호/);
+            return m ? m[0].replace(/\s+/g, '') : '';
+        }
+
+        function buildSpecialDetailIndex(messageItems) {
+            const byTime = new Map();
+            const byNo = new Map();
+            (messageItems || []).forEach(item => {
+                const detailText = itemText(item);
+                const region = extractSpecialRegionFromText(detailText);
+                if (!region) return;
+                const timeKey = normalizeSpecialTime(item.tmFc || item.tmEf || item.tmSeq || item.time);
+                const no = specialNoticeNumber(detailText);
+                const record = { region, detailText };
+                if (timeKey && !byTime.has(timeKey)) byTime.set(timeKey, record);
+                if (no && !byNo.has(no)) byNo.set(no, record);
+            });
+            return { byTime, byNo };
+        }
+
+        function attachSpecialDetail(item, detailIndex) {
+            const clone = { ...(item || {}) };
+            const timeKey = normalizeSpecialTime(clone.tmFc || clone.tmEf || clone.tmSeq || clone.time);
+            const title = clone.title || itemText(clone);
+            const byTime = timeKey ? detailIndex?.byTime?.get(timeKey) : null;
+            const byNo = specialNoticeNumber(title) ? detailIndex?.byNo?.get(specialNoticeNumber(title)) : null;
+            const hit = byTime || byNo;
+            if (hit) {
+                clone.__detailRegion = hit.region;
+                clone.__detailText = hit.detailText;
+            }
+            return clone;
         }
 
         function getSpecialScopeLabel() {
@@ -4176,7 +4255,7 @@
             if (!station) return true;
             const names = station === '북부서' ? NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES) : SOUTH_FULL_NAMES;
             const t = String(text || '');
-            if (names.some(n => t.includes(n) || t.includes(n.replace(/(읍|면|동)$/,'')))) return true;
+            if (names.some(n => t.includes(n) || t.includes(n.replace(/(읍|면|동)$/, '')))) return true;
             // 세종시 전역으로 발효된 특보는 북부서·남부서 모두에 해당
             if (t.includes('세종') && !NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES, SOUTH_FULL_NAMES).some(n => t.includes(n))) return true;
             return false;
@@ -4184,7 +4263,12 @@
 
         function filterSpecialListByScope(items) {
             if (!Array.isArray(items)) return [];
-            return items.filter(item => specialTextMatchesScope(typeof item === 'string' ? item : itemText(item)));
+            return items.filter(item => {
+                const text = typeof item === 'string'
+                    ? item
+                    : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`;
+                return specialTextMatchesScope(text);
+            });
         }
 
         function buildUrl(path, params = {}) {
@@ -4264,7 +4348,8 @@
             const scopeLabel = getSpecialScopeLabel();
             const scopedSejongTexts = filterSpecialListByScope(sejongTexts || []);
             const scopedAllTexts = filterSpecialListByScope(allTexts || []);
-            const scopedListItems = filterSpecialListByScope(listItems || []);
+            const scopedListItems = filterSpecialListByScope(listItems || [])
+                .filter(item => !isReleasedSpecial(item));
             const alertName = scopedSejongTexts.map(findAlertName).find(Boolean);
             const hasSejongAlert = !!alertName;
 
@@ -4308,12 +4393,12 @@
                         return `📌 ${item}<br><span style="color:var(--sub); font-size:12px;">지역: ${extractSpecialRegion(item)}</span>`;
                     }
                     const title = item.title || itemText(item) || '제목 없음';
-                    const tmFc = formatKmaTime(item.tmFc);
+                    const tmFc = formatKmaTime(item.tmFc || item.tmEf || item.time);
                     const region = extractSpecialRegion(item);
                     return `📌 ${title}<br><span style="color:var(--sub); font-size:12px;">지역: ${region}<br>발표시간: ${tmFc}</span>`;
                 }).join('<br><br>');
             } else {
-                recentHtml = `<span style="color:var(--sub);">${scopeLabel} 관련 최근 기상특보 목록 없음</span>`;
+                recentHtml = `<span style="color:var(--sub);">${scopeLabel} 관련 최근 발표·유지 특보 없음</span>`;
             }
 
             contentEl.innerHTML = `
@@ -4346,20 +4431,28 @@
 
             let currentItems = [];
             let listItems = [];
-            let publicErrors = [];
+            let messageItems = [];
+            const publicErrors = [];
 
             const statusUrl = buildUrl('/getPwnStatus', { numOfRows: 300 });
             const listUrl = buildUrl('/getWthrWrnList', {
-                numOfRows: 80,
+                numOfRows: 100,
+                stnId: '133',
+                fromTmFc: yyyymmdd(from),
+                toTmFc: yyyymmdd(now)
+            });
+            // 통보문에는 특보 대상지역이 포함되어 있어 목록의 "지역 정보 없음"을 보완할 수 있음
+            const msgUrl = buildUrl('/getWthrWrnMsg', {
+                numOfRows: 300,
                 stnId: '133',
                 fromTmFc: yyyymmdd(from),
                 toTmFc: yyyymmdd(now)
             });
 
-            // 현재 특보현황과 최근 특보목록을 동시에 호출해 초기 표시 속도를 높임
-            const [statusResult, listResult] = await Promise.allSettled([
+            const [statusResult, listResult, msgResult] = await Promise.allSettled([
                 fetchJsonWithFallback(statusUrl),
-                fetchJsonWithFallback(listUrl)
+                fetchJsonWithFallback(listUrl),
+                fetchJsonWithFallback(msgUrl)
             ]);
 
             if (statusResult.status === 'fulfilled') {
@@ -4370,13 +4463,25 @@
 
             if (listResult.status === 'fulfilled') {
                 listItems = normalizeItems(listResult.value);
-                listItems.sort((a, b) => String(b.tmFc || '').localeCompare(String(a.tmFc || '')));
             } else {
                 publicErrors.push('특보목록: ' + (listResult.reason?.message || listResult.reason));
             }
 
+            if (msgResult.status === 'fulfilled') {
+                messageItems = normalizeItems(msgResult.value);
+            } else {
+                publicErrors.push('특보통보문: ' + (msgResult.reason?.message || msgResult.reason));
+            }
+
+            const detailIndex = buildSpecialDetailIndex(messageItems);
+            const rawListItems = listItems
+                .map(item => attachSpecialDetail(item, detailIndex))
+                .sort((a, b) => String(b.tmFc || b.tmEf || '').localeCompare(String(a.tmFc || a.tmEf || '')));
+            // 해제·종료 통보는 최근 목록에서 완전히 제외
+            listItems = rawListItems.filter(item => !isReleasedSpecial(item));
+
             const currentTexts = currentItems.map(itemText).filter(Boolean);
-            const listTexts = listItems.map(itemText).filter(Boolean);
+            const listTexts = rawListItems.map(item => `${itemText(item)} ${item.__detailRegion || ''}`).filter(Boolean);
             const allTexts = [...currentTexts, ...listTexts];
             const sejongTexts = allTexts.filter(t => t.includes('세종'));
 
@@ -4386,7 +4491,7 @@
 
             renderSpecial({
                 sourceName: '공공데이터포털 기상청 기상특보 조회서비스',
-                latestTime: listItems[0]?.tmFc ? formatKmaTime(listItems[0].tmFc) : '확인불가',
+                latestTime: rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : '확인불가',
                 sejongTexts,
                 allTexts,
                 listItems
@@ -4430,7 +4535,7 @@
                 latestTime,
                 sejongTexts,
                 allTexts: warnings,
-                listItems: warnings
+                listItems: warnings.filter(item => !isReleasedSpecial(item))
             });
         }
 
