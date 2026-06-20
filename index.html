@@ -5233,7 +5233,7 @@
             video.style.display = 'block';
         }
         if (modal) modal.style.display = 'block';
-        setCctvLoading(true, '영상 주소를 확인하고 있습니다.');
+        setCctvLoading(true, '저장된 ITS 영상에 먼저 연결하고 있습니다.');
     }
 
     function closeCctvPlayer() {
@@ -5257,6 +5257,8 @@
         window.__itsCctvRequestToken = '';
         window.__itsCctvActiveToken = '';
         window.__itsCctvPlaybackReadyToken = '';
+        window.__itsCctvForceRefresh = null;
+        window.__itsCctvForceRefreshUsed = false;
         if (modal) modal.style.display = 'none';
     }
 
@@ -5349,12 +5351,12 @@
         video.pause();
         video.removeAttribute('src');
         video.load();
-        setCctvLoading(true, 'ITS 영상에 연결하고 있습니다.');
+        setCctvLoading(true, 'ITS 영상에 바로 연결하고 있습니다.');
 
         const markPlaying = () => {
             window.__itsCctvPlaybackReadyToken = window.__itsCctvActiveToken || '';
             setCctvLoading(false);
-            setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+            setCctvPlaybackGuide('고속도로·국도 CCTV 영상 재생 중입니다.');
             safePlayCctvVideo(video);
         };
         // iPhone Safari는 live HLS에서 canplay 이벤트가 늦게 와도 메타데이터·첫 프레임은 먼저 받는 경우가 많습니다.
@@ -5373,7 +5375,9 @@
         video.onloadeddata = revealOnMetadata;
         video.onplaying = markPlaying;
         video.onerror = () => {
-            markRetrying('ITS 영상주소를 다시 확인하고 있습니다.');
+            markRetrying('저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
+            // 저장된 주소가 만료된 경우 1초 이상 기다리지 않고 즉시 최신 주소를 다시 확인합니다.
+            if (typeof window.__itsCctvForceRefresh === 'function') window.__itsCctvForceRefresh();
         };
 
         const hlsStream = isHlsUrl(url, format);
@@ -5399,10 +5403,10 @@
                 enableWorker: true,
                 lowLatencyMode: false,
                 startPosition: -1,
-                liveSyncDurationCount: 4,
-                liveMaxLatencyDurationCount: 12,
-                maxBufferLength: 20,
-                backBufferLength: 10,
+                liveSyncDurationCount: 2,
+                liveMaxLatencyDurationCount: 6,
+                maxBufferLength: 8,
+                backBufferLength: 6,
                 manifestLoadingTimeOut: 9000,
                 levelLoadingTimeOut: 9000,
                 fragLoadingTimeOut: 12000,
@@ -5550,7 +5554,7 @@
             const url = buildItsCctvUrlForPoint(item, type, cctvType);
             if (!url) throw new Error('invalid bounds');
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 2800);
+            const timer = setTimeout(() => controller.abort(), 1900);
             try {
                 const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -5588,7 +5592,7 @@
     }
 
     const ITS_FAST_STREAM_CACHE_PREFIX = 'sejongPoliceItsFastStream:v1:';
-    const ITS_FAST_STREAM_CACHE_TTL = 20 * 60 * 1000;
+    const ITS_FAST_STREAM_CACHE_TTL = 6 * 60 * 1000;
 
     function getItsFastStreamCacheKey(item = {}) {
         return `${ITS_FAST_STREAM_CACHE_PREFIX}${String(item.id || item.cctvid || item.name || '').trim()}|${String(item.coordx || item.x || '')}|${String(item.coordy || item.y || '')}`;
@@ -5619,7 +5623,7 @@
     }
 
     const itsFreshRequestPool = new Map();
-    const ITS_WARMUP_CACHE_FRESH_MS = 7 * 60 * 1000;
+    const ITS_WARMUP_CACHE_FRESH_MS = 2 * 60 * 1000;
 
     function fetchFreshItsCctvShared(item = {}) {
         const key = getItsFastStreamCacheKey(item);
@@ -5683,20 +5687,14 @@
 
         const cacheAge = cached && cached.savedAt ? (Date.now() - Number(cached.savedAt)) : Infinity;
         const hasRecentPlayableCache = !!(cached && cached.url && cacheAge < ITS_WARMUP_CACHE_FRESH_MS);
-        // 최근 주소가 있으면 우선 영상 연결에 대역폭을 몰아주고, 주소 갱신은 3.5초 뒤 백그라운드에서 처리합니다.
-        // 캐시가 없거나 오래됐을 때만 최신 주소 요청을 즉시 시작합니다.
-        const freshPromise = (hasRecentPlayableCache ? delay(3500) : Promise.resolve())
+        // 최근 주소는 즉시 재생하고, 최신 주소 갱신은 1.2초 후 시작합니다.
+        // 단, 기존 주소가 실패하면 video.onerror에서 이 대기시간을 건너뛰고 바로 최신 주소를 조회합니다.
+        const freshPromise = (hasRecentPlayableCache ? delay(1200) : Promise.resolve())
             .then(() => fetchFreshItsCctvShared(item))
             .catch((e) => {
                 console.warn('ITS 최신 영상주소 확인 실패', e);
                 return null;
             });
-
-        // 캐시가 없는 경우에만 짧게 최신 HLS 주소를 우선 확인합니다.
-        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
-            freshPromise,
-            delay(650).then(() => null)
-        ]);
 
         const applyFresh = async (fresh) => {
             if (!fresh || !fresh.url || window.__itsCctvRequestToken !== requestToken) return;
@@ -5709,6 +5707,23 @@
             }
         };
 
+        // iPhone에서 오래된 HLS 주소가 실패할 때 기다리지 않도록 즉시 재검증 함수를 연결합니다.
+        window.__itsCctvForceRefreshUsed = false;
+        window.__itsCctvForceRefresh = () => {
+            if (window.__itsCctvForceRefreshUsed || window.__itsCctvRequestToken !== requestToken) return;
+            window.__itsCctvForceRefreshUsed = true;
+            setCctvLoading(true, '저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
+            fetchFreshItsCctvShared(item)
+                .then(applyFresh)
+                .catch(() => setCctvPlaybackGuide('ITS 최신 영상 확인이 지연되고 있습니다. 잠시 후 재생 다시 시도를 눌러주세요.'));
+        };
+
+        // 캐시가 없거나 2분 이상 지난 캐시만 짧게 최신 HLS를 먼저 확인합니다.
+        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
+            freshPromise,
+            delay(420).then(() => null)
+        ]);
+
         if (quickFresh) {
             await applyFresh(quickFresh);
             return;
@@ -5718,7 +5733,7 @@
         freshPromise.then(applyFresh);
 
         if (!initial || !initial.url) {
-            setCctvLoading(true, 'ITS 영상주소를 계속 확인하고 있습니다.');
+            setCctvLoading(true, 'ITS 영상주소를 확인하고 있습니다.');
         }
     }
 
