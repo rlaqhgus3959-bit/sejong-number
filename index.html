@@ -860,13 +860,13 @@
     }
 
     const firebaseConfig = {
-        apiKey: "AIzaSyC4pyfcbxQu7ggpju9pAn-bJiRMDVKsRrc",
-        authDomain: "ansim-doghaeng.firebaseapp.com",
-        databaseURL: "https://ansim-doghaeng-default-rtdb.asia-southeast1.firebasedatabase.app",
-        projectId: "ansim-doghaeng",
-        storageBucket: "ansim-doghaeng.firebasestorage.app",
-        messagingSenderId: "969921301114",
-        appId: "1:969921301114:web:bca669fd35a914a84f89c3"
+        apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
+        authDomain: "shut-down-80255.firebaseapp.com",
+        databaseURL: "https://shut-down-80255-default-rtdb.firebaseio.com",
+        projectId: "shut-down-80255",
+        storageBucket: "shut-down-80255.firebasestorage.app",
+        messagingSenderId: "620282815079",
+        appId: "1:620282815079:web:bd561b5a00483e94fdaac2"
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
@@ -2157,37 +2157,37 @@
     }
 
     const SOUTH_ROAD_CONTROL_ITEMS = [
-        // 기존 등록 5개소
         { id:'south-flood-road-1', station:'남부서', grade:'가', type:'하상도로', area:'감성동', addr:'감성동 74 (1번 국도 아래 교차로)', name:'감성교차로 하상도로', status:0 },
         { id:'south-flood-road-2', station:'남부서', grade:'가', type:'기타', area:'장군면', addr:'장군면 금암리 387', name:'한국영상대 진입로', status:0 },
         { id:'south-flood-road-3', station:'남부서', grade:'가', type:'기타', area:'금남면', addr:'금남면 남곡리 584', name:'(구)에보리선데이, 금강사우나 앞', status:0 },
         { id:'south-flood-road-4', station:'남부서', grade:'가', type:'기타', area:'금남면', addr:'금남면 남곡리 571', name:'부용창고', status:0 },
         { id:'south-flood-road-5', station:'남부서', grade:'나', type:'96지방도', area:'가람동', addr:'가람동 974', name:'송암교 밑 금송로', status:0 },
 
-        // 남부서 지하차도 침수 취약구간 17개소
-        { id:'south-underpass-daepyeong', station:'남부서', type:'지하차도', area:'대평동', addr:'대평동 269-66', name:'대평 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-mirae', station:'남부서', type:'지하차도', area:'대평동', addr:'대평동 264-11', name:'미래 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-horyeoul', station:'남부서', type:'지하차도', area:'보람동', addr:'보람동 702', name:'호려울 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-jochun', station:'남부서', type:'지하차도', area:'아름동', addr:'아름동 802', name:'조촌 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-soreubit', station:'남부서', type:'지하차도', area:'반곡동', addr:'반곡동 831', name:'소르빛 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-jiphyeon', station:'남부서', type:'지하차도', area:'집현동', addr:'집현동 1366', name:'집현 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-naritjae', station:'남부서', type:'지하차도', area:'나성동', addr:'나성동 726', name:'나릿재 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-areum', station:'남부서', type:'지하차도', area:'한솔동', addr:'한솔동 759', name:'아름 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-seonggeum', station:'남부서', type:'지하차도', area:'어진동', addr:'어진동 494', name:'성금 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-eojin', station:'남부서', type:'지하차도', area:'어진동', addr:'어진동 710', name:'어진 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-saerom', station:'남부서', type:'지하차도', area:'나성동', addr:'나성동 726', name:'새롬 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-sareum', station:'남부서', type:'지하차도', area:'나성동', addr:'나성동 143-9', name:'사름 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-saori', station:'남부서', type:'지하차도', area:'가람동', addr:'가람동 952', name:'사오리 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-goi', station:'남부서', type:'지하차도', area:'대평동', addr:'대평동 269-66', name:'고이 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-boram', station:'남부서', type:'지하차도', area:'대평동', addr:'대평동 264-11', name:'보람 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-orot', station:'남부서', type:'지하차도', area:'보람동', addr:'보람동 702', name:'오롯 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
-        { id:'south-underpass-saetnaedeul', station:'남부서', type:'지하차도', area:'집현동', addr:'집현동 622-2', name:'샛나들 지하차도', status:0, risk:'지하차도 침수 / 침수피해 예상 시 이동제한' },
+        // 남부권 지하차도 17개소
+        { id:'south-underpass-1', station:'남부서', grade:'가', type:'지하차도', area:'대평동', addr:'대평동 269-66', name:'대평 지하차도', status:0 },
+        { id:'south-underpass-2', station:'남부서', grade:'가', type:'지하차도', area:'대평동', addr:'대평동 264-11', name:'미래 지하차도', status:0 },
+        { id:'south-underpass-3', station:'남부서', grade:'가', type:'지하차도', area:'보람동', addr:'보람동 702', name:'호려울 지하차도', status:0 },
+        { id:'south-underpass-4', station:'남부서', grade:'가', type:'지하차도', area:'아름동', addr:'아름동 802', name:'첫솜 지하차도', status:0 },
+        { id:'south-underpass-5', station:'남부서', grade:'가', type:'지하차도', area:'반곡동', addr:'반곡동 831', name:'소담벌 지하차도', status:0 },
+        { id:'south-underpass-6', station:'남부서', grade:'가', type:'지하차도', area:'집현동', addr:'집현동 1366', name:'집현 지하차도', status:0 },
+        { id:'south-underpass-7', station:'남부서', grade:'가', type:'지하차도', area:'나성동', addr:'나성동 726', name:'나릿재 지하차도', status:0 },
+        { id:'south-underpass-8', station:'남부서', grade:'가', type:'지하차도', area:'화합동', addr:'화합동 759', name:'어울 지하차도', status:0 },
+        { id:'south-underpass-9', station:'남부서', grade:'가', type:'지하차도', area:'어진동', addr:'어진동 494', name:'성금 지하차도', status:0 },
+        { id:'south-underpass-10', station:'남부서', grade:'가', type:'지하차도', area:'어진동', addr:'어진동 710', name:'어진 지하차도', status:0 },
+        { id:'south-underpass-11', station:'남부서', grade:'가', type:'지하차도', area:'나성동', addr:'나성동 726', name:'새롬 지하차도', status:0 },
+        { id:'south-underpass-12', station:'남부서', grade:'가', type:'지하차도', area:'나성동', addr:'나성동 143-9', name:'사름 지하차도', status:0 },
+        { id:'south-underpass-13', station:'남부서', grade:'가', type:'지하차도', area:'가람동', addr:'가람동 952', name:'새로리 지하차도', status:0 },
+        { id:'south-underpass-14', station:'남부서', grade:'가', type:'지하차도', area:'대평동', addr:'대평동 269-66', name:'고이 지하차도', status:0 },
+        { id:'south-underpass-15', station:'남부서', grade:'가', type:'지하차도', area:'대평동', addr:'대평동 264-11', name:'보람 지하차도', status:0 },
+        { id:'south-underpass-16', station:'남부서', grade:'가', type:'지하차도', area:'보람동', addr:'보람동 702', name:'오롯 지하차도', status:0 },
+        { id:'south-underpass-17', station:'남부서', grade:'가', type:'지하차도', area:'집현동', addr:'집현동 622-2', name:'새나루 지하차도', status:0 },
 
-        // 인명피해 우려지역(침수우려 취약도로) 추가 4개소
-        { id:'south-human-risk-2-1-rain-storage', station:'남부서', type:'우수저류시설', area:'다정동', addr:'다정동 640', name:'2-1우수 저류시설', status:0, risk:'침수 / 차량 피해', manager:'시설관리사업소', barrier:'유', policeArea:'한솔지구대' },
-        { id:'south-human-risk-garam-crossing', station:'남부서', type:'도로', area:'가람동', addr:'가람동 66-7', name:'가람교차로', status:0, risk:'도로 침수 / 침수피해 예상 시 이동제한', manager:'도로관리사업소', barrier:'무', policeArea:'한솔지구대' },
-        { id:'south-human-risk-kdi-front', station:'남부서', type:'도로', area:'가람동', addr:'가람동 508-3', name:'한국개발연구원 앞', status:0, risk:'도로 침수 / 침수피해 예상 시 이동제한', manager:'도로관리사업소', barrier:'무', policeArea:'한솔지구대' },
-        { id:'south-human-risk-ansancheon-bridge', station:'남부서', type:'교량', area:'금남면', addr:'봉암리 64-3', name:'안산천 소교량', status:0, risk:'교량 침수 / 침수피해 예상 시 이동제한', manager:'금남면', barrier:'유', policeArea:'금남파출소' }
+        // 인명피해 우려지역 침수취약도로 5개소
+        { id:'south-risk-road-1', station:'남부서', grade:'가', type:'우수저류시설', area:'대평동', addr:'대평동 640', name:'2-1 우수저류시설', status:0 },
+        { id:'south-risk-road-2', station:'남부서', grade:'가', type:'도로', area:'가람동', addr:'가람동 66-7', name:'가람교차로', status:0 },
+        { id:'south-risk-road-3', station:'남부서', grade:'가', type:'도로', area:'가람동', addr:'가람동 508-3', name:'한국중부발전 앞', status:0 },
+        { id:'south-risk-road-4', station:'남부서', grade:'가', type:'교량', area:'봉암리', addr:'봉암리 64-3', name:'안산천 소교량', status:0 },
+        { id:'south-risk-road-5', station:'남부서', grade:'가', type:'도로', area:'감성리', addr:'감성리 74', name:'감성리 교차로', status:0 }
     ];
 
     const defaultData = [
@@ -5259,7 +5259,7 @@
             video.style.display = 'block';
         }
         if (modal) modal.style.display = 'block';
-        setCctvLoading(true, '저장된 ITS 영상에 먼저 연결하고 있습니다.');
+        setCctvLoading(true, '영상 주소를 확인하고 있습니다.');
     }
 
     function closeCctvPlayer() {
@@ -5283,8 +5283,6 @@
         window.__itsCctvRequestToken = '';
         window.__itsCctvActiveToken = '';
         window.__itsCctvPlaybackReadyToken = '';
-        window.__itsCctvForceRefresh = null;
-        window.__itsCctvForceRefreshUsed = false;
         if (modal) modal.style.display = 'none';
     }
 
@@ -5377,12 +5375,12 @@
         video.pause();
         video.removeAttribute('src');
         video.load();
-        setCctvLoading(true, 'ITS 영상에 바로 연결하고 있습니다.');
+        setCctvLoading(true, 'ITS 영상에 연결하고 있습니다.');
 
         const markPlaying = () => {
             window.__itsCctvPlaybackReadyToken = window.__itsCctvActiveToken || '';
             setCctvLoading(false);
-            setCctvPlaybackGuide('고속도로·국도 CCTV 영상 재생 중입니다.');
+            setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
             safePlayCctvVideo(video);
         };
         // iPhone Safari는 live HLS에서 canplay 이벤트가 늦게 와도 메타데이터·첫 프레임은 먼저 받는 경우가 많습니다.
@@ -5401,9 +5399,7 @@
         video.onloadeddata = revealOnMetadata;
         video.onplaying = markPlaying;
         video.onerror = () => {
-            markRetrying('저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
-            // 저장된 주소가 만료된 경우 1초 이상 기다리지 않고 즉시 최신 주소를 다시 확인합니다.
-            if (typeof window.__itsCctvForceRefresh === 'function') window.__itsCctvForceRefresh();
+            markRetrying('ITS 영상주소를 다시 확인하고 있습니다.');
         };
 
         const hlsStream = isHlsUrl(url, format);
@@ -5429,10 +5425,10 @@
                 enableWorker: true,
                 lowLatencyMode: false,
                 startPosition: -1,
-                liveSyncDurationCount: 2,
-                liveMaxLatencyDurationCount: 6,
-                maxBufferLength: 8,
-                backBufferLength: 6,
+                liveSyncDurationCount: 4,
+                liveMaxLatencyDurationCount: 12,
+                maxBufferLength: 20,
+                backBufferLength: 10,
                 manifestLoadingTimeOut: 9000,
                 levelLoadingTimeOut: 9000,
                 fragLoadingTimeOut: 12000,
@@ -5580,7 +5576,7 @@
             const url = buildItsCctvUrlForPoint(item, type, cctvType);
             if (!url) throw new Error('invalid bounds');
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 1900);
+            const timer = setTimeout(() => controller.abort(), 2800);
             try {
                 const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -5618,7 +5614,7 @@
     }
 
     const ITS_FAST_STREAM_CACHE_PREFIX = 'sejongPoliceItsFastStream:v1:';
-    const ITS_FAST_STREAM_CACHE_TTL = 6 * 60 * 1000;
+    const ITS_FAST_STREAM_CACHE_TTL = 20 * 60 * 1000;
 
     function getItsFastStreamCacheKey(item = {}) {
         return `${ITS_FAST_STREAM_CACHE_PREFIX}${String(item.id || item.cctvid || item.name || '').trim()}|${String(item.coordx || item.x || '')}|${String(item.coordy || item.y || '')}`;
@@ -5649,7 +5645,7 @@
     }
 
     const itsFreshRequestPool = new Map();
-    const ITS_WARMUP_CACHE_FRESH_MS = 2 * 60 * 1000;
+    const ITS_WARMUP_CACHE_FRESH_MS = 7 * 60 * 1000;
 
     function fetchFreshItsCctvShared(item = {}) {
         const key = getItsFastStreamCacheKey(item);
@@ -5713,14 +5709,20 @@
 
         const cacheAge = cached && cached.savedAt ? (Date.now() - Number(cached.savedAt)) : Infinity;
         const hasRecentPlayableCache = !!(cached && cached.url && cacheAge < ITS_WARMUP_CACHE_FRESH_MS);
-        // 최근 주소는 즉시 재생하고, 최신 주소 갱신은 1.2초 후 시작합니다.
-        // 단, 기존 주소가 실패하면 video.onerror에서 이 대기시간을 건너뛰고 바로 최신 주소를 조회합니다.
-        const freshPromise = (hasRecentPlayableCache ? delay(1200) : Promise.resolve())
+        // 최근 주소가 있으면 우선 영상 연결에 대역폭을 몰아주고, 주소 갱신은 3.5초 뒤 백그라운드에서 처리합니다.
+        // 캐시가 없거나 오래됐을 때만 최신 주소 요청을 즉시 시작합니다.
+        const freshPromise = (hasRecentPlayableCache ? delay(3500) : Promise.resolve())
             .then(() => fetchFreshItsCctvShared(item))
             .catch((e) => {
                 console.warn('ITS 최신 영상주소 확인 실패', e);
                 return null;
             });
+
+        // 캐시가 없는 경우에만 짧게 최신 HLS 주소를 우선 확인합니다.
+        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
+            freshPromise,
+            delay(650).then(() => null)
+        ]);
 
         const applyFresh = async (fresh) => {
             if (!fresh || !fresh.url || window.__itsCctvRequestToken !== requestToken) return;
@@ -5733,23 +5735,6 @@
             }
         };
 
-        // iPhone에서 오래된 HLS 주소가 실패할 때 기다리지 않도록 즉시 재검증 함수를 연결합니다.
-        window.__itsCctvForceRefreshUsed = false;
-        window.__itsCctvForceRefresh = () => {
-            if (window.__itsCctvForceRefreshUsed || window.__itsCctvRequestToken !== requestToken) return;
-            window.__itsCctvForceRefreshUsed = true;
-            setCctvLoading(true, '저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
-            fetchFreshItsCctvShared(item)
-                .then(applyFresh)
-                .catch(() => setCctvPlaybackGuide('ITS 최신 영상 확인이 지연되고 있습니다. 잠시 후 재생 다시 시도를 눌러주세요.'));
-        };
-
-        // 캐시가 없거나 2분 이상 지난 캐시만 짧게 최신 HLS를 먼저 확인합니다.
-        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
-            freshPromise,
-            delay(420).then(() => null)
-        ]);
-
         if (quickFresh) {
             await applyFresh(quickFresh);
             return;
@@ -5759,7 +5744,7 @@
         freshPromise.then(applyFresh);
 
         if (!initial || !initial.url) {
-            setCctvLoading(true, 'ITS 영상주소를 확인하고 있습니다.');
+            setCctvLoading(true, 'ITS 영상주소를 계속 확인하고 있습니다.');
         }
     }
 
