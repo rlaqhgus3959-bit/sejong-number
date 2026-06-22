@@ -595,6 +595,8 @@
         .manpower-cell-btn.editable:active { background:rgba(0,122,255,.12); transform:scale(.98); }
         .manpower-cell-btn.sum { background:rgba(0,122,255,.045); }
         .manpower-value { display:block; font-size:13px; line-height:1.2; letter-spacing:-.45px; font-weight:900; color:var(--text); white-space:nowrap; }
+        .manpower-value.staff { line-height:1.04; }
+        .manpower-staff-role { display:block; margin-bottom:2px; color:var(--sub); font-size:8px; font-weight:800; letter-spacing:-.5px; line-height:1.05; white-space:nowrap; }
         .manpower-value.mobile { font-size:10px; letter-spacing:-.55px; }
         .manpower-edit-mark { display:none; margin-left:2px; color:var(--blue); font-size:8px; vertical-align:1px; }
         body.admin-mode .manpower-edit-mark { display:inline; }
@@ -617,6 +619,7 @@
             .manpower-label-cell { padding:0 5px !important; font-size:10px; }
             .manpower-cell-btn { min-height:37px; padding:5px 1px; }
             .manpower-value { font-size:12px; }
+            .manpower-staff-role { font-size:7px; }
             .manpower-value.mobile { font-size:9px; }
         }
 
@@ -2394,17 +2397,17 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
 
     const manpowerDefaultData = [
-        { id:'total', label:'총원', group:'총원', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-total', label:'계', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-guard', label:'경비', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-traffic', label:'교통', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-community', label:'지역경찰', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-intelligence', label:'정보', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-investigation', label:'수사', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-crime112', label:'범예(112)', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-admin', label:'경무', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'local-womenyouth', label:'여청', group:'자서', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
-        { id:'agency-total', label:'계', group:'청', mode:'staff', north:{ current:0, total:0 }, south:{ current:0, total:0 } },
+        { id:'total', label:'총원', group:'총원', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-total', label:'계', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-guard', label:'경비', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-traffic', label:'교통', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-community', label:'지역경찰', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-intelligence', label:'정보', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-investigation', label:'수사', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-crime112', label:'범예(112)', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-admin', label:'경무', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'local-womenyouth', label:'여청', group:'자서', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
+        { id:'agency-total', label:'계', group:'청', mode:'staff', north:{ chief:0, staff:0 }, south:{ chief:0, staff:0 } },
         { id:'agency-mobile', label:'기동대', group:'청', mode:'mobile', north:{ company:0, platoon:0, team:0 }, south:{ company:0, platoon:0, team:0 } },
         { id:'agency-riot', label:'광예대', group:'청', mode:'team', north:{ team:0 }, south:{ team:0 } }
     ];
@@ -5367,6 +5370,25 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         return JSON.parse(JSON.stringify(value));
     }
 
+    function normalizeManpowerSide(baseSide, foundSide, mode) {
+        const merged = { ...(baseSide || {}), ...((foundSide && typeof foundSide === 'object') ? foundSide : {}) };
+        if (mode === 'staff') {
+            // 이전 버전의 current/total 값도 부서장/부서원 값으로 이어받습니다.
+            return {
+                chief: cleanManpowerNumber(merged.chief ?? merged.current),
+                staff: cleanManpowerNumber(merged.staff ?? merged.total)
+            };
+        }
+        if (mode === 'mobile') {
+            return {
+                company: cleanManpowerNumber(merged.company),
+                platoon: cleanManpowerNumber(merged.platoon),
+                team: cleanManpowerNumber(merged.team)
+            };
+        }
+        return { team: cleanManpowerNumber(merged.team) };
+    }
+
     function normalizeManpowerData(raw) {
         const rows = Array.isArray(raw)
             ? raw.filter(Boolean)
@@ -5375,10 +5397,53 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const found = rows.find(item => String(item && item.id) === String(base.id)) || {};
             return {
                 ...base,
-                north: { ...base.north, ...((found && found.north) || {}) },
-                south: { ...base.south, ...((found && found.south) || {}) }
+                north: normalizeManpowerSide(base.north, found.north, base.mode),
+                south: normalizeManpowerSide(base.south, found.south, base.mode)
             };
         });
+    }
+
+    // 자서 계는 각 자서 기능 합계, 총원은 자서 합계와 청 계의 합계로 자동 산출합니다.
+    const MANPOWER_LOCAL_DETAIL_IDS = [
+        'local-guard', 'local-traffic', 'local-community', 'local-intelligence',
+        'local-investigation', 'local-crime112', 'local-admin', 'local-womenyouth'
+    ];
+    const MANPOWER_AUTO_TOTAL_IDS = ['local-total', 'total'];
+
+    function manpowerStaffValues(values) {
+        return {
+            chief: cleanManpowerNumber(values && (values.chief ?? values.current)),
+            staff: cleanManpowerNumber(values && (values.staff ?? values.total))
+        };
+    }
+
+    function sumManpowerStaffItems(ids, office) {
+        return ids.reduce((sum, id) => {
+            const source = getManpowerItem(id);
+            const values = manpowerStaffValues(source ? manpowerSide(source, office) : {});
+            sum.chief += values.chief;
+            sum.staff += values.staff;
+            return sum;
+        }, { chief:0, staff:0 });
+    }
+
+    function isAutoManpowerItem(item) {
+        return !!item && MANPOWER_AUTO_TOTAL_IDS.includes(String(item.id));
+    }
+
+    function manpowerViewItem(item) {
+        if (!item || !isAutoManpowerItem(item)) return item;
+        const view = { ...item, north:{ ...(item.north || {}) }, south:{ ...(item.south || {}) } };
+        ['north', 'south'].forEach(office => {
+            if (item.id === 'local-total') {
+                view[office] = sumManpowerStaffItems(MANPOWER_LOCAL_DETAIL_IDS, office);
+            } else if (item.id === 'total') {
+                const local = sumManpowerStaffItems(MANPOWER_LOCAL_DETAIL_IDS, office);
+                const agency = manpowerStaffValues(manpowerSide(getManpowerItem('agency-total') || {}, office));
+                view[office] = { chief: local.chief + agency.chief, staff: local.staff + agency.staff };
+            }
+        });
+        return view;
     }
 
     function saveManpowerItem(item) {
@@ -5430,9 +5495,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         if (item.mode === 'team') {
             return { team: cleanManpowerNumber(north.team) + cleanManpowerNumber(south.team) };
         }
+        const northStaff = manpowerStaffValues(north);
+        const southStaff = manpowerStaffValues(south);
         return {
-            current: cleanManpowerNumber(north.current) + cleanManpowerNumber(south.current),
-            total: cleanManpowerNumber(north.total) + cleanManpowerNumber(south.total)
+            chief: northStaff.chief + southStaff.chief,
+            staff: northStaff.staff + southStaff.staff
         };
     }
 
@@ -5444,7 +5511,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         if (item.mode === 'team') {
             return `<span class="manpower-value">${cleanManpowerNumber(values.team)}팀</span>`;
         }
-        return `<span class="manpower-value">${cleanManpowerNumber(values.current)}/${cleanManpowerNumber(values.total)}</span>`;
+        const staffValues = manpowerStaffValues(values);
+        return `<span class="manpower-value staff"><span class="manpower-staff-role">부서장/부서원</span>${staffValues.chief}/${staffValues.staff}</span>`;
     }
 
     function manpowerOfficeName(office) {
@@ -5452,13 +5520,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     function manpowerCell(item, office) {
+        const viewItem = manpowerViewItem(item);
         const isSum = office === 'all';
-        const editable = isAdmin && !isSum;
+        const isAuto = isAutoManpowerItem(item);
+        const editable = isAdmin && !isSum && !isAuto;
         const click = editable ? `onclick="openManpowerEditor('${item.id}', '${office}')"` : '';
-        const title = isSum ? '북부서와 남부서 합계' : `${manpowerOfficeName(office)} ${item.label} 설정`;
+        const title = isAuto ? '기능별 입력값으로 자동 합산됩니다.' : (isSum ? '북부서와 남부서 합계' : `${manpowerOfficeName(office)} ${item.label} 설정`);
         return `<td>
-            <button type="button" class="manpower-cell-btn ${editable ? 'editable' : ''} ${isSum ? 'sum' : ''}" ${click} title="${title}">
-                ${manpowerDisplay(item, office)}${editable ? '<span class="manpower-edit-mark"><i class="fas fa-pen"></i></span>' : ''}
+            <button type="button" class="manpower-cell-btn ${editable ? 'editable' : ''} ${isSum || isAuto ? 'sum' : ''}" ${click} title="${title}">
+                ${manpowerDisplay(viewItem, office)}${editable ? '<span class="manpower-edit-mark"><i class="fas fa-pen"></i></span>' : ''}
             </button>
         </td>`;
     }
@@ -5490,11 +5560,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         if (note) {
             if (globalScope === 'north') {
-                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서 경력 숫자를 누르면 수정할 수 있습니다.';
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서 경력 숫자를 누르면 수정할 수 있습니다. 자서 계·총원은 자동 합계입니다.';
             } else if (globalScope === 'south') {
-                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 남부서 경력 숫자를 누르면 수정할 수 있습니다.';
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 남부서 경력 숫자를 누르면 수정할 수 있습니다. 자서 계·총원은 자동 합계입니다.';
             } else {
-                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서·남부서 숫자를 누르면 수정할 수 있으며, 세종청은 두 기관 합계로 자동 표시됩니다.';
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서·남부서 숫자를 누르면 수정할 수 있으며, 자서 계·총원과 세종청은 자동 합계로 표시됩니다.';
             }
         }
 
@@ -5520,6 +5590,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         if (!['north','south'].includes(office)) return alert('세종청은 북부서와 남부서 합계로 자동 계산됩니다.');
         const item = getManpowerItem(id);
         if (!item) return alert('경력 정보를 찾을 수 없습니다.');
+        if (isAutoManpowerItem(item)) return alert('자서 계와 총원은 입력한 기능별 인원을 자동 합산하여 표시합니다.');
 
         editingManpowerId = item.id;
         window.__editingManpowerOffice = office;
@@ -5545,8 +5616,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             document.getElementById('manpower-team-select').innerHTML = makeManpowerOptions(100, values.team, '팀');
         } else {
             standardBox.style.display = 'block';
-            document.getElementById('manpower-current-select').innerHTML = makeManpowerOptions(100, values.current, '명');
-            document.getElementById('manpower-total-select').innerHTML = makeManpowerOptions(100, values.total, '명');
+            document.getElementById('manpower-current-select').innerHTML = makeManpowerOptions(100, values.chief ?? values.current, '명');
+            document.getElementById('manpower-total-select').innerHTML = makeManpowerOptions(100, values.staff ?? values.total, '명');
         }
 
         modal.style.display = 'flex';
@@ -5579,8 +5650,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         } else if (item.mode === 'team') {
             values.team = cleanManpowerNumber(document.getElementById('manpower-team-select').value);
         } else {
-            values.current = cleanManpowerNumber(document.getElementById('manpower-current-select').value);
-            values.total = cleanManpowerNumber(document.getElementById('manpower-total-select').value);
+            values.chief = cleanManpowerNumber(document.getElementById('manpower-current-select').value);
+            values.staff = cleanManpowerNumber(document.getElementById('manpower-total-select').value);
+            // 구버전 필드는 저장하지 않아 부서장/부서원 값과 혼동되지 않도록 합니다.
+            delete values.current;
+            delete values.total;
         }
         item[office] = values;
         // 우선 화면에 반영한 뒤, 해당 항목만 Firebase에 저장합니다.
@@ -6482,9 +6556,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         </div>
         <div class="manpower-modal-body">
             <div id="manpower-editor-standard">
-                <label class="manpower-editor-label" for="manpower-current-select">투입 인원</label>
+                <label class="manpower-editor-label" for="manpower-current-select">부서장</label>
                 <select id="manpower-current-select" class="manpower-editor-select"></select>
-                <label class="manpower-editor-label" for="manpower-total-select">정원</label>
+                <label class="manpower-editor-label" for="manpower-total-select">부서원</label>
                 <select id="manpower-total-select" class="manpower-editor-select"></select>
             </div>
             <div id="manpower-editor-mobile" style="display:none;">
