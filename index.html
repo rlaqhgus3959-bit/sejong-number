@@ -761,7 +761,7 @@
 
 <div class="accord-section" id="sec-cctv">
     <div class="accord-header" onclick="toggleSection('sec-cctv')">
-        <div class="ah-title">CCTV 현황</div>
+        <div class="ah-title"><i class="fas fa-video" style="color:var(--blue)"></i> CCTV 현황</div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
@@ -5214,6 +5214,15 @@
     let currentHls = null;
     let hlsRetryTimer = null;
     let hlsRecoveryCount = 0;
+    let cctvPlaybackGuardTimer = null;
+    let cctvPlaybackAttemptId = '';
+
+    function clearCctvPlaybackGuard() {
+        if (cctvPlaybackGuardTimer) {
+            clearTimeout(cctvPlaybackGuardTimer);
+            cctvPlaybackGuardTimer = null;
+        }
+    }
 
     function openCurrentCctvExternal() {
         if (currentCctvUrl) window.open(currentCctvUrl, '_blank', 'noopener,noreferrer');
@@ -5267,6 +5276,8 @@
         const video = document.getElementById('cctv-player-video');
         const frame = document.getElementById('cctv-player-frame');
         clearHlsRetryTimer();
+        clearCctvPlaybackGuard();
+        cctvPlaybackAttemptId = '';
         if (currentHls) { currentHls.destroy(); currentHls = null; }
         if (video) {
             video.onloadedmetadata = null;
@@ -5366,6 +5377,10 @@
         if (!modal || !video) return window.open(url, '_blank', 'noopener,noreferrer');
 
         clearHlsRetryTimer();
+        clearCctvPlaybackGuard();
+        const attemptId = `${url}|${Date.now()}`;
+        cctvPlaybackAttemptId = attemptId;
+
         resetCctvFrameDisplay();
         setCctvModalInfo(title, 'ITS 영상 재생', '영상 연결 중입니다.', '#34C759');
         modal.style.display = 'block';
@@ -5377,30 +5392,55 @@
         video.load();
         setCctvLoading(true, 'ITS 영상에 연결하고 있습니다.');
 
-        const markPlaying = () => {
+        const isCurrentAttempt = () => cctvPlaybackAttemptId === attemptId;
+        const finishSuccess = (guide = 'ITS CCTV 영상 재생 중입니다.') => {
+            if (!isCurrentAttempt()) return;
+            clearCctvPlaybackGuard();
             window.__itsCctvPlaybackReadyToken = window.__itsCctvActiveToken || '';
             setCctvLoading(false);
-            setCctvPlaybackGuide('ITS CCTV 영상 재생 중입니다.');
+            setCctvPlaybackGuide(guide);
             safePlayCctvVideo(video);
         };
-        // iPhone Safari는 live HLS에서 canplay 이벤트가 늦게 와도 메타데이터·첫 프레임은 먼저 받는 경우가 많습니다.
-        // 이 시점에 화면을 먼저 열어, 불필요하게 로딩 화면이 오래 남지 않도록 합니다.
-        const revealOnMetadata = () => {
-            if (window.__itsCctvRequestToken && window.__itsCctvActiveToken && window.__itsCctvRequestToken !== window.__itsCctvActiveToken) return;
+        const finishFailure = (guide = 'ITS 영상 연결에 실패했습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.') => {
+            if (!isCurrentAttempt()) return;
+            clearCctvPlaybackGuard();
             setCctvLoading(false);
-            setCctvPlaybackGuide('ITS CCTV 영상 재생 준비 중입니다.');
-            safePlayCctvVideo(video);
+            setCctvPlaybackGuide(guide);
+        };
+        const revealOnMetadata = () => {
+            if (!isCurrentAttempt()) return;
+            finishSuccess('ITS CCTV 영상 재생 준비 중입니다.');
         };
         const markRetrying = (message) => {
+            if (!isCurrentAttempt()) return;
             setCctvLoading(true, message || 'ITS 영상에 다시 연결하고 있습니다.');
             setCctvPlaybackGuide(message || 'ITS 영상에 다시 연결하고 있습니다.');
         };
-        video.oncanplay = markPlaying;
-        video.onloadeddata = revealOnMetadata;
-        video.onplaying = markPlaying;
-        video.onerror = () => {
-            markRetrying('ITS 영상주소를 다시 확인하고 있습니다.');
+        const requestFreshUrlOnce = () => {
+            if (!isCurrentAttempt()) return;
+            if (typeof window.__itsCctvForceRefresh === 'function' && !window.__itsCctvForceRefreshUsed) {
+                markRetrying('저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
+                window.__itsCctvForceRefresh();
+                return;
+            }
+            finishFailure();
         };
+
+        // iPhone Safari에서 스트림 이벤트가 오지 않으면 로딩을 끝내고 사용자가 다시 시도할 수 있게 합니다.
+        cctvPlaybackGuardTimer = setTimeout(() => {
+            if (!isCurrentAttempt()) return;
+            requestFreshUrlOnce();
+            setTimeout(() => {
+                if (isCurrentAttempt() && window.__itsCctvPlaybackReadyToken !== (window.__itsCctvActiveToken || '')) {
+                    finishFailure('ITS 영상 연결 시간이 초과되었습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.');
+                }
+            }, 6500);
+        }, 12000);
+
+        video.oncanplay = () => finishSuccess();
+        video.onloadeddata = revealOnMetadata;
+        video.onplaying = () => finishSuccess();
+        video.onerror = requestFreshUrlOnce;
 
         const hlsStream = isHlsUrl(url, format);
         const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('application/x-mpegURL');
@@ -5414,7 +5454,6 @@
             video.defaultMuted = true;
             video.muted = true;
             video.onloadedmetadata = revealOnMetadata;
-            // src 지정만으로 iOS가 즉시 manifest/segment 요청을 시작하므로, 별도 load() 호출로 재시작하지 않습니다.
             video.src = url;
             safePlayCctvVideo(video);
             return;
@@ -5437,17 +5476,17 @@
                 fragLoadingMaxRetry: 2
             });
             currentHls.on(Hls.Events.MEDIA_ATTACHED, () => currentHls && currentHls.loadSource(url));
-            currentHls.on(Hls.Events.MANIFEST_PARSED, markPlaying);
+            currentHls.on(Hls.Events.MANIFEST_PARSED, () => finishSuccess());
             currentHls.on(Hls.Events.ERROR, function(event, data) {
                 console.warn('ITS HLS 재생 오류', data);
-                if (!data || !data.fatal || !currentHls) return;
+                if (!data || !data.fatal || !currentHls || !isCurrentAttempt()) return;
 
                 if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryCount < 2) {
                     hlsRecoveryCount += 1;
                     markRetrying(`ITS 영상 재연결 중입니다. (${hlsRecoveryCount}/2)`);
                     clearHlsRetryTimer();
                     hlsRetryTimer = setTimeout(() => {
-                        if (currentHls) currentHls.startLoad(-1);
+                        if (currentHls && isCurrentAttempt()) currentHls.startLoad(-1);
                     }, 800 * hlsRecoveryCount);
                     return;
                 }
@@ -5457,16 +5496,14 @@
                     currentHls.recoverMediaError();
                     return;
                 }
-
-                setCctvLoading(false);
-                setCctvPlaybackGuide('ITS 영상 연결에 실패했습니다. 재생 다시 시도를 누르거나 외부창에서 확인하세요.');
+                requestFreshUrlOnce();
             });
             currentHls.attachMedia(video);
             return;
         }
 
         video.src = url;
-        video.onloadedmetadata = () => safePlayCctvVideo(video);
+        video.onloadedmetadata = revealOnMetadata;
         safePlayCctvVideo(video);
     }
 
@@ -5685,12 +5722,11 @@
             return;
         }
 
-        // 이전에는 ITS 최신주소 조회가 끝날 때까지 영상을 시작하지 않아 5~10초가 걸렸습니다.
-        // 이제는 최근 정상 주소(없으면 현재 저장 주소)를 즉시 재생하고, 최신 주소 조회는 뒤에서 병행합니다.
         const requestToken = `${item.id || item.name || ''}|${Date.now()}`;
         window.__itsCctvRequestToken = requestToken;
         window.__itsCctvActiveToken = requestToken;
         window.__itsCctvPlaybackReadyToken = '';
+        window.__itsCctvForceRefreshUsed = false;
 
         const cached = readItsFastStreamCache(item);
         const initial = cached && cached.url
@@ -5700,52 +5736,70 @@
         openItsLoadingModal(item.name || 'CCTV 재생');
 
         if (initial && initial.url) {
-            // 화면은 로딩 오버레이로 가리고, 재생 준비가 끝난 뒤에만 영상이 보이게 합니다.
-            // 따라서 오래된 주소가 실패해도 iPhone의 '재생 불가' 아이콘이 노출되지 않습니다.
             playCctvInModal(initial.url, item.name || initial.name || 'CCTV 재생', initial.cctvformat || initial.format || item.cctvformat || item.format || '');
         } else {
-            setCctvLoading(true, 'ITS 영상주소를 확인하고 있습니다.');
+            setCctvLoading(true, 'ITS 최신 영상주소를 확인하고 있습니다.');
         }
 
-        const cacheAge = cached && cached.savedAt ? (Date.now() - Number(cached.savedAt)) : Infinity;
-        const hasRecentPlayableCache = !!(cached && cached.url && cacheAge < ITS_WARMUP_CACHE_FRESH_MS);
-        // 최근 주소가 있으면 우선 영상 연결에 대역폭을 몰아주고, 주소 갱신은 3.5초 뒤 백그라운드에서 처리합니다.
-        // 캐시가 없거나 오래됐을 때만 최신 주소 요청을 즉시 시작합니다.
-        const freshPromise = (hasRecentPlayableCache ? delay(3500) : Promise.resolve())
-            .then(() => fetchFreshItsCctvShared(item))
+        const applyFresh = async (fresh) => {
+            if (!fresh || !fresh.url || window.__itsCctvRequestToken !== requestToken) return false;
+            writeItsFastStreamCache(item, fresh);
+            saveFreshItsCctv(item, fresh);
+            if (window.__itsCctvPlaybackReadyToken !== requestToken) {
+                playCctvInModal(
+                    fresh.url,
+                    item.name || fresh.name || 'CCTV 재생',
+                    fresh.cctvformat || fresh.format || item.cctvformat || item.format || ''
+                );
+            }
+            return true;
+        };
+
+        // iPhone에서 저장된 HLS 주소가 만료되면 한 번만 즉시 최신 주소를 받아 재생합니다.
+        window.__itsCctvForceRefresh = () => {
+            if (window.__itsCctvForceRefreshUsed || window.__itsCctvRequestToken !== requestToken) return;
+            window.__itsCctvForceRefreshUsed = true;
+            setCctvLoading(true, '저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
+            fetchFreshItsCctvShared(item)
+                .then(applyFresh)
+                .then((applied) => {
+                    if (!applied && window.__itsCctvRequestToken === requestToken) {
+                        setCctvLoading(false);
+                        setCctvPlaybackGuide('ITS 최신 영상주소를 찾지 못했습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.');
+                    }
+                })
+                .catch(() => {
+                    if (window.__itsCctvRequestToken === requestToken) {
+                        setCctvLoading(false);
+                        setCctvPlaybackGuide('ITS 최신 영상주소 확인에 실패했습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.');
+                    }
+                });
+        };
+
+        // 재생과 동시에 최신 주소를 확인합니다. 오래된 캐시를 3.5초 동안 기다리지 않습니다.
+        const freshPromise = fetchFreshItsCctvShared(item)
             .catch((e) => {
                 console.warn('ITS 최신 영상주소 확인 실패', e);
                 return null;
             });
 
-        // 캐시가 없는 경우에만 짧게 최신 HLS 주소를 우선 확인합니다.
-        const quickFresh = hasRecentPlayableCache ? null : await Promise.race([
+        const quickFresh = await Promise.race([
             freshPromise,
-            delay(650).then(() => null)
+            delay(900).then(() => null)
         ]);
-
-        const applyFresh = async (fresh) => {
-            if (!fresh || !fresh.url || window.__itsCctvRequestToken !== requestToken) return;
-            writeItsFastStreamCache(item, fresh);
-            saveFreshItsCctv(item, fresh);
-
-            // 기존 영상이 아직 준비되지 않았을 때만 최신 주소로 즉시 교체합니다.
-            if (window.__itsCctvPlaybackReadyToken !== requestToken) {
-                playCctvInModal(fresh.url, item.name || fresh.name || 'CCTV 재생', fresh.cctvformat || fresh.format || item.cctvformat || item.format || '');
-            }
-        };
 
         if (quickFresh) {
             await applyFresh(quickFresh);
             return;
         }
 
-        // 늦게 도착한 최신 주소는 저장만 하고, 현재 영상이 아직 안 붙었을 때에만 재생 주소를 바꿉니다.
-        freshPromise.then(applyFresh);
-
-        if (!initial || !initial.url) {
-            setCctvLoading(true, 'ITS 영상주소를 계속 확인하고 있습니다.');
-        }
+        freshPromise.then(async (fresh) => {
+            const applied = await applyFresh(fresh);
+            if (!applied && !initial?.url && window.__itsCctvRequestToken === requestToken) {
+                setCctvLoading(false);
+                setCctvPlaybackGuide('ITS 최신 영상주소를 찾지 못했습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.');
+            }
+        });
     }
 
     function renderCctvs() {
