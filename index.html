@@ -1978,7 +1978,7 @@
 ※ ITS 영상은 팝업 재생, 홍수 CCTV는 화면 팝업, 세종시 CCTV는 공식 화면으로 연결됩니다.`);
     }
 
-    function buildItsCctvUrlForBounds(bounds, type = 'its', cctvType = '1') {
+    function buildItsCctvUrlForBounds(bounds, type = 'its', cctvType = '4') {
         const p = new URLSearchParams({
             apiKey: ITS_CCTV_API_KEY,
             type,
@@ -2053,8 +2053,14 @@
             return [];
         }
 
+        // GitHub Pages·iPhone Safari에서는 HTTPS 영상만 안정적으로 재생되므로
+        // 국가교통정보센터 HTTPS 타입(4=HLS, 5=MP4)을 우선 조회합니다.
+        // 1·2는 HTTPS 영상이 없을 때만 보조로 사용합니다.
         const candidates = [
-            ['its', '1'], ['its', '2'], ['ex', '1'], ['ex', '2'], ['all', '1'], ['all', '2']
+            ['its', '4'], ['ex', '4'],
+            ['its', '5'], ['ex', '5'],
+            ['its', '1'], ['ex', '1'],
+            ['its', '2'], ['ex', '2']
         ];
         const fetched = [];
         for (const [roadType, cctvType] of candidates) {
@@ -5593,7 +5599,7 @@
         return { lng: x, lat: y };
     }
 
-    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '1', pad = 0.004) {
+    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '4', pad = 0.004) {
         const point = itsCoordinatePair(item);
         if (!point) return '';
         return buildItsCctvUrlForBounds({
@@ -5617,23 +5623,33 @@
     }
 
     async function fetchFreshItsCctv(item = {}) {
+        // 국가교통정보센터 공식 CCTV API 기준:
+        // 4 = HTTPS HLS, 5 = HTTPS MP4 / 1·2는 기존 HTTP 형식입니다.
+        // GitHub Pages(HTTPS)와 iPhone Safari에서는 4·5를 먼저 사용해야 합니다.
         const requestGroups = [
-            [['its', '1'], ['ex', '1'], ['all', '1']], // HLS 우선
-            [['its', '2'], ['ex', '2'], ['all', '2']]  // HLS 미제공 때만 보조
+            [['its', '4'], ['ex', '4']], // HTTPS HLS 우선
+            [['its', '5'], ['ex', '5']], // HTTPS MP4 보조
+            [['its', '1'], ['ex', '1']], // 기존 HLS 최후 보조
+            [['its', '2'], ['ex', '2']]  // 기존 MP4 최후 보조
         ];
+        const failures = [];
 
         const fetchRows = async (type, cctvType) => {
             const url = buildItsCctvUrlForPoint(item, type, cctvType);
-            if (!url) throw new Error('invalid bounds');
+            if (!url) throw new Error('좌표 정보 없음');
             const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 2800);
+            // 모바일 통신 환경에서는 2.8초가 너무 짧아 정상 응답도 취소될 수 있어 8초로 늘립니다.
+            const timer = setTimeout(() => controller.abort(), 8000);
             try {
                 const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
                 if (!res.ok) throw new Error(`HTTP ${res.status}`);
                 const json = await res.json();
                 const rows = normalizeItsCctvResponse(json).filter(row => row.cctvurl || row.url);
-                if (!rows.length) throw new Error('empty');
+                if (!rows.length) throw new Error('영상 주소 없음');
                 return rows;
+            } catch (error) {
+                failures.push(`${type}/${cctvType}: ${error?.name === 'AbortError' ? '응답 시간초과' : (error?.message || '조회 실패')}`);
+                throw error;
             } finally {
                 clearTimeout(timer);
             }
@@ -5643,11 +5659,15 @@
             try {
                 const rows = await Promise.any(group.map(([type, cctvType]) => fetchRows(type, cctvType)));
                 const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
-                if (best) return mapItsCctvItem(best, item.area || '조치원');
+                if (best) {
+                    window.__itsCctvLastError = '';
+                    return mapItsCctvItem(best, item.area || '조치원');
+                }
             } catch (e) {
-                // 다음 형식(HLS → MP4)으로 계속 확인
+                // 다음 형식(HTTPS HLS → HTTPS MP4 → 기존 형식)으로 계속 확인
             }
         }
+        window.__itsCctvLastError = failures.join(' / ');
         return null;
     }
 
@@ -5778,7 +5798,8 @@
                 const applied = await applyFresh(fresh);
                 if (!applied && window.__itsCctvRequestToken === requestToken) {
                     setCctvLoading(false);
-                    setCctvPlaybackGuide('현재 ITS에서 재생 가능한 최신 영상주소를 받지 못했습니다. 외부창 열기로 공식 CCTV 지도를 확인하세요.');
+                    const reason = window.__itsCctvLastError ? ` (${String(window.__itsCctvLastError).slice(0, 150)})` : '';
+                    setCctvPlaybackGuide(`현재 ITS에서 HTTPS 영상주소를 받지 못했습니다.${reason} 외부창 열기로 공식 CCTV 지도를 확인하세요.`);
                 }
             } catch (error) {
                 console.warn('ITS 최신 영상주소 확인 실패', error);
