@@ -574,6 +574,37 @@
             .list-container, .shelter-list { gap: 7px; }
         }
 
+
+        /* 경력 현황 */
+        .manpower-note { display:none; margin:0 0 12px; padding:10px 12px; border-radius:12px; background:rgba(0,122,255,.09); color:var(--blue); font-size:11px; font-weight:700; line-height:1.45; }
+        body.admin-mode .manpower-note { display:block; }
+        .manpower-table-wrap { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--line); border-radius:16px; background:var(--card-elevated); box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }
+        .manpower-table { width:100%; min-width:1050px; border-collapse:separate; border-spacing:0; table-layout:fixed; }
+        .manpower-table th, .manpower-table td { border-right:1px solid var(--line); border-bottom:1px solid var(--line); text-align:center; padding:0; }
+        .manpower-table tr > *:last-child { border-right:none; }
+        .manpower-table tbody tr:last-child td { border-bottom:none; }
+        .manpower-table thead tr:first-child th { background:rgba(0,122,255,.10); color:var(--text); font-size:12px; font-weight:900; padding:10px 4px 8px; }
+        .manpower-table thead tr:nth-child(2) th { background:rgba(255,255,255,.54); color:var(--sub); font-size:11px; font-weight:800; padding:9px 4px; line-height:1.2; word-break:keep-all; }
+        .manpower-total-head { width:88px; }
+        .manpower-cell-btn { width:100%; min-height:72px; padding:9px 4px; border:none; background:transparent; color:var(--text); cursor:default; font-family:inherit; }
+        .manpower-cell-btn.editable { cursor:pointer; transition:background .18s ease, transform .18s ease; }
+        .manpower-cell-btn.editable:active { background:rgba(0,122,255,.12); transform:scale(.98); }
+        .manpower-value { display:block; font-size:17px; line-height:1.25; letter-spacing:-.7px; font-weight:900; color:var(--text); white-space:nowrap; }
+        .manpower-subvalue { display:block; min-height:15px; margin-top:3px; color:var(--sub); font-size:10px; font-weight:800; white-space:nowrap; }
+        .manpower-hint { display:none; margin-top:4px; color:var(--blue); font-size:9px; font-weight:800; }
+        body.admin-mode .manpower-hint { display:block; }
+        .manpower-modal-overlay { position:fixed; inset:0; z-index:99999; display:none; align-items:center; justify-content:center; padding:20px; background:rgba(0,0,0,.52); backdrop-filter:blur(5px); -webkit-backdrop-filter:blur(5px); }
+        .manpower-modal-card { width:min(100%,360px); border-radius:22px; overflow:hidden; background:rgba(255,255,255,.98); box-shadow:0 20px 50px rgba(0,0,0,.24); }
+        .manpower-modal-head { display:flex; align-items:center; justify-content:space-between; padding:18px 18px 12px; }
+        .manpower-modal-title { font-size:17px; color:var(--text); font-weight:900; letter-spacing:-.3px; }
+        .manpower-modal-close { width:30px; height:30px; border:none; border-radius:50%; background:#ECECEC; color:#555; cursor:pointer; font-size:14px; }
+        .manpower-modal-body { padding:0 18px 18px; }
+        .manpower-editor-label { display:block; margin:12px 0 6px; color:var(--sub); font-size:12px; font-weight:800; }
+        .manpower-editor-select { width:100%; min-height:44px; padding:0 12px; border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--text); font-family:inherit; font-size:15px; font-weight:800; }
+        .manpower-modal-actions { display:grid; grid-template-columns:1fr 1fr; gap:8px; padding:0 18px 18px; }
+        .manpower-modal-actions button { min-height:46px; border:none; border-radius:13px; cursor:pointer; font-family:inherit; font-size:14px; font-weight:900; }
+        .manpower-cancel-btn { background:#E9E9ED; color:var(--text); }
+        .manpower-save-btn { background:var(--blue); color:#fff; }
 </style>
 </head>
 <body>
@@ -605,6 +636,44 @@
         <div class="jurisdiction-title">관할 읍·면·동 구분</div>
         <div class="jurisdiction-row"><span class="office-chip">북부서</span> 조치원읍, 연서면, 전의면, 전동면, 소정면, 부강면, 연동면</div>
         <div class="jurisdiction-row"><span class="office-chip">남부서</span> 그 외 세종시 읍·면·동</div>
+    </div>
+</div>
+
+<div class="accord-section" id="sec-manpower">
+    <div class="accord-header" onclick="toggleSection('sec-manpower')">
+        <div class="ah-title"><i class="fas fa-users" style="color:var(--blue)"></i> 경력 현황</div>
+        <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
+    </div>
+    <div class="accord-content">
+        <div class="manpower-note"><i class="fas fa-pen-to-square"></i> 관리자 모드에서는 아래 경력 숫자를 눌러 인원 또는 편성 단위를 선택할 수 있습니다.</div>
+        <div class="manpower-table-wrap">
+            <table class="manpower-table" aria-label="경력 현황">
+                <thead>
+                    <tr>
+                        <th class="manpower-total-head" rowspan="2">총원</th>
+                        <th colspan="9">자서</th>
+                        <th colspan="3">청</th>
+                    </tr>
+                    <tr>
+                        <th>계</th>
+                        <th>경비</th>
+                        <th>교통</th>
+                        <th>지역<br>경찰</th>
+                        <th>정보</th>
+                        <th>수사</th>
+                        <th>범예<br>(112)</th>
+                        <th>경무</th>
+                        <th>여청</th>
+                        <th>계</th>
+                        <th>기동대</th>
+                        <th>광예대</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr id="manpower-table-row"></tr>
+                </tbody>
+            </table>
+        </div>
     </div>
 </div>
 
@@ -655,6 +724,7 @@
         <div class="rain-grid" id="rain-grid"></div>
     </div>
 </div>
+
 
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
@@ -1947,11 +2017,8 @@
             let json = {};
             try { json = raw ? JSON.parse(raw) : {}; } catch (e) {}
             const apiError = explainItsApiError(json, res.status);
-            const responseHeader = json?.header || json?.response?.header || {};
-            const responseCode = String(responseHeader?.resultCode ?? responseHeader?.resultcode ?? '');
-            const successfulCodes = new Set(['', '0', '00', '0000', '200']);
-            const hasExplicitApiError = responseCode && !successfulCodes.has(responseCode);
-            if (!res.ok || hasExplicitApiError) {
+            const hasExplicitApiError = !!(json?.header?.resultCode || json?.response?.header?.resultCode || json?.header?.resultMsg || json?.response?.header?.resultMsg);
+            if (!res.ok || hasExplicitApiError && String(json?.header?.resultCode || json?.response?.header?.resultCode || '') !== '0') {
                 throw new Error(apiError);
             }
             return json;
@@ -2287,6 +2354,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     ];
 
     let trafficData = JSON.parse(JSON.stringify(defaultData)); 
+
+    const manpowerDefaultData = [
+        { id:'total', label:'총원', group:'총원', current:0, total:0, mode:'staff' },
+        { id:'local-total', label:'계', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-guard', label:'경비', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-traffic', label:'교통', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-community', label:'지역경찰', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-intelligence', label:'정보', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-investigation', label:'수사', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-crime112', label:'범예(112)', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-admin', label:'경무', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'local-womenyouth', label:'여청', group:'자서', current:0, total:0, mode:'staff' },
+        { id:'agency-total', label:'계', group:'청', current:0, total:0, mode:'staff' },
+        { id:'agency-mobile', label:'기동대', group:'청', company:0, platoon:0, team:0, mode:'mobile' },
+        { id:'agency-riot', label:'광예대', group:'청', team:0, mode:'team' }
+    ];
+    let manpowerData = JSON.parse(JSON.stringify(manpowerDefaultData));
+    let editingManpowerId = '';
     let currFilter = 'all';
     let shelterExtraData = [];
     let managedShelterData = [];
@@ -2755,6 +2840,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         document.body.setAttribute('data-global-scope', globalScope);
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
+        renderManpower();
         refreshAll();
         startWeatherAutoRefresh();
         db.ref('trafficData').on('value', (snapshot) => {
@@ -2772,6 +2858,27 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 db.ref('trafficData').set(defaultData.map(item => withStation(item)));
             }
         });
+
+        db.ref('manpowerData').on('value', (snapshot) => {
+            const raw = snapshot.val();
+            const saved = Array.isArray(raw) ? raw : Object.values(raw || {});
+            const requiredIds = manpowerDefaultData.map(item => item.id);
+            const isCurrentSchema = saved.length === requiredIds.length && requiredIds.every(id => saved.some(item => String(item?.id) === String(id)));
+
+            if (isCurrentSchema) {
+                manpowerData = manpowerDefaultData.map(base => {
+                    const found = saved.find(item => String(item?.id) === String(base.id));
+                    return { ...base, ...(found || {}) };
+                });
+                if (JSON.stringify(saved) !== JSON.stringify(manpowerData)) db.ref('manpowerData').set(manpowerData);
+            } else {
+                // 기존 경력표 자료는 새 편성표와 맞지 않아 0/0 기본값으로 교체합니다.
+                manpowerData = JSON.parse(JSON.stringify(manpowerDefaultData));
+                db.ref('manpowerData').set(manpowerData);
+            }
+            renderManpower();
+        });
+
         db.ref('shelterManagedData').on('value', (snapshot) => {
             const data = snapshot.val();
             if (Array.isArray(data)) {
@@ -5191,7 +5298,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     if (el) el.style.display = 'block';
                 });
                 renderAllScopedFilterButtons();
-                render(); renderShelters(); renderCctvs();
+                render(); renderShelters(); renderCctvs(); renderManpower();
             }
         } else {
             isAdmin = false;
@@ -5202,8 +5309,121 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 if (el) el.style.display = 'none';
             });
             renderAllScopedFilterButtons();
-            render(); renderShelters(); renderCctvs();
+            render(); renderShelters(); renderCctvs(); renderManpower();
         }
+    }
+
+
+    function makeManpowerOptions(max, selected, suffix = '') {
+        const value = Math.max(0, Number(selected) || 0);
+        const rangeMax = Math.max(Number(max) || 0, value, 10);
+        let html = '';
+        for (let n = 0; n <= rangeMax; n++) {
+            html += `<option value="${n}" ${n === value ? 'selected' : ''}>${n}${suffix}</option>`;
+        }
+        return html;
+    }
+
+    function getManpowerItem(id) {
+        return manpowerData.find(item => String(item.id) === String(id));
+    }
+
+    function manpowerDisplay(item) {
+        if (item.mode === 'mobile') {
+            return `${Math.max(0, Number(item.company) || 0)}중대`;
+        }
+        if (item.mode === 'team') {
+            return `${Math.max(0, Number(item.team) || 0)}팀`;
+        }
+        return `${Math.max(0, Number(item.current) || 0)}/${Math.max(0, Number(item.total) || 0)}`;
+    }
+
+    function manpowerSubDisplay(item) {
+        if (item.mode === 'mobile') {
+            return `${Math.max(0, Number(item.platoon) || 0)}제대 · ${Math.max(0, Number(item.team) || 0)}팀`;
+        }
+        return '&nbsp;';
+    }
+
+    function renderManpower() {
+        const row = document.getElementById('manpower-table-row');
+        if (!row) return;
+        row.innerHTML = manpowerDefaultData.map(base => {
+            const item = getManpowerItem(base.id) || base;
+            return `<td>
+                <button type="button" class="manpower-cell-btn ${isAdmin ? 'editable' : ''}" onclick="openManpowerEditor('${item.id}')">
+                    <span class="manpower-value">${manpowerDisplay(item)}</span>
+                    <span class="manpower-subvalue">${manpowerSubDisplay(item)}</span>
+                    <span class="manpower-hint">수정</span>
+                </button>
+            </td>`;
+        }).join('');
+    }
+
+    function openManpowerEditor(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getManpowerItem(id);
+        if (!item) return alert('경력 정보를 찾을 수 없습니다.');
+
+        editingManpowerId = item.id;
+        const modal = document.getElementById('manpower-modal');
+        const title = document.getElementById('manpower-modal-title');
+        const standardBox = document.getElementById('manpower-editor-standard');
+        const mobileBox = document.getElementById('manpower-editor-mobile');
+        const teamBox = document.getElementById('manpower-editor-team');
+        title.textContent = `${item.label} 경력 설정`;
+
+        standardBox.style.display = 'none';
+        mobileBox.style.display = 'none';
+        teamBox.style.display = 'none';
+
+        if (item.mode === 'mobile') {
+            mobileBox.style.display = 'block';
+            document.getElementById('manpower-company-select').innerHTML = makeManpowerOptions(30, item.company, '중대');
+            document.getElementById('manpower-platoon-select').innerHTML = makeManpowerOptions(50, item.platoon, '제대');
+            document.getElementById('manpower-mobile-team-select').innerHTML = makeManpowerOptions(100, item.team, '팀');
+        } else if (item.mode === 'team') {
+            teamBox.style.display = 'block';
+            document.getElementById('manpower-team-select').innerHTML = makeManpowerOptions(100, item.team, '팀');
+        } else {
+            standardBox.style.display = 'block';
+            document.getElementById('manpower-current-select').innerHTML = makeManpowerOptions(100, item.current, '명');
+            document.getElementById('manpower-total-select').innerHTML = makeManpowerOptions(100, item.total, '명');
+        }
+
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeManpowerEditor() {
+        const modal = document.getElementById('manpower-modal');
+        if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
+        editingManpowerId = '';
+    }
+
+    function handleManpowerModalOverlay(event) {
+        if (event.target && event.target.id === 'manpower-modal') closeManpowerEditor();
+    }
+
+    function saveManpowerEditor() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getManpowerItem(editingManpowerId);
+        if (!item) return closeManpowerEditor();
+
+        if (item.mode === 'mobile') {
+            item.company = Math.max(0, Number(document.getElementById('manpower-company-select').value) || 0);
+            item.platoon = Math.max(0, Number(document.getElementById('manpower-platoon-select').value) || 0);
+            item.team = Math.max(0, Number(document.getElementById('manpower-mobile-team-select').value) || 0);
+        } else if (item.mode === 'team') {
+            item.team = Math.max(0, Number(document.getElementById('manpower-team-select').value) || 0);
+        } else {
+            item.current = Math.max(0, Number(document.getElementById('manpower-current-select').value) || 0);
+            item.total = Math.max(0, Number(document.getElementById('manpower-total-select').value) || 0);
+        }
+
+        db.ref('manpowerData').set(manpowerData);
+        closeManpowerEditor();
     }
 
     function render() {
@@ -6105,6 +6325,40 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
 </script>
+
+
+<div id="manpower-modal" class="manpower-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="manpower-modal-title" onclick="handleManpowerModalOverlay(event)">
+    <div class="manpower-modal-card">
+        <div class="manpower-modal-head">
+            <div id="manpower-modal-title" class="manpower-modal-title">경력 설정</div>
+            <button type="button" class="manpower-modal-close" onclick="closeManpowerEditor()" aria-label="닫기"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="manpower-modal-body">
+            <div id="manpower-editor-standard">
+                <label class="manpower-editor-label" for="manpower-current-select">투입 인원</label>
+                <select id="manpower-current-select" class="manpower-editor-select"></select>
+                <label class="manpower-editor-label" for="manpower-total-select">정원</label>
+                <select id="manpower-total-select" class="manpower-editor-select"></select>
+            </div>
+            <div id="manpower-editor-mobile" style="display:none;">
+                <label class="manpower-editor-label" for="manpower-company-select">중대</label>
+                <select id="manpower-company-select" class="manpower-editor-select"></select>
+                <label class="manpower-editor-label" for="manpower-platoon-select">제대</label>
+                <select id="manpower-platoon-select" class="manpower-editor-select"></select>
+                <label class="manpower-editor-label" for="manpower-mobile-team-select">팀</label>
+                <select id="manpower-mobile-team-select" class="manpower-editor-select"></select>
+            </div>
+            <div id="manpower-editor-team" style="display:none;">
+                <label class="manpower-editor-label" for="manpower-team-select">팀</label>
+                <select id="manpower-team-select" class="manpower-editor-select"></select>
+            </div>
+        </div>
+        <div class="manpower-modal-actions">
+            <button type="button" class="manpower-cancel-btn" onclick="closeManpowerEditor()">취소</button>
+            <button type="button" class="manpower-save-btn" onclick="saveManpowerEditor()">저장</button>
+        </div>
+    </div>
+</div>
 
 </body>
 </html>
