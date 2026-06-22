@@ -619,6 +619,52 @@
             .manpower-value { font-size:12px; }
             .manpower-value.mobile { font-size:9px; }
         }
+
+
+        /* 휴대폰별 제목 줄바꿈 방지: 좁은 화면에서는 버튼을 아래 줄로 이동 */
+        .title-group { min-width: 0; }
+        .title-group h1 {
+            min-width: 0;
+            white-space: nowrap;
+            word-break: keep-all;
+        }
+        .header-actions { flex: 0 0 auto; }
+
+        @media (max-width: 480px) {
+            .top-nav {
+                flex-wrap: wrap;
+                row-gap: 8px;
+            }
+            .title-group {
+                width: 100%;
+                gap: 8px;
+            }
+            .police-emblem {
+                width: 30px;
+                height: 30px;
+                flex: 0 0 30px;
+            }
+            .title-group h1 {
+                font-size: clamp(18px, 5.35vw, 22px);
+                line-height: 1.15;
+                letter-spacing: -1px;
+                overflow: visible;
+                text-overflow: clip;
+            }
+            .header-actions {
+                width: 100%;
+                justify-content: flex-end;
+                gap: 8px !important;
+            }
+            .admin-btn { padding: 7px 9px; }
+            .refresh-btn { width: 34px; height: 34px; }
+        }
+
+        @media (max-width: 340px) {
+            .title-group h1 { font-size: 18px; letter-spacing: -1.15px; }
+            .police-emblem { width: 27px; height: 27px; flex-basis: 27px; }
+        }
+
 </style>
 </head>
 <body>
@@ -631,7 +677,7 @@
             </div>
             <h1>세종경찰 재난관리 플랫폼</h1>
         </div>
-        <div style="display:flex; gap:12px; align-items:center;">
+        <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
             <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
             <button class="refresh-btn" onclick="refreshAll()" title="새로고침">
                 <i id="refresh-icon" class="fas fa-rotate-right"></i>
@@ -2362,7 +2408,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         { id:'agency-mobile', label:'기동대', group:'청', mode:'mobile', north:{ company:0, platoon:0, team:0 }, south:{ company:0, platoon:0, team:0 } },
         { id:'agency-riot', label:'광예대', group:'청', mode:'team', north:{ team:0 }, south:{ team:0 } }
     ];
+    // 경력 현황은 기존 manpowerData와 분리된 V2 경로에 저장합니다.
+    // 이전 버전이 열려 있어도 새 경력 입력값을 덮어쓰지 않도록 합니다.
+    const MANPOWER_DB_PATH = 'manpowerDataV2';
     let manpowerData = JSON.parse(JSON.stringify(manpowerDefaultData));
+    const manpowerPendingWrites = {};
     let editingManpowerId = '';
     let currFilter = 'all';
     let shelterExtraData = [];
@@ -2852,40 +2902,18 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             }
         });
 
-        db.ref('manpowerData').on('value', (snapshot) => {
-            const raw = snapshot.val();
-            const saved = Array.isArray(raw) ? raw : Object.values(raw || {});
-            const requiredIds = manpowerDefaultData.map(item => item.id);
-            const isCurrentSchema = saved.length === requiredIds.length && requiredIds.every(id => saved.some(item => String(item?.id) === String(id))) && saved.every(item => item && item.north && item.south);
-
-            if (isCurrentSchema) {
-                manpowerData = manpowerDefaultData.map(base => {
-                    const found = saved.find(item => String(item?.id) === String(base.id));
-                    return {
-                        ...base,
-                        ...(found || {}),
-                        north: { ...base.north, ...((found && found.north) || {}) },
-                        south: { ...base.south, ...((found && found.south) || {}) }
-                    };
-                });
-                if (JSON.stringify(saved) !== JSON.stringify(manpowerData)) db.ref('manpowerData').set(manpowerData);
-            } else if (saved.length && requiredIds.every(id => saved.some(item => String(item?.id) === String(id)))) {
-                // 기존 단일 경력표의 값은 북부서로 보존하고, 남부서는 0부터 별도 입력합니다.
-                manpowerData = manpowerDefaultData.map(base => {
-                    const old = saved.find(item => String(item?.id) === String(base.id)) || {};
-                    const north = base.mode === 'mobile'
-                        ? { company: Math.max(0, Number(old.company) || 0), platoon: Math.max(0, Number(old.platoon) || 0), team: Math.max(0, Number(old.team) || 0) }
-                        : base.mode === 'team'
-                            ? { team: Math.max(0, Number(old.team) || 0) }
-                            : { current: Math.max(0, Number(old.current) || 0), total: Math.max(0, Number(old.total) || 0) };
-                    return { ...base, north, south: { ...base.south } };
-                });
-                db.ref('manpowerData').set(manpowerData);
-            } else {
-                manpowerData = JSON.parse(JSON.stringify(manpowerDefaultData));
-                db.ref('manpowerData').set(manpowerData);
-            }
+        // 경력 현황은 V2 경로만 구독합니다. 이전 버전의 manpowerData 자동초기화와 분리하여
+        // 숫자 입력 직후 다시 0으로 돌아가는 현상을 막습니다.
+        db.ref(MANPOWER_DB_PATH).on('value', (snapshot) => {
+            const remoteRows = normalizeManpowerData(snapshot.val());
+            // 저장 요청이 진행 중인 항목은, 늦게 도착한 이전 값(0명)으로 화면을 덮어쓰지 않습니다.
+            manpowerData = remoteRows.map(row => {
+                const pending = manpowerPendingWrites[row.id];
+                return pending ? { ...row, ...pending, north: { ...row.north, ...pending.north }, south: { ...row.south, ...pending.south } } : row;
+            });
             renderManpower();
+        }, (error) => {
+            console.error('경력 현황 불러오기 실패:', error);
         });
 
         db.ref('shelterManagedData').on('value', (snapshot) => {
@@ -5335,6 +5363,47 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         return html;
     }
 
+    function cloneManpowerValue(value) {
+        return JSON.parse(JSON.stringify(value));
+    }
+
+    function normalizeManpowerData(raw) {
+        const rows = Array.isArray(raw)
+            ? raw.filter(Boolean)
+            : Object.values(raw || {}).filter(Boolean);
+        return manpowerDefaultData.map(base => {
+            const found = rows.find(item => String(item && item.id) === String(base.id)) || {};
+            return {
+                ...base,
+                north: { ...base.north, ...((found && found.north) || {}) },
+                south: { ...base.south, ...((found && found.south) || {}) }
+            };
+        });
+    }
+
+    function saveManpowerItem(item) {
+        const payload = {
+            id: item.id,
+            north: cloneManpowerValue(item.north || {}),
+            south: cloneManpowerValue(item.south || {})
+        };
+        manpowerPendingWrites[item.id] = payload;
+        // 항목 단위 저장: 다른 항목이나 다른 기기의 입력값을 덮어쓰지 않습니다.
+        return db.ref(`${MANPOWER_DB_PATH}/${item.id}`).set(payload)
+            .then(() => {
+                delete manpowerPendingWrites[item.id];
+                renderManpower();
+            })
+            .catch((error) => {
+                console.error('경력 현황 저장 실패:', error);
+                delete manpowerPendingWrites[item.id];
+                // 로컬 화면에는 입력값을 남기되, 서버 저장이 안 된 사실은 즉시 알립니다.
+                renderManpower();
+                alert(`경력 현황 저장에 실패했습니다.\n${error && error.message ? error.message : 'Firebase 권한 또는 네트워크를 확인하세요.'}`);
+                throw error;
+            });
+    }
+
     function getManpowerItem(id) {
         return manpowerData.find(item => String(item.id) === String(id));
     }
@@ -5514,8 +5583,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             values.total = cleanManpowerNumber(document.getElementById('manpower-total-select').value);
         }
         item[office] = values;
-        db.ref('manpowerData').set(manpowerData);
+        // 우선 화면에 반영한 뒤, 해당 항목만 Firebase에 저장합니다.
+        renderManpower();
         closeManpowerEditor();
+        saveManpowerItem(item).catch(() => {});
     }
 
     function render() {
