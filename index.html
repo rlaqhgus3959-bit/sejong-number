@@ -824,7 +824,7 @@
 
         <div style="display:flex; gap:8px;">
             <button id="cctv-retry-button" onclick="retryCurrentCctvPlayback()" style="flex:1; background:#34C759; color:white; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                재생 다시 시도
+                최신 주소 조회
             </button>
             <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
                 외부창 열기
@@ -1882,6 +1882,87 @@
     const ITS_CCTV_API_KEY = "56934196b0354a48ab5a1d020262c673";
     const ITS_CCTV_BASE = "https://openapi.its.go.kr:9443/cctvInfo";
 
+
+    // ITS API 호출 보호 설정
+    // - 공개 GitHub 페이지에서 자동·반복 조회가 발생하지 않도록 브라우저별 호출을 제한합니다.
+    // - 실제 개인 제한량은 ITS 서버 기준이므로, 목록 자동갱신·카드 클릭 자동조회는 사용하지 않습니다.
+    const ITS_API_USAGE_KEY = 'sejongPoliceItsApiUsage:v1';
+    const ITS_API_DAILY_MAX_REQUESTS = 20;       // 이 기기·브라우저 기준 하루 최대 20회
+    const ITS_API_MIN_INTERVAL_MS = 15000;       // 연속 호출은 최소 15초 간격
+    const ITS_PRIMARY_TYPE = 'its';
+    const ITS_PRIMARY_CCTV_TYPE = '1';
+
+    function getItsUsageDay() {
+        const d = new Date();
+        const y = d.getFullYear();
+        const m = String(d.getMonth() + 1).padStart(2, '0');
+        const day = String(d.getDate()).padStart(2, '0');
+        return `${y}-${m}-${day}`;
+    }
+
+    function readItsUsage() {
+        try {
+            const saved = JSON.parse(localStorage.getItem(ITS_API_USAGE_KEY) || '{}');
+            if (saved.day !== getItsUsageDay()) return { day: getItsUsageDay(), count: 0, lastAt: 0 };
+            return { day: saved.day, count: Number(saved.count || 0), lastAt: Number(saved.lastAt || 0) };
+        } catch (e) {
+            return { day: getItsUsageDay(), count: 0, lastAt: 0 };
+        }
+    }
+
+    function reserveItsApiRequest(reason = 'CCTV 조회') {
+        const usage = readItsUsage();
+        const now = Date.now();
+        const remainMs = ITS_API_MIN_INTERVAL_MS - (now - usage.lastAt);
+        if (remainMs > 0) {
+            const waitSec = Math.ceil(remainMs / 1000);
+            throw new Error(`ITS 호출 보호 중입니다. ${waitSec}초 후 다시 시도하세요.`);
+        }
+        if (usage.count >= ITS_API_DAILY_MAX_REQUESTS) {
+            throw new Error(`이 기기에서는 오늘 ITS 조회를 ${ITS_API_DAILY_MAX_REQUESTS}회 사용했습니다. 호출 한도 보호를 위해 내일 다시 시도하세요.`);
+        }
+        const next = { day: getItsUsageDay(), count: usage.count + 1, lastAt: now, lastReason: reason };
+        try { localStorage.setItem(ITS_API_USAGE_KEY, JSON.stringify(next)); } catch (e) {}
+        return next;
+    }
+
+    function explainItsApiError(json = {}, status = 0) {
+        const header = json?.header || json?.response?.header || {};
+        const code = String(header?.resultCode ?? header?.resultcode ?? '');
+        const msg = String(header?.resultMsg ?? header?.resultmsg ?? '').trim();
+        if (code === '4001' || /제한량.*초과|개인 제한량/i.test(msg)) {
+            return 'ITS 개인 제한량을 초과했습니다. 잠시 후 또는 다음 날 다시 확인하세요.';
+        }
+        if (status === 401) return 'ITS 인증 요청이 거절되었습니다. 인증키 상태를 확인하세요.';
+        return msg || (status ? `HTTP ${status}` : 'ITS API 조회 실패');
+    }
+
+    async function requestItsCctvJson(url, reason = 'CCTV 조회') {
+        reserveItsApiRequest(reason);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 10000);
+        try {
+            const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+            const raw = await res.text();
+            let json = {};
+            try { json = raw ? JSON.parse(raw) : {}; } catch (e) {}
+            const apiError = explainItsApiError(json, res.status);
+            const responseHeader = json?.header || json?.response?.header || {};
+            const responseCode = String(responseHeader?.resultCode ?? responseHeader?.resultcode ?? '');
+            const successfulCodes = new Set(['', '0', '00', '0000', '200']);
+            const hasExplicitApiError = responseCode && !successfulCodes.has(responseCode);
+            if (!res.ok || hasExplicitApiError) {
+                throw new Error(apiError);
+            }
+            return json;
+        } catch (error) {
+            if (error?.name === 'AbortError') throw new Error('ITS 응답 시간초과');
+            throw error;
+        } finally {
+            clearTimeout(timer);
+        }
+    }
+
     // 세종시 읍·면·동별 ITS CCTV 조회용 좌표 범위(대략 범위)
     // ITS API는 행정동 코드가 아니라 좌표 박스로 CCTV를 조회하므로, 각 지역 중심 범위를 사용합니다.
     const SEJONG_ITS_CCTV_AREAS = {
@@ -2053,27 +2134,12 @@
             return [];
         }
 
-        // GitHub Pages·iPhone Safari에서는 HTTPS 영상만 안정적으로 재생되므로
-        // 국가교통정보센터 HTTPS 타입(4=HLS, 5=MP4)을 우선 조회합니다.
-        // 1·2는 HTTPS 영상이 없을 때만 보조로 사용합니다.
-        const candidates = [
-            ['its', '4'], ['ex', '4'],
-            ['its', '5'], ['ex', '5'],
-            ['its', '1'], ['ex', '1'],
-            ['its', '2'], ['ex', '2']
-        ];
-        const fetched = [];
-        for (const [roadType, cctvType] of candidates) {
-            try {
-                const res = await fetch(buildItsCctvUrlForBounds(areaInfo, roadType, cctvType), { cache: 'no-store' });
-                if (!res.ok) continue;
-                const json = await res.json();
-                normalizeItsCctvResponse(json).forEach(row => fetched.push(row));
-            } catch (e) {
-                console.warn('ITS CCTV 조회 실패', areaKey, roadType, cctvType, e);
-            }
-        }
-        return fetched.map(row => mapItsCctvItem(row, areaKey)).filter(c => c.url && isDirectCctvUrl(c.url, c));
+        // 중요: 지역 1회 조회 = API 1회만 사용합니다.
+        // type/ex, cctvType 1·2·4·5를 반복 조회하지 않습니다.
+        const url = buildItsCctvUrlForBounds(areaInfo, ITS_PRIMARY_TYPE, ITS_PRIMARY_CCTV_TYPE);
+        const json = await requestItsCctvJson(url, `${areaInfo.label} CCTV 목록 조회`);
+        const rows = normalizeItsCctvResponse(json);
+        return rows.map(row => mapItsCctvItem(row, areaKey)).filter(c => c.url && isDirectCctvUrl(c.url, c));
     }
 
 
@@ -2126,7 +2192,7 @@
             alert(`${areaInfo?.label || areaKey} ITS CCTV ${items.length}개를 불러왔습니다.\n화면에는 중복 제거 후 ${visibleCount}개가 표시됩니다.`);
         } catch (e) {
             console.error(e);
-            alert('ITS CCTV 조회에 실패했습니다. API 키 승인 여부 또는 브라우저 보안정책을 확인하세요.');
+            alert(`ITS CCTV 조회에 실패했습니다.\n${e?.message || '잠시 후 다시 시도하세요.'}`);
         } finally {
             if (btn) { btn.innerText = oldText || 'ITS 불러오기'; btn.disabled = false; }
         }
@@ -2136,20 +2202,32 @@
         if (!isAdmin) return alert('관리자 권한 필요');
         const btn = document.getElementById('load-its-all-cctv-btn');
         const oldText = btn ? btn.innerText : '';
-        if (btn) { btn.innerText = '세종시 전체 조회중'; btn.disabled = true; }
+        if (btn) { btn.innerText = '세종시 전체 1회 조회중'; btn.disabled = true; }
         try {
-            const allItems = [];
-            const keys = Object.keys(SEJONG_ITS_CCTV_AREAS);
-            for (let i = 0; i < keys.length; i++) {
-                if (btn) btn.innerText = `조회중 ${i + 1}/${keys.length}`;
-                const items = await fetchItsCctvByArea(keys[i], true);
-                allItems.push(...items);
-            }
+            // 이전 방식은 행정구역마다 여러 영상형식을 반복 조회해 대량 호출이 발생했습니다.
+            // 이제 세종시 전체 좌표 범위를 단 1회 요청합니다.
+            const allBounds = { minX:127.10, maxX:127.43, minY:36.40, maxY:36.75 };
+            const url = buildItsCctvUrlForBounds(allBounds, ITS_PRIMARY_TYPE, ITS_PRIMARY_CCTV_TYPE);
+            const json = await requestItsCctvJson(url, '세종시 전체 CCTV 목록 조회');
+            const allItems = normalizeItsCctvResponse(json).map(row => {
+                const mapped = mapItsCctvItem(row, '조치원');
+                const point = itsCoordinatePair(mapped);
+                if (point) {
+                    const matched = Object.entries(SEJONG_ITS_CCTV_AREAS).find(([, area]) =>
+                        point.lng >= area.minX && point.lng <= area.maxX && point.lat >= area.minY && point.lat <= area.maxY
+                    );
+                    if (matched) mapped.area = matched[0];
+                    else mapped.area = '세종시';
+                }
+                return mapped;
+            }).filter(c => c.url && isDirectCctvUrl(c.url, c));
             const merged = await saveAndRenderItsCctv(allItems, 'all');
-            alert(`세종시 읍·면·동별 ITS CCTV ${allItems.length}개를 불러왔습니다.\n중복 제거 후 전체 CCTV ${merged.length}개가 저장·표시됩니다.`);
+            alert(`세종시 전체 ITS CCTV ${allItems.length}개를 1회 조회해 저장했습니다.
+중복 제거 후 전체 CCTV ${merged.length}개가 표시됩니다.`);
         } catch (e) {
             console.error(e);
-            alert('세종시 전체 ITS CCTV 조회에 실패했습니다.');
+            alert(`세종시 전체 ITS CCTV 조회에 실패했습니다.
+${e?.message || '잠시 후 다시 시도하세요.'}`);
         } finally {
             if (btn) { btn.innerText = oldText || '세종시 전체 ITS CCTV 불러오기'; btn.disabled = false; }
         }
@@ -5307,6 +5385,8 @@
         window.__itsCctvPlaybackReadyToken = '';
         window.__itsCctvRetry = null;
         window.__itsCctvForceRefresh = null;
+        const retryButton = document.getElementById('cctv-retry-button');
+        if (retryButton) retryButton.textContent = '재생 다시 시도';
         currentCctvExternalUrl = '';
         if (modal) modal.style.display = 'none';
     }
@@ -5437,12 +5517,9 @@
         };
         const requestFreshUrlOnce = () => {
             if (!isCurrentAttempt()) return;
-            if (typeof window.__itsCctvForceRefresh === 'function' && !window.__itsCctvForceRefreshUsed) {
-                markRetrying('저장 영상 연결 실패 · 최신 ITS 영상 확인 중입니다.');
-                window.__itsCctvForceRefresh();
-                return;
-            }
-            finishFailure();
+            // 재생 오류만으로 API를 자동 호출하지 않습니다.
+            // 사용자가 아래 "최신 주소 조회" 버튼을 눌렀을 때만 1회 갱신합니다.
+            finishFailure('저장된 ITS 영상 주소 재생에 실패했습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
         };
 
         // iPhone Safari에서 스트림 이벤트가 오지 않으면 로딩을 끝내고 사용자가 다시 시도할 수 있게 합니다.
@@ -5623,52 +5700,17 @@
     }
 
     async function fetchFreshItsCctv(item = {}) {
-        // 국가교통정보센터 공식 CCTV API 기준:
-        // 4 = HTTPS HLS, 5 = HTTPS MP4 / 1·2는 기존 HTTP 형식입니다.
-        // GitHub Pages(HTTPS)와 iPhone Safari에서는 4·5를 먼저 사용해야 합니다.
-        const requestGroups = [
-            [['its', '4'], ['ex', '4']], // HTTPS HLS 우선
-            [['its', '5'], ['ex', '5']], // HTTPS MP4 보조
-            [['its', '1'], ['ex', '1']], // 기존 HLS 최후 보조
-            [['its', '2'], ['ex', '2']]  // 기존 MP4 최후 보조
-        ];
-        const failures = [];
-
-        const fetchRows = async (type, cctvType) => {
-            const url = buildItsCctvUrlForPoint(item, type, cctvType);
-            if (!url) throw new Error('좌표 정보 없음');
-            const controller = new AbortController();
-            // 모바일 통신 환경에서는 2.8초가 너무 짧아 정상 응답도 취소될 수 있어 8초로 늘립니다.
-            const timer = setTimeout(() => controller.abort(), 8000);
-            try {
-                const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
-                if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                const json = await res.json();
-                const rows = normalizeItsCctvResponse(json).filter(row => row.cctvurl || row.url);
-                if (!rows.length) throw new Error('영상 주소 없음');
-                return rows;
-            } catch (error) {
-                failures.push(`${type}/${cctvType}: ${error?.name === 'AbortError' ? '응답 시간초과' : (error?.message || '조회 실패')}`);
-                throw error;
-            } finally {
-                clearTimeout(timer);
-            }
-        };
-
-        for (const group of requestGroups) {
-            try {
-                const rows = await Promise.any(group.map(([type, cctvType]) => fetchRows(type, cctvType)));
-                const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
-                if (best) {
-                    window.__itsCctvLastError = '';
-                    return mapItsCctvItem(best, item.area || '조치원');
-                }
-            } catch (e) {
-                // 다음 형식(HTTPS HLS → HTTPS MP4 → 기존 형식)으로 계속 확인
-            }
-        }
-        window.__itsCctvLastError = failures.join(' / ');
-        return null;
+        // 중요: 최신 주소 조회는 사용자가 버튼을 눌렀을 때만, 단 1회 호출합니다.
+        // 이전의 its/ex × 여러 cctvType 반복 조회는 하지 않습니다.
+        const url = buildItsCctvUrlForPoint(item, ITS_PRIMARY_TYPE, ITS_PRIMARY_CCTV_TYPE);
+        if (!url) throw new Error('CCTV 좌표 정보가 없습니다.');
+        const json = await requestItsCctvJson(url, `${item.name || 'ITS CCTV'} 최신 주소 조회`);
+        const rows = normalizeItsCctvResponse(json).filter(row => row.cctvurl || row.url);
+        if (!rows.length) throw new Error('ITS에서 영상 주소를 받지 못했습니다.');
+        const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
+        if (!best) throw new Error('일치하는 CCTV를 찾지 못했습니다.');
+        window.__itsCctvLastError = '';
+        return mapItsCctvItem(best, item.area || '조치원');
     }
 
     async function saveFreshItsCctv(oldItem, freshItem) {
@@ -5726,23 +5768,13 @@
     }
 
     function prewarmItsCctvStream(item = {}) {
-        if (!item || item.source !== 'ITS') return Promise.resolve(null);
-        const cached = readItsFastStreamCache(item);
-        if (cached && cached.savedAt && (Date.now() - Number(cached.savedAt) < ITS_WARMUP_CACHE_FRESH_MS)) return Promise.resolve(cached);
-        return fetchFreshItsCctvShared(item).then(fresh => {
-            if (fresh && fresh.url) writeItsFastStreamCache(item, fresh);
-            return fresh;
-        }).catch(() => null);
+        // 자동 사전조회 금지: 카드 표시·손가락 터치만으로 ITS API를 호출하지 않습니다.
+        return Promise.resolve(readItsFastStreamCache(item) || null);
     }
 
     function warmVisibleItsCctvStreams(items = []) {
-        const targets = items.filter(item => item && item.source === 'ITS').slice(0, 4);
-        if (!targets.length) return;
-        const run = () => targets.forEach((item, idx) => {
-            setTimeout(() => prewarmItsCctvStream(item), idx * 180);
-        });
-        if (window.requestIdleCallback) window.requestIdleCallback(run, { timeout: 900 });
-        else setTimeout(run, 250);
+        // 목록 렌더링 시 자동 API 조회를 하지 않습니다.
+        return;
     }
 
     function delay(ms) {
@@ -5765,63 +5797,46 @@
         window.__itsCctvActiveToken = requestToken;
         window.__itsCctvPlaybackReadyToken = '';
         window.__itsCctvForceRefreshUsed = false;
-        // 외부창은 현재 재생 실패한 원본 주소가 아니라 공식 CCTV 지도 화면으로 분리합니다.
+        window.__itsCctvForceRefresh = null; // 영상 실패 시 자동 API 재조회 금지
         currentCctvExternalUrl = getItsOfficialCctvPage();
-        currentCctvUrl = '';
         currentCctvTitle = item.name || 'CCTV 재생';
-        currentCctvFormat = '';
+        currentCctvFormat = item.cctvformat || item.format || '';
 
-        openItsLoadingModal(item.name || 'CCTV 재생');
-        setCctvLoading(true, '최신 ITS 영상주소를 확인하고 있습니다.');
-        setCctvPlaybackGuide('저장된 이전 영상주소를 사용하지 않고 최신 ITS 주소를 먼저 확인합니다.');
+        const retryButton = document.getElementById('cctv-retry-button');
+        if (retryButton) retryButton.textContent = '최신 주소 조회';
 
-        const applyFresh = async (fresh) => {
-            if (!fresh || !fresh.url || window.__itsCctvRequestToken !== requestToken) return false;
-            writeItsFastStreamCache(item, fresh);
-            saveFreshItsCctv(item, fresh);
-            currentCctvExternalUrl = getItsOfficialCctvPage();
-            playCctvInModal(
-                fresh.url,
-                item.name || fresh.name || 'CCTV 재생',
-                fresh.cctvformat || fresh.format || item.cctvformat || item.format || ''
-            );
-            return true;
-        };
-
-        const fetchAndPlayFresh = async (retry = false) => {
+        const fetchAndPlayFresh = async () => {
             if (window.__itsCctvRequestToken !== requestToken) return;
-            setCctvLoading(true, retry ? 'ITS 최신 영상주소를 다시 확인하고 있습니다.' : '최신 ITS 영상주소를 확인하고 있습니다.');
-            setCctvPlaybackGuide(retry ? '저장된 주소는 사용하지 않고 최신 ITS 주소를 다시 확인합니다.' : '저장된 이전 주소는 사용하지 않고 최신 ITS 주소를 먼저 확인합니다.');
-
+            setCctvLoading(true, '최신 ITS 영상주소를 1회 조회하고 있습니다.');
+            setCctvPlaybackGuide('호출 한도 보호를 위해 이 버튼을 눌렀을 때만 ITS API를 1회 호출합니다.');
             try {
                 const fresh = await fetchFreshItsCctvShared(item);
-                const applied = await applyFresh(fresh);
-                if (!applied && window.__itsCctvRequestToken === requestToken) {
-                    setCctvLoading(false);
-                    const reason = window.__itsCctvLastError ? ` (${String(window.__itsCctvLastError).slice(0, 150)})` : '';
-                    setCctvPlaybackGuide(`현재 ITS에서 HTTPS 영상주소를 받지 못했습니다.${reason} 외부창 열기로 공식 CCTV 지도를 확인하세요.`);
-                }
+                if (!fresh || !fresh.url) throw new Error('최신 영상 주소를 받지 못했습니다.');
+                if (window.__itsCctvRequestToken !== requestToken) return;
+                writeItsFastStreamCache(item, fresh);
+                await saveFreshItsCctv(item, fresh);
+                playCctvInModal(fresh.url, item.name || fresh.name || 'CCTV 재생', fresh.cctvformat || fresh.format || '');
             } catch (error) {
                 console.warn('ITS 최신 영상주소 확인 실패', error);
                 if (window.__itsCctvRequestToken === requestToken) {
                     setCctvLoading(false);
-                    setCctvPlaybackGuide('ITS 최신 영상주소 확인에 실패했습니다. 잠시 후 재생 다시 시도하거나 외부창 열기로 공식 CCTV 지도를 확인하세요.');
+                    setCctvPlaybackGuide(`최신 ITS 주소 조회 실패: ${error?.message || '잠시 후 다시 시도하세요.'}`);
                 }
             }
         };
+        window.__itsCctvRetry = fetchAndPlayFresh;
 
-        // 재생 다시 시도 버튼은 오래된 원본 주소를 재생하지 않고 최신 주소를 새로 조회합니다.
-        window.__itsCctvRetry = () => fetchAndPlayFresh(true);
+        // 저장된 주소가 있으면 먼저 바로 재생합니다. 카드 클릭 자체는 API를 호출하지 않습니다.
+        if (item.url) {
+            playCctvInModal(item.url, item.name || 'CCTV 재생', item.cctvformat || item.format || '');
+            setCctvPlaybackGuide('저장된 ITS 영상주소로 재생 중입니다. 영상이 안 나오면 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
+            return;
+        }
 
-        // playCctvInModal 내부의 HLS 오류 발생 시에도 동일하게 최신 주소를 한 번만 새로 조회합니다.
-        window.__itsCctvForceRefresh = () => {
-            if (window.__itsCctvForceRefreshUsed || window.__itsCctvRequestToken !== requestToken) return;
-            window.__itsCctvForceRefreshUsed = true;
-            fetchAndPlayFresh(true);
-        };
-
-        // 핵심: 저장된 item.url/캐시 주소를 먼저 재생하지 않습니다.
-        await fetchAndPlayFresh(false);
+        // 저장된 주소가 없는 경우에도 자동으로 조회하지 않고 사용자가 버튼을 눌러 선택합니다.
+        openItsLoadingModal(item.name || 'CCTV 재생');
+        setCctvLoading(false);
+        setCctvPlaybackGuide('저장된 ITS 영상주소가 없습니다. 아래 최신 주소 조회를 눌러 1회만 조회하세요.');
     }
 
     function renderCctvs() {
@@ -5857,8 +5872,7 @@
             return `${a.area || ''} ${a.name || ''}`.localeCompare(`${b.area || ''} ${b.name || ''}`, 'ko');
         });
 
-        // 목록을 연 직후 상단 ITS CCTV 몇 개의 최신 스트림 주소를 미리 캐시합니다.
-        // 사용자가 누를 때 API 재조회 대기시간을 줄이기 위한 백그라운드 작업입니다.
+        // 목록 표시만으로는 ITS API를 호출하지 않습니다.
         warmVisibleItsCctvStreams(data);
 
         container.innerHTML = '';
@@ -5913,8 +5927,7 @@
             card.style.textDecoration = 'none';
             card.style.opacity = opacity;
             card.style.cursor = 'pointer';
-            // 손가락을 대는 순간 최신 주소 갱신을 시작해 클릭 전 수백 ms를 확보합니다.
-            if (c.source === 'ITS') card.addEventListener('pointerdown', () => prewarmItsCctvStream(c), { passive:true });
+            // 카드 터치만으로는 ITS API를 호출하지 않습니다.
             card.onclick = () => handleCctvCardClick(c);
             card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '세종청'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${getCctvSectorLabel(sector)} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
             container.appendChild(card);
