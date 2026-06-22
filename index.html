@@ -659,17 +659,10 @@
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
-        <div class="manpower-note"><i class="fas fa-pen-to-square"></i> 북부서·남부서 숫자를 누르면 수정할 수 있으며, 세종청은 두 기관 합계로 자동 표시됩니다.</div>
+        <div class="manpower-note" id="manpower-note"><i class="fas fa-pen-to-square"></i> 경력 숫자를 누르면 수정할 수 있습니다.</div>
         <div class="manpower-table-wrap">
-            <table class="manpower-table" aria-label="경력 현황">
-                <thead>
-                    <tr>
-                        <th class="manpower-label-head">구분</th>
-                        <th class="manpower-office-head">북부서</th>
-                        <th class="manpower-office-head">남부서</th>
-                        <th class="manpower-office-head manpower-sum-head">세종청<small>합계</small></th>
-                    </tr>
-                </thead>
+            <table class="manpower-table" aria-label="경력 현황" id="manpower-table">
+                <thead id="manpower-table-head"></thead>
                 <tbody id="manpower-table-row"></tbody>
             </table>
         </div>
@@ -874,7 +867,10 @@
                     </div>
                     <div id="cctv-player-title" style="font-size:17px; font-weight:900; line-height:1.25; word-break:keep-all;">CCTV 재생</div>
                     <div id="cctv-player-guide" style="font-size:12px; color:#cfcfcf; margin-top:6px; line-height:1.45; word-break:keep-all;">
-                        영상이 바로 보이지 않으면 아래 외부창 열기를 눌러 확인하세요.
+                        저장된 ITS 영상주소로 재생합니다.
+                    </div>
+                    <div id="cctv-player-traffic-guide" style="font-size:11px; color:#8be9a4; margin-top:6px; line-height:1.45; font-weight:800; word-break:keep-all;">
+                        <i class="fas fa-circle-info"></i> 과도한 트래픽 방지를 위해 영상이 보이지 않을 때만 하단 최신 주소 조회를 눌러주세요.
                     </div>
                 </div>
                 <button onclick="closeCctvPlayer()" style="background:white; color:#111; border:none; border-radius:12px; padding:9px 12px; font-weight:900; white-space:nowrap;">닫기</button>
@@ -895,15 +891,12 @@
             <button id="cctv-retry-button" onclick="retryCurrentCctvPlayback()" style="flex:1; background:#34C759; color:white; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
                 최신 주소 조회
             </button>
-            <button onclick="openCurrentCctvExternal()" style="flex:1; background:var(--kakao); color:#3b1e1e; border:none; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
-                외부창 열기
-            </button>
             <button onclick="closeCctvPlayer()" style="flex:1; background:#222; color:white; border:1px solid #555; border-radius:14px; padding:13px; font-size:14px; font-weight:900;">
                 닫기
             </button>
         </div>
         <div id="cctv-player-note" style="font-size:11px; color:#ddd; line-height:1.45; text-align:center; word-break:keep-all; padding:0 4px;">
-            * 원본 사이트의 보안정책으로 내부 팝업 표시가 차단되면 외부창에서 확인하세요.
+            * 최신 주소 조회는 영상이 보이지 않을 때만 1회 눌러주세요.
         </div>
     </div>
 </div>
@@ -2827,6 +2820,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
+        renderManpower();
         render();
         renderShelters();
         renderCctvs();
@@ -5100,8 +5094,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         } catch (e) {
             console.error('기상특보 전체 수신 실패:', e);
             if (cachedSpecial) {
-                headerStatusEl.innerText = '최근 수신값';
-                headerStatusEl.className = 'sejong-summary warn';
+                // 직전 정상 특보 상태를 그대로 유지합니다. 수신 실패 시에도 "최근 수신값"으로 덮어쓰지 않습니다.
+                const cachedAlert = filterSpecialListByScope(cachedSpecial.sejongTexts || []).map(findAlertName).find(Boolean);
+                headerStatusEl.innerText = cachedAlert ? `${getSpecialScopeLabel()}: ${cachedAlert}` : `${getSpecialScopeLabel()}: 특보 없음`;
+                headerStatusEl.className = cachedAlert ? 'sejong-summary warn' : 'sejong-summary safe';
             } else {
                 headerStatusEl.innerText = '수신 지연';
                 headerStatusEl.className = 'sejong-summary warn';
@@ -5398,22 +5394,52 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         </td>`;
     }
 
+    function getVisibleManpowerOffices() {
+        if (globalScope === 'north') return ['north'];
+        if (globalScope === 'south') return ['south'];
+        return ['north', 'south', 'all'];
+    }
+
     function renderManpower() {
         const row = document.getElementById('manpower-table-row');
-        if (!row) return;
+        const head = document.getElementById('manpower-table-head');
+        const table = document.getElementById('manpower-table');
+        const note = document.getElementById('manpower-note');
+        if (!row || !head || !table) return;
+
+        const offices = getVisibleManpowerOffices();
+        const labelWidth = offices.length === 1 ? 42 : offices.length === 2 ? 34 : 29;
+        const officeWidth = ((100 - labelWidth) / offices.length).toFixed(2);
+        const officeHeader = (office) => {
+            if (office === 'all') {
+                return `<th class="manpower-office-head manpower-sum-head" style="width:${officeWidth}%">세종청<small>합계</small></th>`;
+            }
+            return `<th class="manpower-office-head" style="width:${officeWidth}%">${manpowerOfficeName(office)}</th>`;
+        };
+        head.innerHTML = `<tr><th class="manpower-label-head" style="width:${labelWidth}%">구분</th>${offices.map(officeHeader).join('')}</tr>`;
+        table.setAttribute('data-columns', String(offices.length));
+
+        if (note) {
+            if (globalScope === 'north') {
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서 경력 숫자를 누르면 수정할 수 있습니다.';
+            } else if (globalScope === 'south') {
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 남부서 경력 숫자를 누르면 수정할 수 있습니다.';
+            } else {
+                note.innerHTML = '<i class="fas fa-pen-to-square"></i> 북부서·남부서 숫자를 누르면 수정할 수 있으며, 세종청은 두 기관 합계로 자동 표시됩니다.';
+            }
+        }
+
         const groups = ['총원', '자서', '청'];
         let html = '';
         groups.forEach(group => {
             const items = manpowerDefaultData.filter(item => item.group === group);
             if (!items.length) return;
-            if (group !== '총원') html += `<tr class="manpower-group-row"><th colspan="4">${group}</th></tr>`;
+            if (group !== '총원') html += `<tr class="manpower-group-row"><th colspan="${offices.length + 1}">${group}</th></tr>`;
             items.forEach(base => {
                 const item = getManpowerItem(base.id) || base;
                 html += `<tr>
                     <th scope="row" class="manpower-label-cell">${item.label}</th>
-                    ${manpowerCell(item, 'north')}
-                    ${manpowerCell(item, 'south')}
-                    ${manpowerCell(item, 'all')}
+                    ${offices.map(office => manpowerCell(item, office)).join('')}
                 </tr>`;
             });
         });
@@ -5581,8 +5607,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     let currentCctvUrl = '';
     let currentCctvTitle = 'CCTV 재생';
     let currentCctvFormat = '';
-    // ITS 원본 영상주소는 만료·차단될 수 있어 외부창은 공식 CCTV 지도 화면으로 분리합니다.
-    let currentCctvExternalUrl = '';
     let currentHls = null;
     let hlsRetryTimer = null;
     let hlsRecoveryCount = 0;
@@ -5594,13 +5618,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             clearTimeout(cctvPlaybackGuardTimer);
             cctvPlaybackGuardTimer = null;
         }
-    }
-
-    function openCurrentCctvExternal() {
-        // ITS 영상 원본(m3u8/mp4)은 앱 내부와 외부창 모두 차단될 수 있으므로
-        // ITS인 경우에는 공식 CCTV 지도 화면을 엽니다.
-        const target = currentCctvExternalUrl || currentCctvUrl;
-        if (target) window.open(target, '_blank', 'noopener,noreferrer');
     }
 
     function clearHlsRetryTimer() {
@@ -5633,7 +5650,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const frame = document.getElementById('cctv-player-frame');
         clearHlsRetryTimer();
         resetCctvFrameDisplay();
-        setCctvModalInfo(title, 'ITS 영상 재생', '최신 ITS 영상주소를 확인한 뒤 재생합니다.', '#34C759');
+        setCctvModalInfo(title, 'ITS 영상 재생', '저장된 ITS 영상주소가 없습니다. 하단 최신 주소 조회를 눌러주세요.', '#34C759');
         if (currentHls) { currentHls.destroy(); currentHls = null; }
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         if (video) {
@@ -5673,7 +5690,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         window.__itsCctvForceRefresh = null;
         const retryButton = document.getElementById('cctv-retry-button');
         if (retryButton) retryButton.textContent = '재생 다시 시도';
-        currentCctvExternalUrl = '';
         if (modal) modal.style.display = 'none';
     }
 
@@ -5686,7 +5702,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             badgeEl.innerHTML = `${badgeText || 'CCTV'}`;
             badgeEl.style.background = badgeColor;
         }
-        if (guideEl) guideEl.innerText = guideText || '영상이 바로 보이지 않으면 아래 외부창 열기를 눌러 확인하세요.';
+        if (guideEl) guideEl.innerText = guideText || '저장된 ITS 영상주소로 재생합니다.';
     }
 
     function resetCctvFrameDisplay() {
@@ -5767,7 +5783,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         cctvPlaybackAttemptId = attemptId;
 
         resetCctvFrameDisplay();
-        setCctvModalInfo(title, 'ITS 영상 재생', '영상 연결 중입니다.', '#34C759');
+        setCctvModalInfo(title, 'ITS 영상 재생', '저장된 ITS 영상주소로 재생 중입니다.', '#34C759');
         modal.style.display = 'block';
         if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
         video.style.display = 'block';
@@ -5786,7 +5802,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             setCctvPlaybackGuide(guide);
             safePlayCctvVideo(video);
         };
-        const finishFailure = (guide = 'ITS 영상 연결에 실패했습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.') => {
+        const finishFailure = (guide = 'ITS 영상 연결에 실패했습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.') => {
             if (!isCurrentAttempt()) return;
             clearCctvPlaybackGuard();
             setCctvLoading(false);
@@ -5814,7 +5830,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             requestFreshUrlOnce();
             setTimeout(() => {
                 if (isCurrentAttempt() && window.__itsCctvPlaybackReadyToken !== (window.__itsCctvActiveToken || '')) {
-                    finishFailure('ITS 영상 연결 시간이 초과되었습니다. 재생 다시 시도 또는 외부창 열기를 이용하세요.');
+                    finishFailure('ITS 영상 연결 시간이 초과되었습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
                 }
             }, 6500);
         }, 12000);
@@ -5903,7 +5919,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         if (source === 'FLOOD_CCTV') {
             badgeText = '하천 수위 CCTV';
             badgeColor = '#007AFF';
-            guideText = '홍수정보시스템 수위 CCTV 화면입니다. 화면이 보이지 않으면 외부창 열기를 눌러 확인하세요.';
+            guideText = '홍수정보시스템 수위 CCTV 화면입니다.';
         } else if (source === 'DISASTER_CCTV') {
             badgeText = '재난 CCTV';
             badgeColor = '#FF9500';
@@ -6067,11 +6083,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         return new Promise(resolve => setTimeout(resolve, ms));
     }
 
-    function getItsOfficialCctvPage() {
-        // 원본 스트림이 막힐 때는 만료될 수 있는 m3u8 주소 대신 공식 교통 CCTV 지도로 이동합니다.
-        return 'https://www.utic.go.kr/map/map.do?menu=cctv';
-    }
-
     async function handleCctvCardClick(item = {}) {
         if (item.source !== 'ITS') {
             openCctvUrl(item.url, item.name || 'CCTV 재생', item.source || '', item.cctvformat || item.format || '');
@@ -6084,7 +6095,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         window.__itsCctvPlaybackReadyToken = '';
         window.__itsCctvForceRefreshUsed = false;
         window.__itsCctvForceRefresh = null; // 영상 실패 시 자동 API 재조회 금지
-        currentCctvExternalUrl = getItsOfficialCctvPage();
         currentCctvTitle = item.name || 'CCTV 재생';
         currentCctvFormat = item.cctvformat || item.format || '';
 
@@ -6115,14 +6125,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         // 저장된 주소가 있으면 먼저 바로 재생합니다. 카드 클릭 자체는 API를 호출하지 않습니다.
         if (item.url) {
             playCctvInModal(item.url, item.name || 'CCTV 재생', item.cctvformat || item.format || '');
-            setCctvPlaybackGuide('저장된 ITS 영상주소로 재생 중입니다. 영상이 안 나오면 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
+            setCctvPlaybackGuide('저장된 ITS 영상주소로 재생 중입니다. 영상이 보이지 않을 때만 하단 최신 주소 조회를 눌러 1회 갱신하세요.');
             return;
         }
 
         // 저장된 주소가 없는 경우에도 자동으로 조회하지 않고 사용자가 버튼을 눌러 선택합니다.
         openItsLoadingModal(item.name || 'CCTV 재생');
         setCctvLoading(false);
-        setCctvPlaybackGuide('저장된 ITS 영상주소가 없습니다. 아래 최신 주소 조회를 눌러 1회만 조회하세요.');
+        setCctvPlaybackGuide('저장된 ITS 영상주소가 없습니다. 하단 최신 주소 조회를 눌러 1회만 조회하세요.');
     }
 
     function renderCctvs() {
