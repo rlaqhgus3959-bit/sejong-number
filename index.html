@@ -3214,8 +3214,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         return [
             ['all', '전체'],
             ['its', '고속도로·국도'],
-            ['downtown', '도심 전체'],
-            ['river', '하천수위']
+            ['river', '하천수위'],
+            ['downtown', '도심 전체']
         ];
     }
 
@@ -6016,6 +6016,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 <div class="manpower-agency-total">총합 ${agencyTotal}명</div>
             </div>
             <div class="manpower-agency-grid">
+                <div class="manpower-agency-cell total">
+                    <span class="manpower-agency-label">세종청 총합</span>
+                    <strong class="manpower-agency-value">${agencyTotal}명</strong>
+                </div>
                 <div class="manpower-agency-cell">
                     <span class="manpower-agency-label">북부서 총계</span>
                     <strong class="manpower-agency-value">${northTotal}명</strong>
@@ -6023,10 +6027,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 <div class="manpower-agency-cell">
                     <span class="manpower-agency-label">남부서 총계</span>
                     <strong class="manpower-agency-value">${southTotal}명</strong>
-                </div>
-                <div class="manpower-agency-cell total">
-                    <span class="manpower-agency-label">세종청 총합</span>
-                    <strong class="manpower-agency-value">${agencyTotal}명</strong>
                 </div>
             </div>
         </section>`;
@@ -6565,7 +6565,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         } else if (source === 'SEJONG_BIS') {
             badgeText = '세종 교통 CCTV';
             badgeColor = '#5856D6';
-            guideText = '상단 기관 로고·메뉴 영역은 숨기고 CCTV 지도 영역을 크게 표시합니다. 영상이 바로 안 보이면 지도에서 해당 CCTV 아이콘을 누르세요.';
+            guideText = '세종시 교통정보시스템 CCTV 화면입니다. 영상이 바로 안 보이면 지도에서 해당 CCTV 아이콘을 누르세요.';
         }
 
         resetCctvFrameDisplay();
