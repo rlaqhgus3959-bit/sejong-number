@@ -1087,6 +1087,35 @@
             .manpower-agency-value { font-size: 14px; }
         }
 
+        /* 요청 반영: 현재시간 · 일출·일몰 표시값 2pt 확대 */
+        .header-time-card .header-current-time,
+        .header-sun-btn .header-sun-info {
+            font-size: 16px !important;
+        }
+        @media (max-width: 480px) {
+            .header-time-card .header-current-time,
+            .header-sun-btn .header-sun-info {
+                font-size: 16px !important;
+            }
+        }
+        @media (max-width: 360px) {
+            .header-time-card .header-current-time,
+            .header-sun-btn .header-sun-info {
+                font-size: 15px !important;
+            }
+        }
+
+
+
+        /* 경력현황 표기 가독성 보정: 지구대·파출소·지원경력·합계 항목만 1px 확대 */
+        .manpower-station-name { font-size: 15px; }
+        .manpower-station-support-total { font-size: 11px; }
+        .manpower-destination-name { font-size: 12px; }
+        .manpower-destination-total { font-size: 12px; }
+        .manpower-source-label { font-size: 10px; }
+        .manpower-summary-label { font-size: 11px; }
+        .manpower-grand-total span { font-size: 13px; }
+
 </style>
 </head>
 <body>
@@ -2866,7 +2895,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             id: `${station}-traffic`,
             station,
             kind:'traffic',
-            label:'교통대착반운영',
+            label:'교통안전대책반',
             count:0
         });
     });
@@ -6078,8 +6107,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     <strong class="manpower-summary-value">${supportTotal}명</strong>
                 </div>
                 <div class="manpower-summary-row traffic">
-                    <button type="button" class="manpower-traffic-btn ${editable ? 'editable' : ''}" ${trafficClick} title="${editable ? `${label} 교통대착반운영 인원 수정` : ''}">
-                        <span class="manpower-summary-label">교통대착반운영<i class="fas fa-pen manpower-edit-mark"></i></span>
+                    <button type="button" class="manpower-traffic-btn ${editable ? 'editable' : ''}" ${trafficClick} title="${editable ? `${label} 교통안전대책반 인원 수정` : ''}">
+                        <span class="manpower-summary-label">교통안전대책반<i class="fas fa-pen manpower-edit-mark"></i></span>
                         <strong class="manpower-summary-value">${trafficTotal}명</strong>
                     </button>
                 </div>
@@ -6095,7 +6124,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         if (note) {
             const scopeText = globalScope === 'north' ? '북부서' : globalScope === 'south' ? '남부서' : '각 부서';
-            note.innerHTML = `<i class="fas fa-pen-to-square"></i> ${scopeText} 지구대·파출소별로 지원 가능한 자서·기동대·광예대·청 인원을 입력하세요. 지원 합계와 교통대착반운영을 더한 총계는 자동 계산됩니다.`;
+            note.innerHTML = `<i class="fas fa-pen-to-square"></i> ${scopeText} 지구대·파출소별로 지원 가능한 자서·기동대·광예대·청 인원을 입력하세요. 지원 합계와 교통안전대책반을 더한 총계는 자동 계산됩니다.`;
         }
         const stationCards = getVisibleManpowerStations().map(manpowerStationCard).join('');
         board.innerHTML = (globalScope === 'all' ? manpowerAgencySummaryCard() : '') + stationCards;
@@ -6112,7 +6141,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const select = document.getElementById('manpower-count-select');
         const label = document.querySelector('label[for="manpower-count-select"]');
         title.textContent = item.kind === 'traffic'
-            ? `${manpowerStationName(item.station)} · 교통대착반운영`
+            ? `${manpowerStationName(item.station)} · 교통안전대책반`
             : `${manpowerStationName(item.station)} · ${item.destinationLabel} · ${item.sourceLabel}`;
         if (label) label.textContent = '지원 인원';
         select.innerHTML = makeManpowerOptions(500, item.count, '명');
