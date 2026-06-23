@@ -945,6 +945,148 @@
             .header-sun-info { font-size: 9.5px; }
         }
 
+
+        /* 요청 반영: 날짜·시간 전체 표시 및 상단/하단 버튼 글씨 확대 */
+        .header-time-card .header-status-label {
+            overflow: visible;
+            text-overflow: clip;
+            white-space: nowrap;
+            font-size: 9.5px;
+        }
+        .header-time-card .header-current-time {
+            overflow: visible;
+            text-overflow: clip;
+            white-space: nowrap;
+            font-size: 12px;
+            font-weight: 900;
+        }
+        /* 세종청 · 북부서 · 남부서 */
+        .scope-btn {
+            min-height: 44px !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+        }
+        /* 비상연락망 · 119 연결 · 112 연결 */
+        .link-btn {
+            min-height: 58px !important;
+            font-size: 16px !important;
+            font-weight: 800 !important;
+        }
+        .link-btn i { font-size: 16px; }
+        @media (max-width: 480px) {
+            .header-time-card .header-status-label { font-size: 8.5px; }
+            .header-time-card .header-current-time { font-size: 11px; }
+            .scope-btn { min-height: 42px !important; font-size: 16px !important; }
+            .link-btn { min-height: 56px !important; font-size: 16px !important; gap: 5px; }
+        }
+        @media (max-width: 360px) {
+            .header-time-card .header-status-label { font-size: 8px; }
+            .header-time-card .header-current-time { font-size: 10.5px; }
+            .link-btn { font-size: 15px !important; padding-left: 3px !important; padding-right: 3px !important; }
+            .link-btn i { font-size: 15px; }
+        }
+
+
+
+        /* 요청 반영: 상단 시간·일출일몰 글씨 확대 / 세종청 경력 합계 */
+        .header-status-line {
+            min-height: 58px;
+        }
+        .header-time-card,
+        .header-sun-btn {
+            min-height: 56px;
+        }
+        .header-time-card .header-status-label,
+        .header-sun-btn .header-status-label {
+            font-size: 10px !important;
+        }
+        .header-time-card .header-current-time,
+        .header-sun-btn .header-sun-info {
+            font-size: 14px !important;
+            font-weight: 950;
+            letter-spacing: -0.55px;
+            white-space: nowrap;
+        }
+        .manpower-agency-card {
+            grid-column: 1 / -1;
+            overflow: hidden;
+            border: 1px solid rgba(0,122,255,0.18);
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(0,122,255,0.09), rgba(255,255,255,0.86));
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.84);
+        }
+        .manpower-agency-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
+            padding: 10px 12px;
+            border-bottom: 1px solid rgba(0,122,255,0.13);
+        }
+        .manpower-agency-title {
+            color: var(--text);
+            font-size: 14px;
+            font-weight: 950;
+            letter-spacing: -0.35px;
+        }
+        .manpower-agency-total {
+            flex: 0 0 auto;
+            padding: 5px 8px;
+            border-radius: 999px;
+            background: rgba(0,122,255,0.14);
+            color: var(--blue);
+            font-size: 11px;
+            font-weight: 950;
+            white-space: nowrap;
+        }
+        .manpower-agency-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 7px;
+            padding: 9px 10px 10px;
+        }
+        .manpower-agency-cell {
+            min-width: 0;
+            padding: 8px 6px;
+            border: 1px solid rgba(60,60,67,0.10);
+            border-radius: 11px;
+            background: rgba(255,255,255,0.76);
+            text-align: center;
+        }
+        .manpower-agency-label {
+            display: block;
+            color: var(--sub);
+            font-size: 10px;
+            font-weight: 850;
+            line-height: 1.15;
+            white-space: nowrap;
+        }
+        .manpower-agency-value {
+            display: block;
+            margin-top: 3px;
+            color: var(--text);
+            font-size: 15px;
+            font-weight: 950;
+            letter-spacing: -0.45px;
+            white-space: nowrap;
+        }
+        .manpower-agency-cell.total .manpower-agency-value { color: var(--blue); }
+        @media (max-width: 480px) {
+            .header-status-line { min-height: 56px; }
+            .header-time-card,
+            .header-sun-btn { min-height: 54px; }
+            .header-time-card .header-current-time,
+            .header-sun-btn .header-sun-info { font-size: 14px !important; }
+        }
+        @media (max-width: 360px) {
+            .header-time-card .header-current-time,
+            .header-sun-btn .header-sun-info { font-size: 13px !important; }
+            .manpower-agency-grid { gap: 5px; padding: 8px; }
+            .manpower-agency-cell { padding: 7px 3px; }
+            .manpower-agency-label { font-size: 9px; }
+            .manpower-agency-value { font-size: 14px; }
+        }
+
 </style>
 </head>
 <body>
@@ -968,7 +1110,7 @@
         <div class="header-time-card">
             <span class="header-status-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
             <span class="header-status-copy">
-                <span class="header-status-label">현재시간</span>
+                <span id="header-current-date" class="header-status-label">현재시간</span>
                 <span id="header-current-time" class="header-current-time">확인 중</span>
             </span>
         </div>
@@ -3210,8 +3352,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const h = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const sec = String(now.getSeconds()).padStart(2, '0');
-        el.textContent = `${h}:${min}:${sec}`;
-        el.title = `${y}.${m}.${d}.(${dayNames[now.getDay()]}) ${h}:${min}:${sec}`;
+        const dateEl = document.getElementById('header-current-date');
+        const dateText = `${y}.${m}.${d}.(${dayNames[now.getDay()]})`;
+        const timeText = `${h}:${min}:${sec}`;
+        if (dateEl) dateEl.textContent = dateText;
+        el.textContent = timeText;
+        el.title = `${dateText} ${timeText}`;
     }
 
     // 별도 API 호출 없이 세종시청 인근 좌표를 기준으로 오늘의 일출·일몰을 계산합니다.
@@ -3279,7 +3425,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             info.textContent = '세종시 일출·일몰 확인 불가';
             return;
         }
-        info.textContent = `일출 ${formatSunTime(sunrise)} · 일몰 ${formatSunTime(sunset)}`;
+        info.textContent = `${formatSunTime(sunrise)} · ${formatSunTime(sunset)}`;
     }
 
     window.onload = () => { 
@@ -5856,6 +6002,36 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         return cleanManpowerNumber(item && item.count);
     }
 
+    function getStationGrandTotal(station) {
+        return getStationSupportTotal(station) + getStationTrafficTotal(station);
+    }
+
+    function manpowerAgencySummaryCard() {
+        const northTotal = getStationGrandTotal('north');
+        const southTotal = getStationGrandTotal('south');
+        const agencyTotal = northTotal + southTotal;
+        return `<section class="manpower-agency-card" aria-label="세종청 경력 총합">
+            <div class="manpower-agency-head">
+                <div class="manpower-agency-title">세종청 경력현황</div>
+                <div class="manpower-agency-total">총합 ${agencyTotal}명</div>
+            </div>
+            <div class="manpower-agency-grid">
+                <div class="manpower-agency-cell">
+                    <span class="manpower-agency-label">북부서 총계</span>
+                    <strong class="manpower-agency-value">${northTotal}명</strong>
+                </div>
+                <div class="manpower-agency-cell">
+                    <span class="manpower-agency-label">남부서 총계</span>
+                    <strong class="manpower-agency-value">${southTotal}명</strong>
+                </div>
+                <div class="manpower-agency-cell total">
+                    <span class="manpower-agency-label">세종청 총합</span>
+                    <strong class="manpower-agency-value">${agencyTotal}명</strong>
+                </div>
+            </div>
+        </section>`;
+    }
+
     function manpowerSourceCell(item) {
         if (!item) return '';
         const editable = isAdmin;
@@ -5921,7 +6097,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const scopeText = globalScope === 'north' ? '북부서' : globalScope === 'south' ? '남부서' : '각 부서';
             note.innerHTML = `<i class="fas fa-pen-to-square"></i> ${scopeText} 지구대·파출소별로 지원 가능한 자서·기동대·광예대·청 인원을 입력하세요. 지원 합계와 교통대착반운영을 더한 총계는 자동 계산됩니다.`;
         }
-        board.innerHTML = getVisibleManpowerStations().map(manpowerStationCard).join('');
+        const stationCards = getVisibleManpowerStations().map(manpowerStationCard).join('');
+        board.innerHTML = (globalScope === 'all' ? manpowerAgencySummaryCard() : '') + stationCards;
     }
 
     function openManpowerEditor(id) {
