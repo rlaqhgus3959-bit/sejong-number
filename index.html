@@ -60,6 +60,29 @@
         }
         h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #000; }
 
+        /* 제목 아래 현재시각 · 세종시 일출·일몰 */
+        header .top-nav { margin-bottom: 7px; }
+        .header-status-line {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            margin-left: 44px; min-height: 25px;
+            color: var(--sub); font-size: 12px; font-weight: 700;
+            letter-spacing: -0.25px;
+        }
+        .header-current-time {
+            display: inline-flex; align-items: center; gap: 5px;
+            white-space: nowrap;
+        }
+        .header-current-time i { color: var(--blue); }
+        .header-sun-btn {
+            display: inline-flex; align-items: center; gap: 5px;
+            min-width: 0; border: none; border-radius: 10px;
+            padding: 4px 7px; color: var(--orange); background: rgba(255,149,0,0.10);
+            font: inherit; font-size: 11px; font-weight: 800; letter-spacing: -0.25px;
+            cursor: pointer; white-space: nowrap;
+        }
+        .header-sun-btn:active { transform: scale(0.97); opacity: 0.82; }
+        .header-sun-btn i { color: var(--orange); }
+
         .refresh-btn {
             background: var(--card); color: var(--blue);
             width: 36px; height: 36px; border-radius: 50%; border: none;
@@ -259,9 +282,13 @@
         }
         .filter-btn.active { background: var(--text); color: var(--card); font-weight: 800; }
 
-        .official-links { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 30px; margin-bottom: 20px; }
-        .link-btn { background: var(--card); box-shadow: var(--shadow); padding: 16px; border-radius: 16px; border:none; text-decoration: none; color: var(--text); font-size: 14px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 8px; cursor: pointer; width:100%; box-sizing:border-box;}
+        .official-links { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-top: 30px; margin-bottom: 20px; }
+        .link-btn { background: var(--card); box-shadow: var(--shadow); padding: 16px 8px; border-radius: 16px; border:none; text-decoration: none; color: var(--text); font-size: 13px; font-weight:700; display: flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; width:100%; min-width:0; box-sizing:border-box; white-space:nowrap;}
         .link-btn:active { transform: scale(0.97); opacity:0.8; }
+        @media (max-width: 360px) {
+            .official-links { gap: 6px; }
+            .link-btn { padding: 14px 4px; font-size: 11px; gap: 4px; }
+        }
 
         #sync-status {
             position: fixed; bottom: 15px; right: 15px; 
@@ -692,11 +719,14 @@
             .admin-btn { padding: 7px 9px; }
             .refresh-btn { width: 34px; height: 34px; }
             .full-refresh-btn { min-height:34px; padding:7px 9px; font-size:12px; }
+            .header-status-line { margin-left: 38px; gap: 5px; font-size: 11px; }
+            .header-sun-btn { font-size: 10.5px; padding: 4px 6px; }
         }
 
         @media (max-width: 340px) {
             .title-group h1 { font-size: 18px; letter-spacing: -1.15px; }
             .police-emblem { width: 27px; height: 27px; flex-basis: 27px; }
+            .header-status-line { margin-left: 0; }
         }
 
 
@@ -746,6 +776,12 @@
                 <i id="refresh-icon" class="fas fa-rotate-right"></i><span>전체 새로고침</span>
             </button>
         </div>
+    </div>
+    <div class="header-status-line" aria-live="polite">
+        <span id="header-current-time" class="header-current-time"><i class="fas fa-clock"></i> 현재시간 확인 중</span>
+        <button type="button" class="header-sun-btn" onclick="refreshHeaderSunTimes()" title="세종시 기준 오늘의 일출·일몰 다시 확인">
+            <i class="fas fa-sun"></i><span id="header-sun-info">세종시 일출·일몰 확인</span>
+        </button>
     </div>
 </header>
 
@@ -953,6 +989,7 @@
 
 <div class="official-links">
     <button onclick="openContacts()" class="link-btn"><i class="fas fa-address-book" style="color:var(--red)"></i> 비상연락망</button>
+    <a href="tel:119" class="link-btn"><i class="fas fa-fire-extinguisher" style="color:var(--red)"></i> 119 연결</a>
     <a href="tel:112" class="link-btn"><i class="fas fa-phone" style="color:var(--blue)"></i> 112 연결</a>
 </div>
 
@@ -2964,8 +3001,94 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         autoFetchForest();
     }
 
+    // 제목 아래 실시간 시각 표시
+    function updateHeaderCurrentTime() {
+        const el = document.getElementById('header-current-time');
+        if (!el) return;
+        const now = new Date();
+        const dayNames = ['일', '월', '화', '수', '목', '금', '토'];
+        const y = now.getFullYear();
+        const m = String(now.getMonth() + 1).padStart(2, '0');
+        const d = String(now.getDate()).padStart(2, '0');
+        const h = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const sec = String(now.getSeconds()).padStart(2, '0');
+        el.innerHTML = `<i class="fas fa-clock"></i> ${y}.${m}.${d}.(${dayNames[now.getDay()]}) ${h}:${min}:${sec}`;
+    }
+
+    // 별도 API 호출 없이 세종시청 인근 좌표를 기준으로 오늘의 일출·일몰을 계산합니다.
+    const SEJONG_SUN_LAT = 36.4801;
+    const SEJONG_SUN_LNG = 127.2890;
+
+    function normalizeSunHours(value) {
+        return ((value % 24) + 24) % 24;
+    }
+
+    function formatSunTime(hours) {
+        if (!Number.isFinite(hours)) return '--:--';
+        let totalMinutes = Math.round(normalizeSunHours(hours) * 60);
+        totalMinutes %= (24 * 60);
+        const h = String(Math.floor(totalMinutes / 60)).padStart(2, '0');
+        const m = String(totalMinutes % 60).padStart(2, '0');
+        return `${h}:${m}`;
+    }
+
+    function calculateSunTime(date, latitude, longitude, isSunrise) {
+        const degToRad = Math.PI / 180;
+        const dayStart = new Date(date.getFullYear(), 0, 0);
+        const localDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+        const dayNumber = Math.floor((localDate - dayStart) / 86400000);
+        const longitudeHour = longitude / 15;
+        const approxTime = dayNumber + (((isSunrise ? 6 : 18) - longitudeHour) / 24);
+        const meanAnomaly = (0.9856 * approxTime) - 3.289;
+        let trueLongitude = meanAnomaly
+            + (1.916 * Math.sin(meanAnomaly * degToRad))
+            + (0.020 * Math.sin(2 * meanAnomaly * degToRad))
+            + 282.634;
+        trueLongitude = ((trueLongitude % 360) + 360) % 360;
+
+        let rightAscension = Math.atan(0.91764 * Math.tan(trueLongitude * degToRad)) / degToRad;
+        rightAscension = ((rightAscension % 360) + 360) % 360;
+        const longitudeQuadrant = Math.floor(trueLongitude / 90) * 90;
+        const rightAscensionQuadrant = Math.floor(rightAscension / 90) * 90;
+        rightAscension = (rightAscension + longitudeQuadrant - rightAscensionQuadrant) / 15;
+
+        const sinDeclination = 0.39782 * Math.sin(trueLongitude * degToRad);
+        const cosDeclination = Math.cos(Math.asin(sinDeclination));
+        const cosHourAngle = (
+            Math.cos(90.833 * degToRad)
+            - (sinDeclination * Math.sin(latitude * degToRad))
+        ) / (cosDeclination * Math.cos(latitude * degToRad));
+
+        if (cosHourAngle > 1 || cosHourAngle < -1) return null;
+        let hourAngle = Math.acos(cosHourAngle) / degToRad;
+        if (isSunrise) hourAngle = 360 - hourAngle;
+        hourAngle /= 15;
+
+        const localMeanTime = hourAngle + rightAscension - (0.06571 * approxTime) - 6.622;
+        const universalTime = normalizeSunHours(localMeanTime - longitudeHour);
+        const timezoneHours = -date.getTimezoneOffset() / 60;
+        return normalizeSunHours(universalTime + timezoneHours);
+    }
+
+    function refreshHeaderSunTimes() {
+        const info = document.getElementById('header-sun-info');
+        if (!info) return;
+        const today = new Date();
+        const sunrise = calculateSunTime(today, SEJONG_SUN_LAT, SEJONG_SUN_LNG, true);
+        const sunset = calculateSunTime(today, SEJONG_SUN_LAT, SEJONG_SUN_LNG, false);
+        if (sunrise === null || sunset === null) {
+            info.textContent = '세종시 일출·일몰 확인 불가';
+            return;
+        }
+        info.textContent = `세종시 일출 ${formatSunTime(sunrise)} · 일몰 ${formatSunTime(sunset)}`;
+    }
+
     window.onload = () => { 
         document.body.setAttribute('data-global-scope', globalScope);
+        updateHeaderCurrentTime();
+        setInterval(updateHeaderCurrentTime, 1000);
+        refreshHeaderSunTimes();
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
         renderManpower();
