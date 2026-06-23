@@ -61,27 +61,87 @@
         h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #000; }
 
         /* 제목 아래 현재시각 · 세종시 일출·일몰 */
-        header .top-nav { margin-bottom: 7px; }
+        header .top-nav { margin-bottom: 8px; }
         .header-status-line {
-            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-            margin-left: 44px; min-height: 25px;
-            color: var(--sub); font-size: 12px; font-weight: 700;
+            display: grid;
+            grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+            gap: 9px;
+            margin: 7px 0 0 44px;
+        }
+        .header-time-card,
+        .header-sun-btn {
+            min-width: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 17px;
+            border: 1px solid rgba(255,255,255,0.88);
+            box-shadow: 0 8px 20px rgba(15,23,42,0.07), inset 0 1px 0 rgba(255,255,255,0.95);
+            backdrop-filter: blur(18px) saturate(155%);
+            -webkit-backdrop-filter: blur(18px) saturate(155%);
+            box-sizing: border-box;
+        }
+        .header-time-card {
+            background: linear-gradient(145deg, rgba(255,255,255,0.98), rgba(239,246,255,0.94));
+        }
+        .header-sun-btn {
+            justify-content: flex-start;
+            font: inherit;
+            text-align: left;
+            cursor: pointer;
+            background: linear-gradient(145deg, rgba(255,254,250,0.98), rgba(255,244,220,0.95));
+            border-color: rgba(255,180,60,0.23);
+        }
+        .header-sun-btn:active { transform: scale(0.985); opacity: 0.9; }
+        .header-status-icon {
+            width: 34px;
+            height: 34px;
+            flex: 0 0 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 12px;
+            color: var(--blue);
+            background: rgba(0,122,255,0.12);
+            font-size: 15px;
+        }
+        .header-sun-btn .header-status-icon {
+            color: #EF8B00;
+            background: rgba(255,149,0,0.14);
+        }
+        .header-status-copy {
+            min-width: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+        .header-status-label {
+            display: block;
+            color: var(--sub);
+            font-size: 10px;
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.15px;
+        }
+        .header-current-time,
+        .header-sun-info {
+            display: block;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
             letter-spacing: -0.25px;
+            font-weight: 850;
+            line-height: 1.25;
         }
         .header-current-time {
-            display: inline-flex; align-items: center; gap: 5px;
-            white-space: nowrap;
+            color: #111827;
+            font-size: 13px;
         }
-        .header-current-time i { color: var(--blue); }
-        .header-sun-btn {
-            display: inline-flex; align-items: center; gap: 5px;
-            min-width: 0; border: none; border-radius: 10px;
-            padding: 4px 7px; color: var(--orange); background: rgba(255,149,0,0.10);
-            font: inherit; font-size: 11px; font-weight: 800; letter-spacing: -0.25px;
-            cursor: pointer; white-space: nowrap;
+        .header-sun-info {
+            color: #9A5A00;
+            font-size: 12px;
         }
-        .header-sun-btn:active { transform: scale(0.97); opacity: 0.82; }
-        .header-sun-btn i { color: var(--orange); }
 
         .refresh-btn {
             background: var(--card); color: var(--blue);
@@ -758,6 +818,133 @@
             .manpower-item-row { min-height:30px; padding:5px 11px; }
             .manpower-item-name { font-size:12px; }
         }
+
+        /* 현재시간·일출일몰 Apple 카드 최종 반응형 보정 */
+        @media (max-width: 480px) {
+            .header-status-line {
+                grid-template-columns: 1fr;
+                gap: 7px;
+                margin: 8px 0 0;
+            }
+            .header-time-card,
+            .header-sun-btn {
+                padding: 9px 10px;
+                border-radius: 15px;
+                gap: 9px;
+            }
+            .header-status-icon {
+                width: 32px;
+                height: 32px;
+                flex-basis: 32px;
+                border-radius: 11px;
+                font-size: 14px;
+            }
+            .header-current-time { font-size: 12px; }
+            .header-sun-info { font-size: 11px; }
+        }
+        @media (max-width: 340px) {
+            .header-status-line { margin-left: 0; }
+        }
+
+
+        /* 현재시간·일출일몰: 하단 패널과 같은 폭의 가로형 컴팩트 Apple 바 */
+        .header-status-line {
+            display: flex !important;
+            flex-wrap: nowrap !important;
+            align-items: stretch;
+            width: 100%;
+            min-height: 54px;
+            margin: 8px 0 0 !important;
+            padding: 0;
+            gap: 0 !important;
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.92);
+            border-radius: 16px;
+            background: rgba(255,255,255,0.86);
+            box-shadow: 0 8px 20px rgba(15,23,42,0.065), inset 0 1px 0 rgba(255,255,255,0.98);
+            backdrop-filter: blur(18px) saturate(155%);
+            -webkit-backdrop-filter: blur(18px) saturate(155%);
+            box-sizing: border-box;
+        }
+        .header-time-card,
+        .header-sun-btn {
+            flex: 1 1 0;
+            min-width: 0;
+            min-height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 7px;
+            padding: 7px 10px !important;
+            border: 0 !important;
+            border-radius: 0 !important;
+            box-shadow: none !important;
+            background: transparent !important;
+            backdrop-filter: none !important;
+            -webkit-backdrop-filter: none !important;
+            box-sizing: border-box;
+        }
+        .header-time-card {
+            border-right: 1px solid rgba(60,60,67,0.12) !important;
+            background: linear-gradient(135deg, rgba(0,122,255,0.045), rgba(255,255,255,0)) !important;
+        }
+        .header-sun-btn {
+            justify-content: flex-start;
+            background: linear-gradient(135deg, rgba(255,149,0,0.045), rgba(255,255,255,0)) !important;
+        }
+        .header-status-icon {
+            width: 28px;
+            height: 28px;
+            flex: 0 0 28px;
+            border-radius: 10px;
+            font-size: 12px;
+        }
+        .header-status-copy { gap: 1px; }
+        .header-status-label {
+            font-size: 9px;
+            line-height: 1.15;
+            letter-spacing: -0.15px;
+        }
+        .header-current-time,
+        .header-sun-info {
+            font-size: 11px;
+            line-height: 1.2;
+            letter-spacing: -0.28px;
+        }
+        .header-sun-info { color: #9A5A00; }
+        @media (max-width: 480px) {
+            .header-status-line {
+                display: flex !important;
+                flex-wrap: nowrap !important;
+                min-height: 50px;
+                margin: 7px 0 0 !important;
+                border-radius: 15px;
+            }
+            .header-time-card,
+            .header-sun-btn {
+                min-height: 48px;
+                gap: 6px;
+                padding: 6px 8px !important;
+            }
+            .header-status-icon {
+                width: 26px;
+                height: 26px;
+                flex-basis: 26px;
+                border-radius: 9px;
+                font-size: 11px;
+            }
+            .header-status-label { font-size: 8.5px; }
+            .header-current-time,
+            .header-sun-info { font-size: 10.5px; }
+        }
+        @media (max-width: 340px) {
+            .header-time-card,
+            .header-sun-btn { padding: 6px 6px !important; gap: 5px; }
+            .header-status-icon { width: 24px; height: 24px; flex-basis: 24px; font-size: 10px; }
+            .header-status-label { font-size: 8px; }
+            .header-current-time,
+            .header-sun-info { font-size: 9.5px; }
+        }
+
 </style>
 </head>
 <body>
@@ -778,9 +965,19 @@
         </div>
     </div>
     <div class="header-status-line" aria-live="polite">
-        <span id="header-current-time" class="header-current-time"><i class="fas fa-clock"></i> 현재시간 확인 중</span>
+        <div class="header-time-card">
+            <span class="header-status-icon" aria-hidden="true"><i class="fas fa-clock"></i></span>
+            <span class="header-status-copy">
+                <span class="header-status-label">현재시간</span>
+                <span id="header-current-time" class="header-current-time">확인 중</span>
+            </span>
+        </div>
         <button type="button" class="header-sun-btn" onclick="refreshHeaderSunTimes()" title="세종시 기준 오늘의 일출·일몰 다시 확인">
-            <i class="fas fa-sun"></i><span id="header-sun-info">세종시 일출·일몰 확인</span>
+            <span class="header-status-icon" aria-hidden="true"><i class="fas fa-sun"></i></span>
+            <span class="header-status-copy">
+                <span class="header-status-label">세종시 일출·일몰</span>
+                <span id="header-sun-info" class="header-sun-info">확인 중</span>
+            </span>
         </button>
     </div>
 </header>
@@ -3013,7 +3210,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const h = String(now.getHours()).padStart(2, '0');
         const min = String(now.getMinutes()).padStart(2, '0');
         const sec = String(now.getSeconds()).padStart(2, '0');
-        el.innerHTML = `<i class="fas fa-clock"></i> ${y}.${m}.${d}.(${dayNames[now.getDay()]}) ${h}:${min}:${sec}`;
+        el.textContent = `${h}:${min}:${sec}`;
+        el.title = `${y}.${m}.${d}.(${dayNames[now.getDay()]}) ${h}:${min}:${sec}`;
     }
 
     // 별도 API 호출 없이 세종시청 인근 좌표를 기준으로 오늘의 일출·일몰을 계산합니다.
@@ -3081,7 +3279,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             info.textContent = '세종시 일출·일몰 확인 불가';
             return;
         }
-        info.textContent = `세종시 일출 ${formatSunTime(sunrise)} · 일몰 ${formatSunTime(sunset)}`;
+        info.textContent = `일출 ${formatSunTime(sunrise)} · 일몰 ${formatSunTime(sunset)}`;
     }
 
     window.onload = () => { 
