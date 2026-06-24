@@ -2635,7 +2635,7 @@
         const merged = sanitizeCctvData([...(cctvData || []), ...items]);
         cctvData = merged;
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
-        await db.ref('cctvData').set(merged);
+        await saveCctvCatalogSnapshot(merged);
         cctvFilter = focus;
         if (kind === 'river') cctvSectorFilter = 'river';
         else if (kind === 'underpass') cctvSectorFilter = 'underpass';
@@ -2744,7 +2744,7 @@
         const merged = sanitizeCctvData([...(cctvData || []), ...SEJONG_CORE_CCTV_PRESETS]);
         cctvData = merged;
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
-        await db.ref('cctvData').set(merged);
+        await saveCctvCatalogSnapshot(merged);
         cctvFilter = 'all';
         cctvSectorFilter = 'downtown';
         const search = document.getElementById('cctv-search');
@@ -2759,7 +2759,7 @@
         const merged = sanitizeCctvData([...(cctvData || []), ...(items || [])]);
         cctvData = merged;
         localStorage.setItem('cctvDataBackup', JSON.stringify(merged));
-        await db.ref('cctvData').set(merged);
+        await saveCctvCatalogSnapshot(merged);
         cctvFilter = focusAreaKey && focusAreaKey !== 'all' ? `area:${focusAreaKey}` : 'all';
         cctvSectorFilter = 'its';
         const search = document.getElementById('cctv-search');
@@ -3481,77 +3481,487 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         info.textContent = `${formatSunTime(sunrise)} · ${formatSunTime(sunset)}`;
     }
 
-    window.onload = () => { 
+
+
+    /* Firebase 다운로드 절감: 실시간은 유지하되 전체 목록 재수신을 줄이는 전용 경로 */
+    const TRAFFIC_DB_PATH_V2 = 'trafficItemsV2';
+    const SHELTER_DB_PATH_V2 = 'shelterOverridesV2';
+    const CCTV_CATALOG_DB_PATH_V2 = 'cctvCatalogV2';
+    const CCTV_LIVE_DB_PATH_V2 = 'cctvLiveUrlsV2';
+    const REALTIME_MIGRATION_META_PATH = 'realtimeOptimizationMetaV1';
+    const REALTIME_MIGRATION_TOKEN = `device-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+    const realtimeListeners = {};
+    let trafficItemsV2 = {};
+    let shelterOverridesV2 = {};
+    let cctvCatalogV2 = {};
+    let cctvLiveV2 = {};
+    let trafficInitPromise = null;
+    let shelterInitPromise = null;
+    let cctvInitPromise = null;
+    let trafficRenderQueued = false;
+    let shelterRenderQueued = false;
+    let cctvRenderQueued = false;
+    let manpowerRemoteRows = {};
+
+    function rtDbKey(value, prefix = 'item') {
+        const raw = String(value ?? '').trim() || `${prefix}-${Date.now()}`;
+        return `${prefix}_${raw}`.replace(/[.#$\[\]/]/g, '_');
+    }
+
+    function rtDelay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function rtAcquireMigration(name) {
+        const ref = db.ref(`${REALTIME_MIGRATION_META_PATH}/${name}`);
+        const now = Date.now();
+        const result = await ref.transaction(current => {
+            const stale = !current || Number(current.startedAt || 0) < now - 120000;
+            if (current?.state === 'ready') return current;
+            if (stale || current?.owner === REALTIME_MIGRATION_TOKEN) {
+                return { state: 'migrating', owner: REALTIME_MIGRATION_TOKEN, startedAt: now };
+            }
+            return;
+        });
+        const value = result.snapshot.val() || {};
+        return { owner: value.state === 'migrating' && value.owner === REALTIME_MIGRATION_TOKEN, ready: value.state === 'ready' };
+    }
+
+    async function rtFinishMigration(name) {
+        await db.ref(`${REALTIME_MIGRATION_META_PATH}/${name}`).set({
+            state: 'ready', finishedAt: firebase.database.ServerValue.TIMESTAMP
+        });
+    }
+
+    function rtRows(value) {
+        if (Array.isArray(value)) return value.filter(Boolean);
+        return Object.values(value || {}).filter(value => value && typeof value === 'object');
+    }
+
+    function rtIsSectionOpen(id) {
+        return !!document.getElementById(id)?.classList.contains('open');
+    }
+
+    function rtDetach(name) {
+        const info = realtimeListeners[name];
+        if (!info) return;
+        Object.entries(info.handlers || {}).forEach(([eventName, handler]) => info.ref.off(eventName, handler));
+        delete realtimeListeners[name];
+    }
+
+    function rtQueueTrafficRender() {
+        if (trafficRenderQueued) return;
+        trafficRenderQueued = true;
+        requestAnimationFrame(() => {
+            trafficRenderQueued = false;
+            trafficData = mergeSouthRoadControls(Object.values(trafficItemsV2).map(withStation)).data;
+            render();
+            document.getElementById('sync-status')?.classList.add('live');
+        });
+    }
+
+    function rtQueueShelterRender() {
+        if (shelterRenderQueued) return;
+        shelterRenderQueued = true;
+        requestAnimationFrame(() => {
+            shelterRenderQueued = false;
+            managedShelterData = getAllShelterData();
+            if (rtIsSectionOpen('sec-shelter')) renderShelters();
+        });
+    }
+
+    function rtQueueCctvRender() {
+        if (cctvRenderQueued) return;
+        cctvRenderQueued = true;
+        requestAnimationFrame(() => {
+            cctvRenderQueued = false;
+            rebuildCctvFromRealtimeData();
+            if (rtIsSectionOpen('sec-cctv')) renderCctvs();
+        });
+    }
+
+    function trafficItemDbKey(item = {}) {
+        return rtDbKey(item.id ?? `${item.station || ''}-${item.area || ''}-${item.name || ''}`, 'traffic');
+    }
+
+    function shelterItemDbKey(item = {}) {
+        return rtDbKey(item.id ?? `${item.station || ''}-${item.name || ''}-${item.addr || ''}`, 'shelter');
+    }
+
+    function cctvItemDbKey(item = {}) {
+        return rtDbKey(item.id ?? `${item.station || ''}-${item.area || ''}-${item.name || ''}`, 'cctv');
+    }
+
+    async function ensureTrafficV2() {
+        if (trafficInitPromise) return trafficInitPromise;
+        trafficInitPromise = (async () => {
+            const exists = await db.ref(TRAFFIC_DB_PATH_V2).limitToFirst(1).once('value');
+            if (exists.exists()) return;
+            const lock = await rtAcquireMigration('traffic');
+            if (!lock.owner) return;
+            const legacy = await db.ref('trafficData').once('value');
+            const legacyRows = rtRows(legacy.val());
+            const rows = mergeSouthRoadControls((legacyRows.length ? legacyRows : defaultData).map(withStation)).data;
+            const initial = { __meta: { migratedAt: firebase.database.ServerValue.TIMESTAMP, source: 'trafficData' } };
+            rows.forEach(item => { initial[trafficItemDbKey(item)] = withStation(item); });
+            await db.ref(TRAFFIC_DB_PATH_V2).transaction(current => {
+                if (current && Object.keys(current).length) return current;
+                return initial;
+            });
+            await rtFinishMigration('traffic');
+        })().catch(error => {
+            trafficInitPromise = null;
+            console.warn('교통통제 최적화 경로 준비 실패:', error);
+            throw error;
+        });
+        return trafficInitPromise;
+    }
+
+    async function attachTrafficRealtime() {
+        if (realtimeListeners.traffic) return;
+        try {
+            await ensureTrafficV2();
+            if (document.hidden || realtimeListeners.traffic) return;
+            const ref = db.ref(TRAFFIC_DB_PATH_V2);
+            const added = snap => {
+                if (snap.key === '__meta') return;
+                const row = snap.val();
+                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
+                rtQueueTrafficRender();
+            };
+            const changed = snap => {
+                if (snap.key === '__meta') return;
+                const row = snap.val();
+                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
+                rtQueueTrafficRender();
+            };
+            const removed = snap => {
+                delete trafficItemsV2[snap.key];
+                rtQueueTrafficRender();
+            };
+            ref.on('child_added', added);
+            ref.on('child_changed', changed);
+            ref.on('child_removed', removed);
+            realtimeListeners.traffic = { ref, handlers: { child_added: added, child_changed: changed, child_removed: removed } };
+        } catch (error) {
+            console.warn('교통통제 실시간 연결 실패:', error);
+        }
+    }
+
+    function upsertTrafficItem(item = {}) {
+        const row = withStation(item);
+        const key = trafficItemDbKey(row);
+        trafficItemsV2[key] = row;
+        rtQueueTrafficRender();
+        return db.ref(`${TRAFFIC_DB_PATH_V2}/${key}`).set(row);
+    }
+
+    function removeTrafficItem(item = {}) {
+        const key = trafficItemDbKey(item);
+        delete trafficItemsV2[key];
+        rtQueueTrafficRender();
+        return db.ref(`${TRAFFIC_DB_PATH_V2}/${key}`).remove();
+    }
+
+    async function replaceTrafficItems(rows = []) {
+        const next = { __meta: { migratedAt: firebase.database.ServerValue.TIMESTAMP, source: 'admin-reset' } };
+        rows.map(withStation).forEach(item => { next[trafficItemDbKey(item)] = item; });
+        trafficItemsV2 = Object.fromEntries(Object.entries(next).filter(([key]) => key !== '__meta'));
+        rtQueueTrafficRender();
+        return db.ref(TRAFFIC_DB_PATH_V2).set(next);
+    }
+
+    function shelterBaseRows() {
+        return mergeSouthShelters(shelterData.map((item, idx) => withStation({ ...item, id: item.id || `base-shelter-${idx}` }))).data;
+    }
+
+    function comparableShelter(item = {}) {
+        return JSON.stringify({
+            station: item.station || '', area: item.area || '', name: item.name || '', addr: item.addr || '',
+            cap: item.cap || '', tel: item.tel || '', lat: Number(item.lat || 0), lng: Number(item.lng || 0)
+        });
+    }
+
+    function buildShelterOverridesFromLegacy(rows = []) {
+        const baseMap = new Map(shelterBaseRows().map(item => [String(item.id), item]));
+        const overrides = {};
+        rows.map(withStation).forEach(item => {
+            const id = String(item.id || '');
+            const base = baseMap.get(id);
+            if (!base || comparableShelter(base) !== comparableShelter(item)) {
+                overrides[shelterItemDbKey(item)] = { ...item, id: item.id || shelterItemDbKey(item) };
+            }
+        });
+        return overrides;
+    }
+
+    async function ensureShelterV2() {
+        if (shelterInitPromise) return shelterInitPromise;
+        shelterInitPromise = (async () => {
+            const exists = await db.ref(SHELTER_DB_PATH_V2).limitToFirst(1).once('value');
+            if (exists.exists()) return;
+            const lock = await rtAcquireMigration('shelter');
+            if (!lock.owner) return;
+            const [managedSnap, extraSnap] = await Promise.all([
+                db.ref('shelterManagedData').once('value'),
+                db.ref('shelterExtraData').once('value')
+            ]);
+            const legacyRows = rtRows(managedSnap.val());
+            const extraRows = rtRows(extraSnap.val());
+            const sourceRows = legacyRows.length ? legacyRows : shelterBaseRows().concat(extraRows);
+            const initial = buildShelterOverridesFromLegacy(sourceRows);
+            initial.__meta = { migratedAt: firebase.database.ServerValue.TIMESTAMP, source: 'shelterManagedData' };
+            await db.ref(SHELTER_DB_PATH_V2).transaction(current => {
+                if (current && Object.keys(current).length) return current;
+                return initial;
+            });
+            await rtFinishMigration('shelter');
+        })().catch(error => {
+            shelterInitPromise = null;
+            console.warn('대피소 최적화 경로 준비 실패:', error);
+            throw error;
+        });
+        return shelterInitPromise;
+    }
+
+    function applyShelterOverrides() {
+        const base = shelterBaseRows();
+        const map = new Map(base.map(item => [String(item.id), item]));
+        Object.entries(shelterOverridesV2).forEach(([key, row]) => {
+            if (key === '__meta' || !row || typeof row !== 'object') return;
+            const id = String(row.id || key.replace(/^shelter_/, ''));
+            if (row._deleted) map.delete(id);
+            else map.set(id, normalizeShelterCoordValue(withStation({ ...row, id: row.id || id })));
+        });
+        return mergeSouthShelters(Array.from(map.values())).data;
+    }
+
+    async function attachShelterRealtime() {
+        if (realtimeListeners.shelter) return;
+        try {
+            await ensureShelterV2();
+            if (document.hidden || realtimeListeners.shelter) return;
+            const ref = db.ref(SHELTER_DB_PATH_V2);
+            const added = snap => {
+                shelterOverridesV2[snap.key] = snap.val();
+                rtQueueShelterRender();
+            };
+            const changed = snap => {
+                shelterOverridesV2[snap.key] = snap.val();
+                rtQueueShelterRender();
+            };
+            const removed = snap => {
+                delete shelterOverridesV2[snap.key];
+                rtQueueShelterRender();
+            };
+            ref.on('child_added', added);
+            ref.on('child_changed', changed);
+            ref.on('child_removed', removed);
+            realtimeListeners.shelter = { ref, handlers: { child_added: added, child_changed: changed, child_removed: removed } };
+        } catch (error) {
+            console.warn('대피소 실시간 연결 실패:', error);
+        }
+    }
+
+    function upsertShelterOverride(item = {}) {
+        const row = normalizeShelterCoordValue(withStation(item));
+        const key = shelterItemDbKey(row);
+        shelterOverridesV2[key] = row;
+        managedShelterData = applyShelterOverrides();
+        if (rtIsSectionOpen('sec-shelter')) renderShelters();
+        return db.ref(`${SHELTER_DB_PATH_V2}/${key}`).set(row);
+    }
+
+    function removeShelterOverride(item = {}) {
+        const key = shelterItemDbKey(item);
+        const tombstone = { id: item.id, _deleted: true, deletedAt: firebase.database.ServerValue.TIMESTAMP };
+        shelterOverridesV2[key] = tombstone;
+        managedShelterData = applyShelterOverrides();
+        if (rtIsSectionOpen('sec-shelter')) renderShelters();
+        return db.ref(`${SHELTER_DB_PATH_V2}/${key}`).set(tombstone);
+    }
+
+    function cctvCatalogItem(item = {}) {
+        const row = { ...item };
+        if (String(row.source || '') === 'ITS') {
+            delete row.url;
+            delete row.cctvurl;
+            delete row.streamUpdatedAt;
+        }
+        return row;
+    }
+
+    function rebuildCctvFromRealtimeData() {
+        const rows = Object.entries(cctvCatalogV2)
+            .filter(([key, row]) => key !== '__meta' && row && typeof row === 'object')
+            .map(([key, row]) => {
+                const live = cctvLiveV2[key] || {};
+                return String(row.source || '') === 'ITS'
+                    ? { ...row, ...live, id: row.id || key }
+                    : { ...row, id: row.id || key };
+            });
+        cctvData = sanitizeCctvData(rows);
+        try { localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData)); } catch (e) {}
+    }
+
+    async function ensureCctvV2() {
+        if (cctvInitPromise) return cctvInitPromise;
+        cctvInitPromise = (async () => {
+            const exists = await db.ref(CCTV_CATALOG_DB_PATH_V2).limitToFirst(1).once('value');
+            if (exists.exists()) return;
+            const lock = await rtAcquireMigration('cctv');
+            if (!lock.owner) return;
+            const legacy = await db.ref('cctvData').once('value');
+            let fallback = [];
+            try { fallback = JSON.parse(localStorage.getItem('cctvDataBackup') || '[]'); } catch (e) {}
+            const rows = sanitizeCctvData([...rtRows(legacy.val()), ...rtRows(fallback)]);
+            const catalog = { __meta: { migratedAt: firebase.database.ServerValue.TIMESTAMP, source: 'cctvData' } };
+            const live = {};
+            rows.forEach(item => {
+                const key = cctvItemDbKey(item);
+                catalog[key] = cctvCatalogItem(item);
+                if (String(item.source || '') === 'ITS' && item.url) {
+                    live[key] = { url: item.url, cctvformat: item.cctvformat || item.format || '', updatedAt: firebase.database.ServerValue.TIMESTAMP };
+                }
+            });
+            await db.ref(CCTV_CATALOG_DB_PATH_V2).transaction(current => {
+                if (current && Object.keys(current).length) return current;
+                return catalog;
+            });
+            if (Object.keys(live).length) {
+                await db.ref(CCTV_LIVE_DB_PATH_V2).transaction(current => {
+                    if (current && Object.keys(current).length) return current;
+                    return live;
+                });
+            }
+            await rtFinishMigration('cctv');
+        })().catch(error => {
+            cctvInitPromise = null;
+            console.warn('CCTV 최적화 경로 준비 실패:', error);
+            throw error;
+        });
+        return cctvInitPromise;
+    }
+
+    async function attachCctvRealtime() {
+        if (realtimeListeners.cctv) return;
+        try {
+            await ensureCctvV2();
+            if (document.hidden || realtimeListeners.cctv) return;
+            const catalogRef = db.ref(CCTV_CATALOG_DB_PATH_V2);
+            const liveRef = db.ref(CCTV_LIVE_DB_PATH_V2);
+            const catalogAdded = snap => { cctvCatalogV2[snap.key] = snap.val(); rtQueueCctvRender(); };
+            const catalogChanged = snap => { cctvCatalogV2[snap.key] = snap.val(); rtQueueCctvRender(); };
+            const catalogRemoved = snap => { delete cctvCatalogV2[snap.key]; rtQueueCctvRender(); };
+            const liveAdded = snap => { cctvLiveV2[snap.key] = snap.val(); rtQueueCctvRender(); };
+            const liveChanged = snap => { cctvLiveV2[snap.key] = snap.val(); rtQueueCctvRender(); };
+            const liveRemoved = snap => { delete cctvLiveV2[snap.key]; rtQueueCctvRender(); };
+            catalogRef.on('child_added', catalogAdded);
+            catalogRef.on('child_changed', catalogChanged);
+            catalogRef.on('child_removed', catalogRemoved);
+            liveRef.on('child_added', liveAdded);
+            liveRef.on('child_changed', liveChanged);
+            liveRef.on('child_removed', liveRemoved);
+            realtimeListeners.cctv = {
+                ref: catalogRef,
+                handlers: { child_added: catalogAdded, child_changed: catalogChanged, child_removed: catalogRemoved },
+                extra: { ref: liveRef, handlers: { child_added: liveAdded, child_changed: liveChanged, child_removed: liveRemoved } }
+            };
+        } catch (error) {
+            console.warn('CCTV 실시간 연결 실패:', error);
+        }
+    }
+
+    const _rtDetachBase = rtDetach;
+    rtDetach = function(name) {
+        const info = realtimeListeners[name];
+        if (info && info.extra) {
+            Object.entries(info.extra.handlers || {}).forEach(([eventName, handler]) => info.extra.ref.off(eventName, handler));
+        }
+        _rtDetachBase(name);
+    };
+
+    function upsertCctvCatalogEntry(item = {}) {
+        const key = cctvItemDbKey(item);
+        const catalog = cctvCatalogItem(item);
+        cctvCatalogV2[key] = catalog;
+        if (String(item.source || '') === 'ITS' && item.url) {
+            cctvLiveV2[key] = { url: item.url, cctvformat: item.cctvformat || item.format || '', updatedAt: firebase.database.ServerValue.TIMESTAMP };
+        }
+        rebuildCctvFromRealtimeData();
+        if (rtIsSectionOpen('sec-cctv')) renderCctvs();
+        const updates = { [`${CCTV_CATALOG_DB_PATH_V2}/${key}`]: catalog };
+        if (String(item.source || '') === 'ITS' && item.url) updates[`${CCTV_LIVE_DB_PATH_V2}/${key}`] = cctvLiveV2[key];
+        return db.ref().update(updates);
+    }
+
+    async function saveCctvCatalogSnapshot(items = []) {
+        const rows = sanitizeCctvData(items);
+        const updates = {};
+        rows.forEach(item => {
+            const key = cctvItemDbKey(item);
+            const catalog = cctvCatalogItem(item);
+            cctvCatalogV2[key] = catalog;
+            updates[`${CCTV_CATALOG_DB_PATH_V2}/${key}`] = catalog;
+            if (String(item.source || '') === 'ITS' && item.url) {
+                cctvLiveV2[key] = { url: item.url, cctvformat: item.cctvformat || item.format || '', updatedAt: firebase.database.ServerValue.TIMESTAMP };
+                updates[`${CCTV_LIVE_DB_PATH_V2}/${key}`] = cctvLiveV2[key];
+            }
+        });
+        rebuildCctvFromRealtimeData();
+        if (rtIsSectionOpen('sec-cctv')) renderCctvs();
+        return Object.keys(updates).length ? db.ref().update(updates) : Promise.resolve();
+    }
+
+    async function attachManpowerRealtime() {
+        if (realtimeListeners.manpower || !isAdmin) return;
+        const ref = db.ref(MANPOWER_DB_PATH);
+        const apply = (snap, removed = false) => {
+            if (removed) delete manpowerRemoteRows[snap.key];
+            else manpowerRemoteRows[snap.key] = snap.val();
+            const remoteRows = Object.values(manpowerRemoteRows);
+            manpowerData = remoteRows.length ? normalizeManpowerData(remoteRows).map(row => manpowerPendingWrites[row.id] ? { ...row, ...manpowerPendingWrites[row.id] } : row) : JSON.parse(JSON.stringify(manpowerDefaultData));
+            renderManpower();
+        };
+        const added = snap => apply(snap);
+        const changed = snap => apply(snap);
+        const removed = snap => apply(snap, true);
+        ref.on('child_added', added);
+        ref.on('child_changed', changed);
+        ref.on('child_removed', removed);
+        realtimeListeners.manpower = { ref, handlers: { child_added: added, child_changed: changed, child_removed: removed } };
+    }
+
+    function syncRealtimeSubscriptions() {
+        if (document.hidden) {
+            ['traffic', 'shelter', 'cctv', 'manpower'].forEach(rtDetach);
+            return;
+        }
+        attachTrafficRealtime();
+        if (isAdmin) attachManpowerRealtime(); else rtDetach('manpower');
+        if (rtIsSectionOpen('sec-shelter')) attachShelterRealtime(); else rtDetach('shelter');
+        if (rtIsSectionOpen('sec-cctv')) attachCctvRealtime(); else rtDetach('cctv');
+    }
+
+
+    window.onload = () => {
         document.body.setAttribute('data-global-scope', globalScope);
         updateHeaderCurrentTime();
         setInterval(updateHeaderCurrentTime, 1000);
         refreshHeaderSunTimes();
         renderJurisdictionSummary();
         renderAllScopedFilterButtons();
+        try {
+            const localCctv = JSON.parse(localStorage.getItem('cctvDataBackup') || '[]');
+            cctvData = sanitizeCctvData(localCctv);
+        } catch (e) {}
+        managedShelterData = getAllShelterData();
         renderManpower();
         refreshAll();
         startWeatherAutoRefresh();
-        db.ref('trafficData').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if(data) {
-                const merged = mergeSouthRoadControls(data);
-                trafficData = merged.data;
-                if (merged.changed) {
-                    db.ref('trafficData').set(trafficData);
-                    return;
-                }
-                render();
-                document.getElementById('sync-status').classList.add('live');
-            } else {
-                db.ref('trafficData').set(defaultData.map(item => withStation(item)));
-            }
-        });
-
-        // 지구대·파출소 지원경력 전용 경로를 구독합니다.
-        db.ref(MANPOWER_DB_PATH).on('value', (snapshot) => {
-            const remoteRows = normalizeManpowerData(snapshot.val());
-            manpowerData = remoteRows.map(row => manpowerPendingWrites[row.id]
-                ? { ...row, ...manpowerPendingWrites[row.id] }
-                : row
-            );
-            renderManpower();
-        }, (error) => {
-            console.error('경력 현황 불러오기 실패:', error);
-        });
-
-        db.ref('shelterManagedData').on('value', (snapshot) => {
-            const data = snapshot.val();
-            if (Array.isArray(data)) {
-                const baseShelters = data.map((item, idx) => withStation({ ...item, id: item.id || `shelter-${idx}` }));
-                const merged = mergeSouthShelters(baseShelters);
-                managedShelterData = merged.data;
-                if (merged.changed) {
-                    db.ref('shelterManagedData').set(managedShelterData);
-                    return;
-                }
-            } else {
-                const baseShelters = shelterData.map((item, idx) => withStation({ ...item, id: item.id || `base-shelter-${idx}` }));
-                managedShelterData = mergeSouthShelters(baseShelters).data;
-                db.ref('shelterManagedData').set(managedShelterData);
-            }
-            renderShelters();
-        });
-        db.ref('shelterExtraData').on('value', (snapshot) => {
-            const data = snapshot.val();
-            shelterExtraData = Array.isArray(data) ? data.map(withStation) : [];
-        });
-        db.ref('cctvData').on('value', (snapshot) => {
-            const data = snapshot.val();
-            const savedArr = Array.isArray(data) ? data : Object.values(data || {});
-            const localBackup = JSON.parse(localStorage.getItem('cctvDataBackup') || '[]');
-            const cleaned = sanitizeCctvData([...savedArr, ...localBackup]);
-            cctvData = cleaned;
-            localStorage.setItem('cctvDataBackup', JSON.stringify(cleaned));
-            if (JSON.stringify(savedArr) !== JSON.stringify(cleaned)) {
-                db.ref('cctvData').set(cleaned);
-            }
-            renderCctvs();
-        });
+        syncRealtimeSubscriptions();
+        document.addEventListener('visibilitychange', syncRealtimeSubscriptions);
     };
 
     function toggleSection(id) {
@@ -3562,6 +3972,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
         const el = document.getElementById(id);
         if (el) el.classList.toggle('open');
+        syncRealtimeSubscriptions();
     }
 
     function toggleRainInfo(e) {
@@ -3963,57 +4374,39 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     async function saveDailyRainSamples(rows, base) {
+        // 일반 사용자 전체가 같은 강우 표본을 Firebase에 반복 저장하지 않도록 기기별 캐시만 사용합니다.
         const today = base.baseDate;
         const timeKey = `${base.baseDate}_${base.baseTime}`;
-        const updates = {};
-
+        const cacheKey = `sejongDailyRainSamplesLocalV2:${today}`;
+        let dailyData = {};
+        try { dailyData = JSON.parse(localStorage.getItem(cacheKey) || '{}'); } catch (e) {}
         rows.forEach(row => {
             if (!row || row.error) return;
             const areaKey = safeFirebaseKey(row.name);
-            updates[`dailyRainRn1/${today}/${areaKey}/name`] = row.name;
-            updates[`dailyRainRn1/${today}/${areaKey}/office`] = row.office || getOfficeByAreaName(row.name);
-            updates[`dailyRainRn1/${today}/${areaKey}/samples/${timeKey}`] = {
-                rain: Number(row.rain || 0),
-                temp: row.temp ?? '-',
-                wind: row.wind ?? '-',
-                baseDate: base.baseDate,
-                baseTime: base.baseTime,
-                savedAt: firebase.database.ServerValue.TIMESTAMP
-            };
+            dailyData[areaKey] = dailyData[areaKey] || { name: row.name, office: row.office || getOfficeByAreaName(row.name), samples: {} };
+            const current = dailyData[areaKey].samples?.[timeKey];
+            const next = { rain: Number(row.rain || 0), temp: row.temp ?? '-', wind: row.wind ?? '-', baseDate: base.baseDate, baseTime: base.baseTime };
+            if (!current || current.rain !== next.rain || current.temp !== next.temp || current.wind !== next.wind) {
+                dailyData[areaKey].samples[timeKey] = next;
+            }
         });
-
-        if (Object.keys(updates).length > 0) {
-            await db.ref().update(updates);
-        }
+        try { localStorage.setItem(cacheKey, JSON.stringify(dailyData)); } catch (e) {}
+        return dailyData;
     }
 
     async function attachDailyRainTotals(rows, base) {
         try {
-            await saveDailyRainSamples(rows, base);
-            const snapshot = await db.ref(`dailyRainRn1/${base.baseDate}`).once('value');
-            const dailyData = snapshot.val() || {};
-
+            const dailyData = await saveDailyRainSamples(rows, base);
             return rows.map(row => {
                 const areaKey = safeFirebaseKey(row.name);
                 const samples = dailyData?.[areaKey]?.samples || {};
                 const values = Object.values(samples);
                 const dailyRain = values.reduce((sum, item) => sum + Number(item?.rain || 0), 0);
-                return {
-                    ...row,
-                    dailyRain,
-                    sampleCount: values.length,
-                    dailySource: 'firebase'
-                };
+                return { ...row, dailyRain, sampleCount: values.length, dailySource: 'local' };
             });
         } catch (e) {
-            console.warn('일누적 강수 저장/조회 실패:', e);
-            // Firebase가 일시적으로 막히면 화면은 최근 1시간 값이라도 표시
-            return rows.map(row => ({
-                ...row,
-                dailyRain: Number(row.rain || 0),
-                sampleCount: row.error ? 0 : 1,
-                dailySource: 'fallback'
-            }));
+            console.warn('일누적 강수 로컬 캐시 처리 실패:', e);
+            return rows.map(row => ({ ...row, dailyRain: Number(row.rain || 0), sampleCount: row.error ? 0 : 1, dailySource: 'fallback' }));
         }
     }
 
@@ -5055,18 +5448,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }));
 
         const saveCache = async (cache) => {
-            try { await db.ref(CACHE_PATH).set(cache); } catch(e) { console.warn('Firebase 산불 캐시 저장 실패:', e); }
+            // 산불위험지수는 각 기기가 원본 API에서 실시간 수신하므로 Firebase 공용 캐시 저장은 하지 않습니다.
             try { localStorage.setItem(CACHE_PATH, JSON.stringify(cache)); } catch(e) {}
         };
 
         const loadCache = async () => {
-            try {
-                const snap = await db.ref(CACHE_PATH).once('value');
-                const val = snap.val();
-                if (val && Array.isArray(val.rows)) return val;
-            } catch(e) {
-                console.warn('Firebase 산불 캐시 읽기 실패:', e);
-            }
             try {
                 const val = JSON.parse(localStorage.getItem(CACHE_PATH) || 'null');
                 if (val && Array.isArray(val.rows)) return val;
@@ -5775,14 +6161,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     function getAllShelterData() {
-        if (managedShelterData && managedShelterData.length) return mergeSouthShelters(managedShelterData.map(withStation)).data;
-        const base = shelterData.map((s, idx) => withStation({ ...s, id: s.id || `base-shelter-${idx}` })).concat(shelterExtraData.map(withStation));
-        return mergeSouthShelters(base).data;
+        const rows = applyShelterOverrides();
+        managedShelterData = rows;
+        return rows;
     }
 
     function saveManagedShelters() {
-        if (!managedShelterData || !managedShelterData.length) managedShelterData = getAllShelterData();
-        db.ref('shelterManagedData').set(managedShelterData.map(withStation));
+        // 전체 대피소 목록을 통째로 저장하지 않습니다.
+        // 수정·추가·삭제는 아래 전용 함수에서 항목 하나만 저장합니다.
+        managedShelterData = getAllShelterData();
     }
 
     function renderShelterCards(data, showDistance = false) {
@@ -5856,7 +6243,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
     function addShelterLocation() {
         if (!isAdmin) return alert('관리자 권한 필요');
-        if (!managedShelterData.length) managedShelterData = getAllShelterData();
         const defaultStation = scopeStation() || '북부서';
         const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
         const area = prompt('행정구역 입력 (예: 조치원읍, 한솔동)'); if (!area) return;
@@ -5867,16 +6253,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const lat = parseFloat(prompt('위도 입력 (예: 36.6015)') || '0');
         const lng = parseFloat(prompt('경도 입력 (예: 127.3005)') || '0');
         const item = { id: `shelter-${Date.now()}`, station, area, name, addr, cap, tel, lat, lng };
-        managedShelterData.push(withStation(item));
-        saveManagedShelters();
+        upsertShelterOverride(item).catch(error => alert(`대피소 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function editShelterLocation(id) {
         if (!isAdmin) return alert('관리자 권한 필요');
-        if (!managedShelterData.length) managedShelterData = getAllShelterData();
-        const idx = managedShelterData.findIndex(s => String(s.id) === String(id));
-        if (idx === -1) return alert('대피소 정보를 찾을 수 없습니다.');
-        const item = managedShelterData[idx];
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
         const station = normalizeStation(prompt('관할 수정 (북부서/남부서)', item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
         const area = prompt('행정구역 수정', item.area || ''); if (!area) return;
         const name = prompt('대피소명 수정', item.name || ''); if (!name) return;
@@ -5885,16 +6269,19 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const tel = prompt('전화번호 수정', item.tel || '') || '';
         const lat = parseFloat(prompt('위도 수정', item.lat || '0') || '0');
         const lng = parseFloat(prompt('경도 수정', item.lng || '0') || '0');
-        managedShelterData[idx] = withStation({ ...item, station, area, name, addr, cap, tel, lat, lng });
-        saveManagedShelters();
+        upsertShelterOverride({ ...item, station, area, name, addr, cap, tel, lat, lng })
+            .catch(error => alert(`대피소 수정에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function deleteShelterLocation(id) {
         if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
         if (!confirm('이 대피소를 삭제하시겠습니까?')) return;
-        if (!managedShelterData.length) managedShelterData = getAllShelterData();
-        managedShelterData = managedShelterData.filter(s => String(s.id) !== String(id));
-        saveManagedShelters();
+        removeShelterOverride(item)
+            .catch(error => alert(`대피소 삭제에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function getShelterById(id) {
@@ -5955,14 +6342,18 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     function toggleStatus(idx) {
-        if (!isAdmin) return alert("관리자 권한 필요");
-        trafficData[idx].status = trafficData[idx].status === 0 ? 2 : 0;
-        db.ref('trafficData').set(trafficData);
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return;
+        const updated = { ...item, status: item.status === 0 ? 2 : 0 };
+        trafficData[idx] = updated;
+        upsertTrafficItem(updated).catch(error => alert(`통제상태 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function toggleAdmin() {
         if (!isAdmin) {
-            if (prompt("비밀번호:") === "2580") {
+            if (prompt('비밀번호:') === '2580') {
                 isAdmin = true;
                 document.body.classList.add('admin-mode');
                 document.getElementById('admin-btn').classList.add('active');
@@ -5972,12 +6363,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 });
                 renderAllScopedFilterButtons();
                 render(); renderShelters(); renderCctvs(); renderManpower();
+                syncRealtimeSubscriptions();
             }
         } else {
             isAdmin = false;
             document.body.classList.remove('admin-mode');
             document.getElementById('admin-btn').classList.remove('active');
-            // 관리자 모드 종료 시 동원경력은 즉시 닫음
             const manpowerSection = document.getElementById('sec-manpower');
             if (manpowerSection) manpowerSection.classList.remove('open');
             ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
@@ -5986,6 +6377,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
             renderAllScopedFilterButtons();
             render(); renderShelters(); renderCctvs(); renderManpower();
+            syncRealtimeSubscriptions();
         }
     }
 
@@ -6261,24 +6653,28 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     function addTrafficLocation() {
         if (!isAdmin) return alert('관리자 권한 필요');
         const defaultStation = scopeStation() || '북부서';
-        const station = normalizeStation(prompt("관할 입력 (북부서/남부서)", defaultStation), '');
-        const area = prompt("행정구역 입력 (예: 조치원읍, 한솔동)"); if (!area) return;
-        const name = prompt("통제장소명 입력"); if (!name) return;
-        const status = Number(prompt("상태 입력: 0 정상 / 2 통제", "0") || "0");
-        trafficData.push(withStation({ id: Date.now(), station, area, name, status: status === 2 ? 2 : 0 }));
-        db.ref('trafficData').set(trafficData);
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력 (예: 조치원읍, 한솔동)'); if (!area) return;
+        const name = prompt('통제장소명 입력'); if (!name) return;
+        const status = Number(prompt('상태 입력: 0 정상 / 2 통제', '0') || '0');
+        const item = withStation({ id: Date.now(), station, area, name, status: status === 2 ? 2 : 0 });
+        trafficData.push(item);
+        upsertTrafficItem(item).catch(error => alert(`통제장소 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function editTrafficLocation(idx) {
         if (!isAdmin) return alert('관리자 권한 필요');
         const item = trafficData[idx];
         if (!item) return alert('통제장소 정보를 찾을 수 없습니다.');
-        const station = normalizeStation(prompt("관할 수정 (북부서/남부서)", item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
-        const area = prompt("행정구역 수정", item.area || ''); if (!area) return;
-        const name = prompt("통제장소명 수정", item.name || ''); if (!name) return;
-        const status = Number(prompt("상태 수정: 0 정상 / 2 통제", String(item.status || 0)) || "0");
-        trafficData[idx] = withStation({ ...item, station, area, name, status: status === 2 ? 2 : 0 });
-        db.ref('trafficData').set(trafficData);
+        const station = normalizeStation(prompt('관할 수정 (북부서/남부서)', item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
+        const area = prompt('행정구역 수정', item.area || ''); if (!area) return;
+        const name = prompt('통제장소명 수정', item.name || ''); if (!name) return;
+        const status = Number(prompt('상태 수정: 0 정상 / 2 통제', String(item.status || 0)) || '0');
+        const updated = withStation({ ...item, station, area, name, status: status === 2 ? 2 : 0 });
+        trafficData[idx] = updated;
+        upsertTrafficItem(updated).catch(error => alert(`통제장소 수정에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function deleteTrafficLocation(idx) {
@@ -6287,7 +6683,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         if (!item) return;
         if (!confirm(`통제장소 [${item.name}]을 삭제하시겠습니까?`)) return;
         trafficData.splice(idx, 1);
-        db.ref('trafficData').set(trafficData);
+        removeTrafficItem(item).catch(error => alert(`통제장소 삭제에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
     }
 
     function setCctvFilter(type, btn) {
@@ -6716,14 +7113,20 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
     async function saveFreshItsCctv(oldItem, freshItem) {
         if (!freshItem || !freshItem.url) return;
-        const oldKey = normalizeCctvKey(oldItem);
-        const updated = sanitizeCctvData((cctvData || []).map(item => {
-            if (normalizeCctvKey(item) !== oldKey) return item;
+        const key = cctvItemDbKey(oldItem);
+        const live = {
+            url: freshItem.url,
+            cctvformat: freshItem.cctvformat || freshItem.format || '',
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+        cctvLiveV2[key] = live;
+        cctvData = sanitizeCctvData((cctvData || []).map(item => {
+            if (cctvItemDbKey(item) !== key) return item;
             return { ...item, ...freshItem, id: item.id || freshItem.id, station: item.station || freshItem.station, area: item.area || freshItem.area };
         }));
-        cctvData = updated;
-        localStorage.setItem('cctvDataBackup', JSON.stringify(updated));
-        try { await db.ref('cctvData').set(updated); } catch (e) { console.warn('ITS CCTV 최신 주소 저장 실패', e); }
+        try { localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData)); } catch (e) {}
+        // 최신 ITS 주소만 별도 경로에 저장하여 전체 CCTV 목록 재전송을 방지합니다.
+        await db.ref(`${CCTV_LIVE_DB_PATH_V2}/${key}`).set(live);
     }
 
     const ITS_FAST_STREAM_CACHE_PREFIX = 'sejongPoliceItsFastStream:v1:';
@@ -6948,8 +7351,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             source: directId ? '카카오' : '직접'
         });
         cctvData = sanitizeCctvData([...(cctvData || []), item]);
-        localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData));
-        db.ref('cctvData').set(cctvData);
+        try { localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData)); } catch (e) {}
+        upsertCctvCatalogEntry(item).catch(error => alert(`CCTV 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
         cctvFilter = 'all';
         document.getElementById('cctv-search').value = '';
         renderCctvFilterButtons();
@@ -6959,7 +7363,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
     function resetData() {
         if (!isAdmin) return;
-        if(confirm('도로통제 데이터를 초기화하시겠습니까?')) db.ref('trafficData').set(defaultData.map(item => withStation(item)));
+        if (confirm('도로통제 데이터를 초기화하시겠습니까?')) {
+            replaceTrafficItems(defaultData.map(item => withStation(item)))
+                .catch(error => alert(`도로통제 초기화에 실패했습니다.\n${error?.message || '네트워크를 확인하세요.'}`));
+        }
     }
 
     // --- 현위치 기반 대피소 가까운순 정렬 ---
