@@ -7880,17 +7880,23 @@ ${error?.message || '네트워크를 확인하세요.'}`));
             if (showMessage) {
                 alert('[🚨 세종북부서 재난상황실 알림]\n백그라운드 재난알림 수신 설정이 완료되었습니다.');
             }
-        } catch (error) {
-            console.warn('푸시 알림 설정 실패', error);
-            updatePushPermissionButton();
+} catch (error) {
+    console.warn('푸시 알림 설정 실패', error);
+    updatePushPermissionButton();
 
-            if (showMessage) {
-                alert('알림 설정 중 오류가 발생했습니다.\n잠시 후 다시 눌러 주세요.');
-            }
-        } finally {
-            if (btn) btn.disabled = false;
-        }
-    };
+    if (showMessage) {
+        const errorCode = error && error.code ? error.code : '코드 없음';
+        const errorMessage = error && error.message
+            ? error.message
+            : String(error || '원인 확인 불가');
+
+        alert(
+            '알림 설정 오류\n\n' +
+            '코드: ' + errorCode + '\n\n' +
+            '내용: ' + errorMessage
+        );
+    }
+}
 
     function installPushPermissionButton() {
         if (document.getElementById(PUSH_BUTTON_ID)) {
