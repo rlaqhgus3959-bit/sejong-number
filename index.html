@@ -1116,6 +1116,30 @@
         .manpower-summary-label { font-size: 11px; }
         .manpower-grand-total span { font-size: 13px; }
 
+
+        /* 요청 반영: 동원경력 관리자 전용 표기 및 연보라색 배경 */
+        #sec-manpower {
+            background: #F4EEFF !important;
+            border-color: rgba(126, 87, 194, 0.20) !important;
+        }
+        #sec-manpower .accord-header {
+            background: rgba(255,255,255,0.38) !important;
+        }
+        #sec-manpower .accord-content {
+            background: rgba(244,238,255,0.48);
+        }
+        .manpower-title { gap: 8px; }
+        .manpower-admin-caption {
+            color: #7E57C2;
+            font-size: 14px;
+            font-weight: 800;
+            letter-spacing: -0.25px;
+            white-space: nowrap;
+        }
+        @media (max-width: 360px) {
+            .manpower-admin-caption { font-size: 13px; }
+        }
+
 </style>
 </head>
 <body>
@@ -1168,7 +1192,7 @@
 
 <div class="accord-section" id="sec-manpower">
     <div class="accord-header" onclick="toggleSection('sec-manpower')">
-        <div class="ah-title"><i class="fas fa-users" style="color:var(--blue)"></i> 경력 현황</div>
+        <div class="ah-title manpower-title"><i class="fas fa-users" style="color:var(--blue)"></i> 경력 현황 <span class="manpower-admin-caption">(관리자 모드)</span></div>
         <div class="ah-toggle"><i class="fas fa-chevron-down"></i></div>
     </div>
     <div class="accord-content">
