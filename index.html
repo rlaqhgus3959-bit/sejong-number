@@ -7884,26 +7884,27 @@ ${error?.message || '네트워크를 확인하세요.'}`));
 console.warn('푸시 알림 설정 실패', error);
 updatePushPermissionButton();
 
-```
 if (showMessage) {
-    const errorCode = error && error.code
-        ? error.code
-        : '코드 없음';
+const errorCode = error && error.code
+? error.code
+: '코드 없음';
 
-    const errorMessage = error && error.message
-        ? error.message
-        : String(error || '원인 확인 불가');
+const errorMessage = error && error.message
+    ? error.message
+    : String(error || '원인 확인 불가');
 
-    alert(
-        '알림 설정 오류\n\n' +
-        '코드: ' + errorCode + '\n\n' +
-        '내용: ' + errorMessage
-    );
-}
-```
+alert(
+    '알림 설정 오류\n\n' +
+    '코드: ' + errorCode + '\n\n' +
+    '내용: ' + errorMessage
+);
 
 }
-    function installPushPermissionButton() {
+} finally {
+if (btn) btn.disabled = false;
+}
+
+function installPushPermissionButton() {
         if (document.getElementById(PUSH_BUTTON_ID)) {
             updatePushPermissionButton();
             return;
