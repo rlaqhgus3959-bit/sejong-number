@@ -1549,32 +1549,11 @@
         }
     }
 
-    // 같은 특보·통제 알림을 화면 팝업과 FCM으로 중복 표시하지 않기 위한 임시 기록
-    const LOCAL_SITUATION_EVENT_PREFIX = 'sejongLocalSituationEventV1:';
-    function rememberLocalSituationEvent(eventKey) {
-        if (!eventKey) return;
-        try { sessionStorage.setItem(LOCAL_SITUATION_EVENT_PREFIX + String(eventKey), String(Date.now())); } catch (error) {}
-    }
-    function wasRecentlyHandledLocally(eventKey) {
-        if (!eventKey) return false;
-        try {
-            const at = Number(sessionStorage.getItem(LOCAL_SITUATION_EVENT_PREFIX + String(eventKey)) || 0);
-            return !!at && (Date.now() - at < 5 * 60 * 1000);
-        } catch (error) {
-            return false;
-        }
-    }
-
-    // 화면을 보고 있을 때 수신되는 FCM 처리
-    // 서버 발송 데이터(eventTitle·eventKey)를 우선 사용하고, 같은 상황을 이미 화면 팝업으로 확인했으면 중복 표시하지 않습니다.
+    // 화면을 보고 있을 때 수신되는 메시지 처리: 상황실 알림 제목을 붙여 표시
     if (messaging) {
         messaging.onMessage(function(payload) {
-            const data = payload && payload.data ? payload.data : {};
-            const eventKey = data.eventKey || data.tag || '';
-            if (wasRecentlyHandledLocally(eventKey)) return;
-
-            const title = data.eventTitle || data.title || (payload.notification && payload.notification.title) || '세종경찰 재난알림';
-            const body = data.body || (payload.notification && payload.notification.body) || '새 재난 상황이 등록되었습니다.';
+            const title = (payload.notification && payload.notification.title) || (payload.data && payload.data.title) || '세종경찰 재난알림';
+            const body = (payload.notification && payload.notification.body) || (payload.data && payload.data.body) || '새 재난 상황이 등록되었습니다.';
             alert('[🚨 세종북부서 재난상황실 알림]\n' + title + '\n' + body);
         });
     }
@@ -1639,7 +1618,6 @@
             sessionStorage.setItem(throttleKey, String(now));
         } catch (error) {}
 
-        rememberLocalSituationEvent(alertKey || title);
         situationAlertQueue.push({ title, body });
         flushSituationAlertQueue();
     }
@@ -7791,7 +7769,5 @@ ${error?.message || '네트워크를 확인하세요.'}`));
     </div>
 </div>
 
-
-<!-- FCM 자동발송 연동: functions/index.js가 도로통제·기상특보 이벤트를 감지하여 이 페이지에 등록된 FCM 토큰으로 푸시를 전송합니다. -->
 </body>
 </html>
