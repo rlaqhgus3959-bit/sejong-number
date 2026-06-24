@@ -1575,9 +1575,7 @@
 
             const title = data.eventTitle || data.title || (payload.notification && payload.notification.title) || '세종경찰 재난알림';
             const body = data.body || (payload.notification && payload.notification.body) || '새 재난 상황이 등록되었습니다.';
-            alert('[🚨 세종북부서 재난상황실 알림]
-' + title + '
-' + body);
+            alert('[🚨 세종북부서 재난상황실 알림]\n' + title + '\n' + body);
         });
     }
 
