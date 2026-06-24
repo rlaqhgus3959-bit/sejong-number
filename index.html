@@ -1549,12 +1549,35 @@
         }
     }
 
-    // 화면을 보고 있을 때 수신되는 메시지 처리: 상황실 알림 제목을 붙여 표시
+    // 같은 특보·통제 알림을 화면 팝업과 FCM으로 중복 표시하지 않기 위한 임시 기록
+    const LOCAL_SITUATION_EVENT_PREFIX = 'sejongLocalSituationEventV1:';
+    function rememberLocalSituationEvent(eventKey) {
+        if (!eventKey) return;
+        try { sessionStorage.setItem(LOCAL_SITUATION_EVENT_PREFIX + String(eventKey), String(Date.now())); } catch (error) {}
+    }
+    function wasRecentlyHandledLocally(eventKey) {
+        if (!eventKey) return false;
+        try {
+            const at = Number(sessionStorage.getItem(LOCAL_SITUATION_EVENT_PREFIX + String(eventKey)) || 0);
+            return !!at && (Date.now() - at < 5 * 60 * 1000);
+        } catch (error) {
+            return false;
+        }
+    }
+
+    // 화면을 보고 있을 때 수신되는 FCM 처리
+    // 서버 발송 데이터(eventTitle·eventKey)를 우선 사용하고, 같은 상황을 이미 화면 팝업으로 확인했으면 중복 표시하지 않습니다.
     if (messaging) {
         messaging.onMessage(function(payload) {
-            const title = (payload.notification && payload.notification.title) || (payload.data && payload.data.title) || '세종경찰 재난알림';
-            const body = (payload.notification && payload.notification.body) || (payload.data && payload.data.body) || '새 재난 상황이 등록되었습니다.';
-            alert('[🚨 세종북부서 재난상황실 알림]\n' + title + '\n' + body);
+            const data = payload && payload.data ? payload.data : {};
+            const eventKey = data.eventKey || data.tag || '';
+            if (wasRecentlyHandledLocally(eventKey)) return;
+
+            const title = data.eventTitle || data.title || (payload.notification && payload.notification.title) || '세종경찰 재난알림';
+            const body = data.body || (payload.notification && payload.notification.body) || '새 재난 상황이 등록되었습니다.';
+            alert('[🚨 세종북부서 재난상황실 알림]
+' + title + '
+' + body);
         });
     }
 
@@ -1563,6 +1586,137 @@
     document.addEventListener('DOMContentLoaded', function() {
         requestPushPermission();
     });
+
+    // 기상특보·도로통제 상태변경 알림
+    // 화면이 열려 있는 동안 새 특보 발효 또는 도로통제 등록 시 표준 팝업으로 알려줍니다.
+    // 최초 접속 시 이미 발효·통제 중인 기존 자료는 기준값으로만 저장해 반복 팝업을 막습니다.
+    const SPECIAL_ALERT_SIGNATURE_STORAGE_KEY = 'sejongSpecialAlertSignatureV1';
+    const TRAFFIC_ALERT_STATE_STORAGE_KEY = 'sejongTrafficAlertStateV1';
+    const SITUATION_ALERT_THROTTLE_PREFIX = 'sejongSituationAlertThrottleV1:';
+    let situationAlertQueue = [];
+    let situationAlertShowing = false;
+    let specialAlertInitialized = false;
+    let lastSpecialAlertSignature = null;
+    let trafficAlertInitialSyncDone = false;
+    let trafficAlertBaselineTimer = null;
+    let trafficAlertState = {};
+
+    function safeReadJsonStorage(key, fallback) {
+        try {
+            const value = JSON.parse(localStorage.getItem(key) || '');
+            return value && typeof value === 'object' ? value : fallback;
+        } catch (error) {
+            return fallback;
+        }
+    }
+
+    function saveLocalValue(key, value) {
+        try { localStorage.setItem(key, value); } catch (error) {}
+    }
+
+    try {
+        const savedSignature = localStorage.getItem(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY);
+        lastSpecialAlertSignature = savedSignature === null ? null : savedSignature;
+        trafficAlertState = safeReadJsonStorage(TRAFFIC_ALERT_STATE_STORAGE_KEY, {});
+    } catch (error) {}
+
+    function flushSituationAlertQueue() {
+        if (situationAlertShowing || situationAlertQueue.length === 0) return;
+        situationAlertShowing = true;
+        const notice = situationAlertQueue.shift();
+        window.setTimeout(function() {
+            alert('[🚨 세종북부서 재난상황실 알림]\n' + notice.title + '\n' + notice.body);
+            situationAlertShowing = false;
+            flushSituationAlertQueue();
+        }, 0);
+    }
+
+    function showSituationRoomAlert(title, body, alertKey) {
+        if (!title || !body || document.hidden) return;
+        const throttleKey = SITUATION_ALERT_THROTTLE_PREFIX + String(alertKey || title);
+        const now = Date.now();
+        try {
+            const lastAt = Number(sessionStorage.getItem(throttleKey) || 0);
+            if (lastAt && now - lastAt < 15000) return;
+            sessionStorage.setItem(throttleKey, String(now));
+        } catch (error) {}
+
+        rememberLocalSituationEvent(alertKey || title);
+        situationAlertQueue.push({ title, body });
+        flushSituationAlertQueue();
+    }
+
+    function specialAlertSignature(texts) {
+        const names = Array.from(new Set((texts || [])
+            .map(function(text) { return findAlertName(String(text || '')); })
+            .filter(Boolean)))
+            .sort();
+        return names.join('|');
+    }
+
+    function checkSpecialWarningAlert(sejongTexts) {
+        const nextSignature = specialAlertSignature(sejongTexts);
+
+        // 첫 정상 수신은 현재 상태를 기준값으로 저장합니다.
+        if (!specialAlertInitialized) {
+            specialAlertInitialized = true;
+            if (lastSpecialAlertSignature !== null && nextSignature && nextSignature !== lastSpecialAlertSignature) {
+                showSituationRoomAlert('기상특보 발효', `세종특별자치시 ${nextSignature}가 발효되었습니다.`, `weather:${nextSignature}`);
+            }
+            lastSpecialAlertSignature = nextSignature;
+            saveLocalValue(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY, nextSignature);
+            return;
+        }
+
+        if (nextSignature && nextSignature !== lastSpecialAlertSignature) {
+            showSituationRoomAlert('기상특보 발효', `세종특별자치시 ${nextSignature}가 발효되었습니다.`, `weather:${nextSignature}`);
+        }
+        lastSpecialAlertSignature = nextSignature;
+        saveLocalValue(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY, nextSignature);
+    }
+
+    function saveTrafficAlertState() {
+        try { localStorage.setItem(TRAFFIC_ALERT_STATE_STORAGE_KEY, JSON.stringify(trafficAlertState)); } catch (error) {}
+    }
+
+    function handleTrafficControlAlert(key, item) {
+        if (!key || !item || typeof item !== 'object') return;
+        const previousStatus = Number(trafficAlertState[key]);
+        const nextStatus = Number(item.status);
+        const isControlled = nextStatus === 2;
+
+        if (trafficAlertInitialSyncDone && isControlled && previousStatus !== 2) {
+            const station = item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''}`) || '세종시';
+            const location = [item.area, item.name].filter(Boolean).join(' ') || '통제장소';
+            showSituationRoomAlert('도로통제 발생', `${station} ${location} 구간이 통제되었습니다.`, `traffic:${key}`);
+        }
+
+        trafficAlertState[key] = nextStatus;
+        saveTrafficAlertState();
+    }
+
+    function removeTrafficControlAlertState(key) {
+        if (!key || !Object.prototype.hasOwnProperty.call(trafficAlertState, key)) return;
+        delete trafficAlertState[key];
+        saveTrafficAlertState();
+    }
+
+    function scheduleTrafficAlertBaseline() {
+        if (trafficAlertInitialSyncDone) return;
+        if (trafficAlertBaselineTimer) clearTimeout(trafficAlertBaselineTimer);
+        trafficAlertBaselineTimer = setTimeout(function() {
+            Object.entries(trafficItemsV2 || {}).forEach(function(entry) {
+                const key = entry[0];
+                const item = entry[1];
+                if (!Object.prototype.hasOwnProperty.call(trafficAlertState, key)) {
+                    trafficAlertState[key] = Number(item && item.status);
+                }
+            });
+            saveTrafficAlertState();
+            trafficAlertInitialSyncDone = true;
+            trafficAlertBaselineTimer = null;
+        }, 900);
+    }
 
     let isAdmin = false;
 
@@ -3722,26 +3876,37 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             await ensureTrafficV2();
             if (document.hidden || realtimeListeners.traffic) return;
             const ref = db.ref(TRAFFIC_DB_PATH_V2);
+            // 이전에 저장된 상태가 있으면 화면 재접속 중 바뀐 통제상태도 한 번 알려주고,
+            // 처음 접속한 기기는 아래 기준값 저장이 끝날 때까지 기존 통제목록에 대한 팝업을 생략합니다.
+            trafficAlertInitialSyncDone = Object.keys(trafficAlertState || {}).length > 0;
             const added = snap => {
                 if (snap.key === '__meta') return;
                 const row = snap.val();
-                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
+                if (row && typeof row === 'object') {
+                    trafficItemsV2[snap.key] = withStation(row);
+                    handleTrafficControlAlert(snap.key, trafficItemsV2[snap.key]);
+                }
                 rtQueueTrafficRender();
             };
             const changed = snap => {
                 if (snap.key === '__meta') return;
                 const row = snap.val();
-                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
+                if (row && typeof row === 'object') {
+                    trafficItemsV2[snap.key] = withStation(row);
+                    handleTrafficControlAlert(snap.key, trafficItemsV2[snap.key]);
+                }
                 rtQueueTrafficRender();
             };
             const removed = snap => {
                 delete trafficItemsV2[snap.key];
+                removeTrafficControlAlertState(snap.key);
                 rtQueueTrafficRender();
             };
             ref.on('child_added', added);
             ref.on('child_changed', changed);
             ref.on('child_removed', removed);
             realtimeListeners.traffic = { ref, handlers: { child_added: added, child_changed: changed, child_removed: removed } };
+            scheduleTrafficAlertBaseline();
         } catch (error) {
             console.warn('교통통제 실시간 연결 실패:', error);
         }
@@ -4065,7 +4230,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     function toggleSection(id) {
         // 동원경력(경력 현황)은 관리자 모드에서만 확인
         if (id === 'sec-manpower' && !isAdmin) {
-            alert('경력현황은 관리자 모드에서 확인할 수 있습니다.');
+            alert('경력현황은 관리자만 확인할 수 있습니다.');
             return;
         }
         const el = document.getElementById(id);
@@ -6049,6 +6214,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const alertName = scopedSejongTexts.map(findAlertName).find(Boolean);
             const hasSejongAlert = !!alertName;
 
+            // 세종시 기상특보가 새로 발효되거나 종류가 바뀌면 팝업 알림
+            // 화면 범위 선택과 무관하게 세종특별자치시 전체 특보를 기준으로 감시합니다.
+            checkSpecialWarningAlert(sejongTexts || []);
+
             if (hasSejongAlert) {
                 headerStatusEl.innerText = `${scopeLabel}: ${alertName}`;
                 headerStatusEl.className = 'sejong-summary warn';
@@ -7624,5 +7793,7 @@ ${error?.message || '네트워크를 확인하세요.'}`));
     </div>
 </div>
 
+
+<!-- FCM 자동발송 연동: functions/index.js가 도로통제·기상특보 이벤트를 감지하여 이 페이지에 등록된 FCM 토큰으로 푸시를 전송합니다. -->
 </body>
 </html>
