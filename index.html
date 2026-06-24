@@ -11,6 +11,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
     <link rel="dns-prefetch" href="//openapi.its.go.kr">
     <link rel="preconnect" href="https://openapi.its.go.kr:9443" crossorigin>
@@ -1448,10 +1449,19 @@
 </div>
 
 <script>
+    // Firebase Cloud Messaging 서비스 워커 등록
+    // GitHub Pages 프로젝트 경로에서도 동작하도록 현재 파일 기준 상대 경로를 사용합니다.
+    let fcmServiceWorkerRegistrationPromise = null;
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.getRegistrations().then(function(registrations) {
-            for(let registration of registrations) { registration.unregister(); }
-        });
+        fcmServiceWorkerRegistrationPromise = navigator.serviceWorker.register('./firebase-messaging-sw.js')
+            .then(function(registration) {
+                console.log('FCM 서비스 워커 등록 성공', registration.scope);
+                return registration;
+            })
+            .catch(function(error) {
+                console.warn('FCM 서비스 워커 등록 실패', error);
+                return null;
+            });
     }
 
     const firebaseConfig = {
@@ -1465,6 +1475,94 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
+
+
+    // Firebase Cloud Messaging(웹 푸시) 설정
+    // 아래 VAPID 키는 Firebase Console > 프로젝트 설정 > Cloud Messaging > 웹 푸시 인증서의 공개 키입니다.
+    const FCM_WEB_PUSH_VAPID_KEY = 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4';
+    let messaging = null;
+
+    try {
+        if (firebase.messaging && firebase.messaging.isSupported()) {
+            messaging = firebase.messaging();
+        }
+    } catch (error) {
+        console.warn('이 기기/브라우저에서는 푸시 알림을 지원하지 않습니다.', error);
+    }
+
+    // Firebase Realtime Database 경로에 사용할 수 있도록 FCM 토큰을 안전한 키 형태로 변환
+    function makeFcmTokenKey(token) {
+        return btoa(unescape(encodeURIComponent(token)))
+            .replace(/\+/g, '-')
+            .replace(/\//g, '_')
+            .replace(/=+$/g, '');
+    }
+
+    // 토큰이 새로 발급되거나 변경된 경우에만 DB에 저장하여 불필요한 쓰기를 줄임
+    function saveFcmToken(token) {
+        if (!token) return Promise.resolve();
+        try {
+            if (localStorage.getItem('sejongPoliceFcmToken') === token) {
+                return Promise.resolve();
+            }
+        } catch (e) {}
+
+        const tokenKey = makeFcmTokenKey(token);
+        return db.ref('fcmTokens/' + tokenKey).set({
+            token: token,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP,
+            platform: navigator.platform || '',
+            userAgent: (navigator.userAgent || '').slice(0, 180),
+            source: 'sejong-disaster-platform'
+        }).then(function() {
+            try { localStorage.setItem('sejongPoliceFcmToken', token); } catch (e) {}
+            console.log('FCM 기기 토큰 저장 완료');
+        }).catch(function(error) {
+            console.warn('FCM 기기 토큰 저장 실패', error);
+        });
+    }
+
+    // 알림 권한 요청 및 기기별 FCM 토큰 발급
+    async function requestPushPermission() {
+        if (!messaging || !('Notification' in window) || !fcmServiceWorkerRegistrationPromise) return;
+
+        try {
+            let permission = Notification.permission;
+            if (permission === 'default') {
+                permission = await Notification.requestPermission();
+            }
+            if (permission !== 'granted') {
+                console.log('푸시 알림 권한이 허용되지 않았습니다.');
+                return;
+            }
+
+            const registration = await fcmServiceWorkerRegistrationPromise;
+            if (!registration) return;
+
+            const token = await messaging.getToken({
+                vapidKey: FCM_WEB_PUSH_VAPID_KEY,
+                serviceWorkerRegistration: registration
+            });
+            await saveFcmToken(token);
+        } catch (error) {
+            console.warn('푸시 알림 설정 실패', error);
+        }
+    }
+
+    // 화면을 보고 있을 때 수신되는 메시지 처리
+    if (messaging) {
+        messaging.onMessage(function(payload) {
+            const title = (payload.notification && payload.notification.title) || (payload.data && payload.data.title) || '세종경찰 재난알림';
+            const body = (payload.notification && payload.notification.body) || (payload.data && payload.data.body) || '새 재난 상황이 등록되었습니다.';
+            alert(title + '\n' + body);
+        });
+    }
+
+    // 앱 접속 시 알림 권한을 확인합니다.
+    // iPhone 홈 화면 앱 등 일부 환경은 시스템 정책상 사용자가 직접 화면을 누른 뒤 권한창이 표시될 수 있습니다.
+    document.addEventListener('DOMContentLoaded', function() {
+        requestPushPermission();
+    });
 
     let isAdmin = false;
 
