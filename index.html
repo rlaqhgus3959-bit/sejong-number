@@ -11,7 +11,6 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
     <link rel="dns-prefetch" href="//openapi.its.go.kr">
     <link rel="preconnect" href="https://openapi.its.go.kr:9443" crossorigin>
@@ -1449,19 +1448,10 @@
 </div>
 
 <script>
-    // Firebase Cloud Messaging 서비스 워커 등록
-    // GitHub Pages 프로젝트 경로에서도 동작하도록 현재 파일 기준 상대 경로를 사용합니다.
-    let fcmServiceWorkerRegistrationPromise = null;
     if ('serviceWorker' in navigator) {
-        fcmServiceWorkerRegistrationPromise = navigator.serviceWorker.register('./firebase-messaging-sw.js')
-            .then(function(registration) {
-                console.log('FCM 서비스 워커 등록 성공', registration.scope);
-                return registration;
-            })
-            .catch(function(error) {
-                console.warn('FCM 서비스 워커 등록 실패', error);
-                return null;
-            });
+        navigator.serviceWorker.getRegistrations().then(function(registrations) {
+            for(let registration of registrations) { registration.unregister(); }
+        });
     }
 
     const firebaseConfig = {
@@ -1475,224 +1465,6 @@
     };
     firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
-
-
-    // Firebase Cloud Messaging(웹 푸시) 설정
-    // 아래 VAPID 키는 Firebase Console > 프로젝트 설정 > Cloud Messaging > 웹 푸시 인증서의 공개 키입니다.
-    const FCM_WEB_PUSH_VAPID_KEY = 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4';
-    let messaging = null;
-
-    try {
-        if (firebase.messaging && firebase.messaging.isSupported()) {
-            messaging = firebase.messaging();
-        }
-    } catch (error) {
-        console.warn('이 기기/브라우저에서는 푸시 알림을 지원하지 않습니다.', error);
-    }
-
-    // Firebase Realtime Database 경로에 사용할 수 있도록 FCM 토큰을 안전한 키 형태로 변환
-    function makeFcmTokenKey(token) {
-        return btoa(unescape(encodeURIComponent(token)))
-            .replace(/\+/g, '-')
-            .replace(/\//g, '_')
-            .replace(/=+$/g, '');
-    }
-
-    // 토큰이 새로 발급되거나 변경된 경우에만 DB에 저장하여 불필요한 쓰기를 줄임
-    function saveFcmToken(token) {
-        if (!token) return Promise.resolve();
-        try {
-            if (localStorage.getItem('sejongPoliceFcmToken') === token) {
-                return Promise.resolve();
-            }
-        } catch (e) {}
-
-        const tokenKey = makeFcmTokenKey(token);
-        return db.ref('fcmTokens/' + tokenKey).set({
-            token: token,
-            updatedAt: firebase.database.ServerValue.TIMESTAMP,
-            platform: navigator.platform || '',
-            userAgent: (navigator.userAgent || '').slice(0, 180),
-            source: 'sejong-disaster-platform'
-        }).then(function() {
-            try { localStorage.setItem('sejongPoliceFcmToken', token); } catch (e) {}
-            console.log('FCM 기기 토큰 저장 완료');
-        }).catch(function(error) {
-            console.warn('FCM 기기 토큰 저장 실패', error);
-        });
-    }
-
-    // 알림 권한 요청 및 기기별 FCM 토큰 발급
-    async function requestPushPermission() {
-        if (!messaging || !('Notification' in window) || !fcmServiceWorkerRegistrationPromise) return;
-
-        try {
-            let permission = Notification.permission;
-            if (permission === 'default') {
-                permission = await Notification.requestPermission();
-            }
-            if (permission !== 'granted') {
-                console.log('푸시 알림 권한이 허용되지 않았습니다.');
-                return;
-            }
-
-            const registration = await fcmServiceWorkerRegistrationPromise;
-            if (!registration) return;
-
-            const token = await messaging.getToken({
-                vapidKey: FCM_WEB_PUSH_VAPID_KEY,
-                serviceWorkerRegistration: registration
-            });
-            await saveFcmToken(token);
-        } catch (error) {
-            console.warn('푸시 알림 설정 실패', error);
-        }
-    }
-
-    // 화면을 보고 있을 때 수신되는 메시지 처리: 상황실 알림 제목을 붙여 표시
-    if (messaging) {
-        messaging.onMessage(function(payload) {
-            const title = (payload.notification && payload.notification.title) || (payload.data && payload.data.title) || '세종경찰 재난알림';
-            const body = (payload.notification && payload.notification.body) || (payload.data && payload.data.body) || '새 재난 상황이 등록되었습니다.';
-            alert('[🚨 세종북부서 재난상황실 알림]\n' + title + '\n' + body);
-        });
-    }
-
-    // 앱 접속 시 알림 권한을 확인합니다.
-    // iPhone 홈 화면 앱 등 일부 환경은 시스템 정책상 사용자가 직접 화면을 누른 뒤 권한창이 표시될 수 있습니다.
-    document.addEventListener('DOMContentLoaded', function() {
-        requestPushPermission();
-    });
-
-    // 기상특보·도로통제 상태변경 알림
-    // 화면이 열려 있는 동안 새 특보 발효 또는 도로통제 등록 시 표준 팝업으로 알려줍니다.
-    // 최초 접속 시 이미 발효·통제 중인 기존 자료는 기준값으로만 저장해 반복 팝업을 막습니다.
-    const SPECIAL_ALERT_SIGNATURE_STORAGE_KEY = 'sejongSpecialAlertSignatureV1';
-    const TRAFFIC_ALERT_STATE_STORAGE_KEY = 'sejongTrafficAlertStateV1';
-    const SITUATION_ALERT_THROTTLE_PREFIX = 'sejongSituationAlertThrottleV1:';
-    let situationAlertQueue = [];
-    let situationAlertShowing = false;
-    let specialAlertInitialized = false;
-    let lastSpecialAlertSignature = null;
-    let trafficAlertInitialSyncDone = false;
-    let trafficAlertBaselineTimer = null;
-    let trafficAlertState = {};
-
-    function safeReadJsonStorage(key, fallback) {
-        try {
-            const value = JSON.parse(localStorage.getItem(key) || '');
-            return value && typeof value === 'object' ? value : fallback;
-        } catch (error) {
-            return fallback;
-        }
-    }
-
-    function saveLocalValue(key, value) {
-        try { localStorage.setItem(key, value); } catch (error) {}
-    }
-
-    try {
-        const savedSignature = localStorage.getItem(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY);
-        lastSpecialAlertSignature = savedSignature === null ? null : savedSignature;
-        trafficAlertState = safeReadJsonStorage(TRAFFIC_ALERT_STATE_STORAGE_KEY, {});
-    } catch (error) {}
-
-    function flushSituationAlertQueue() {
-        if (situationAlertShowing || situationAlertQueue.length === 0) return;
-        situationAlertShowing = true;
-        const notice = situationAlertQueue.shift();
-        window.setTimeout(function() {
-            alert('[🚨 세종북부서 재난상황실 알림]\n' + notice.title + '\n' + notice.body);
-            situationAlertShowing = false;
-            flushSituationAlertQueue();
-        }, 0);
-    }
-
-    function showSituationRoomAlert(title, body, alertKey) {
-        if (!title || !body || document.hidden) return;
-        const throttleKey = SITUATION_ALERT_THROTTLE_PREFIX + String(alertKey || title);
-        const now = Date.now();
-        try {
-            const lastAt = Number(sessionStorage.getItem(throttleKey) || 0);
-            if (lastAt && now - lastAt < 15000) return;
-            sessionStorage.setItem(throttleKey, String(now));
-        } catch (error) {}
-
-        situationAlertQueue.push({ title, body });
-        flushSituationAlertQueue();
-    }
-
-    function specialAlertSignature(texts) {
-        const names = Array.from(new Set((texts || [])
-            .map(function(text) { return findAlertName(String(text || '')); })
-            .filter(Boolean)))
-            .sort();
-        return names.join('|');
-    }
-
-    function checkSpecialWarningAlert(sejongTexts) {
-        const nextSignature = specialAlertSignature(sejongTexts);
-
-        // 첫 정상 수신은 현재 상태를 기준값으로 저장합니다.
-        if (!specialAlertInitialized) {
-            specialAlertInitialized = true;
-            if (lastSpecialAlertSignature !== null && nextSignature && nextSignature !== lastSpecialAlertSignature) {
-                showSituationRoomAlert('기상특보 발효', `세종특별자치시 ${nextSignature}가 발효되었습니다.`, `weather:${nextSignature}`);
-            }
-            lastSpecialAlertSignature = nextSignature;
-            saveLocalValue(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY, nextSignature);
-            return;
-        }
-
-        if (nextSignature && nextSignature !== lastSpecialAlertSignature) {
-            showSituationRoomAlert('기상특보 발효', `세종특별자치시 ${nextSignature}가 발효되었습니다.`, `weather:${nextSignature}`);
-        }
-        lastSpecialAlertSignature = nextSignature;
-        saveLocalValue(SPECIAL_ALERT_SIGNATURE_STORAGE_KEY, nextSignature);
-    }
-
-    function saveTrafficAlertState() {
-        try { localStorage.setItem(TRAFFIC_ALERT_STATE_STORAGE_KEY, JSON.stringify(trafficAlertState)); } catch (error) {}
-    }
-
-    function handleTrafficControlAlert(key, item) {
-        if (!key || !item || typeof item !== 'object') return;
-        const previousStatus = Number(trafficAlertState[key]);
-        const nextStatus = Number(item.status);
-        const isControlled = nextStatus === 2;
-
-        if (trafficAlertInitialSyncDone && isControlled && previousStatus !== 2) {
-            const station = item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''}`) || '세종시';
-            const location = [item.area, item.name].filter(Boolean).join(' ') || '통제장소';
-            showSituationRoomAlert('도로통제 발생', `${station} ${location} 구간이 통제되었습니다.`, `traffic:${key}`);
-        }
-
-        trafficAlertState[key] = nextStatus;
-        saveTrafficAlertState();
-    }
-
-    function removeTrafficControlAlertState(key) {
-        if (!key || !Object.prototype.hasOwnProperty.call(trafficAlertState, key)) return;
-        delete trafficAlertState[key];
-        saveTrafficAlertState();
-    }
-
-    function scheduleTrafficAlertBaseline() {
-        if (trafficAlertInitialSyncDone) return;
-        if (trafficAlertBaselineTimer) clearTimeout(trafficAlertBaselineTimer);
-        trafficAlertBaselineTimer = setTimeout(function() {
-            Object.entries(trafficItemsV2 || {}).forEach(function(entry) {
-                const key = entry[0];
-                const item = entry[1];
-                if (!Object.prototype.hasOwnProperty.call(trafficAlertState, key)) {
-                    trafficAlertState[key] = Number(item && item.status);
-                }
-            });
-            saveTrafficAlertState();
-            trafficAlertInitialSyncDone = true;
-            trafficAlertBaselineTimer = null;
-        }, 900);
-    }
 
     let isAdmin = false;
 
@@ -3852,37 +3624,26 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             await ensureTrafficV2();
             if (document.hidden || realtimeListeners.traffic) return;
             const ref = db.ref(TRAFFIC_DB_PATH_V2);
-            // 이전에 저장된 상태가 있으면 화면 재접속 중 바뀐 통제상태도 한 번 알려주고,
-            // 처음 접속한 기기는 아래 기준값 저장이 끝날 때까지 기존 통제목록에 대한 팝업을 생략합니다.
-            trafficAlertInitialSyncDone = Object.keys(trafficAlertState || {}).length > 0;
             const added = snap => {
                 if (snap.key === '__meta') return;
                 const row = snap.val();
-                if (row && typeof row === 'object') {
-                    trafficItemsV2[snap.key] = withStation(row);
-                    handleTrafficControlAlert(snap.key, trafficItemsV2[snap.key]);
-                }
+                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
                 rtQueueTrafficRender();
             };
             const changed = snap => {
                 if (snap.key === '__meta') return;
                 const row = snap.val();
-                if (row && typeof row === 'object') {
-                    trafficItemsV2[snap.key] = withStation(row);
-                    handleTrafficControlAlert(snap.key, trafficItemsV2[snap.key]);
-                }
+                if (row && typeof row === 'object') trafficItemsV2[snap.key] = withStation(row);
                 rtQueueTrafficRender();
             };
             const removed = snap => {
                 delete trafficItemsV2[snap.key];
-                removeTrafficControlAlertState(snap.key);
                 rtQueueTrafficRender();
             };
             ref.on('child_added', added);
             ref.on('child_changed', changed);
             ref.on('child_removed', removed);
             realtimeListeners.traffic = { ref, handlers: { child_added: added, child_changed: changed, child_removed: removed } };
-            scheduleTrafficAlertBaseline();
         } catch (error) {
             console.warn('교통통제 실시간 연결 실패:', error);
         }
@@ -4206,7 +3967,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     function toggleSection(id) {
         // 동원경력(경력 현황)은 관리자 모드에서만 확인
         if (id === 'sec-manpower' && !isAdmin) {
-            alert('경력현황은 관리자만 확인할 수 있습니다.');
+            alert('동원경력은 관리자 모드에서 확인할 수 있습니다.');
             return;
         }
         const el = document.getElementById(id);
@@ -6190,10 +5951,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const alertName = scopedSejongTexts.map(findAlertName).find(Boolean);
             const hasSejongAlert = !!alertName;
 
-            // 세종시 기상특보가 새로 발효되거나 종류가 바뀌면 팝업 알림
-            // 화면 범위 선택과 무관하게 세종특별자치시 전체 특보를 기준으로 감시합니다.
-            checkSpecialWarningAlert(sejongTexts || []);
-
             if (hasSejongAlert) {
                 headerStatusEl.innerText = `${scopeLabel}: ${alertName}`;
                 headerStatusEl.className = 'sejong-summary warn';
@@ -7768,221 +7525,6 @@ ${error?.message || '네트워크를 확인하세요.'}`));
         </div>
     </div>
 </div>
-<!-- 재난상황실 백그라운드 알림 설정 버튼 통합 코드 : </body> 바로 위에 삽입 -->
-<script>
-(function () {
-    const PUSH_BUTTON_ID = 'push-permission-btn';
-    const PUSH_LABEL_ID = 'push-permission-label';
 
-    function getMessagingInstance() {
-        return (typeof messaging !== 'undefined') ? messaging : null;
-    }
-
-    function getServiceWorkerPromise() {
-        return (typeof fcmServiceWorkerRegistrationPromise !== 'undefined')
-            ? fcmServiceWorkerRegistrationPromise
-            : null;
-    }
-
-    function updatePushPermissionButton() {
-        const btn = document.getElementById(PUSH_BUTTON_ID);
-        const label = document.getElementById(PUSH_LABEL_ID);
-        if (!btn || !label) return;
-
-        btn.classList.remove('enabled', 'denied');
-
-        if (!('Notification' in window) || !getMessagingInstance()) {
-            label.textContent = '알림 미지원';
-            btn.classList.add('denied');
-            return;
-        }
-
-        if (Notification.permission === 'granted') {
-            label.textContent = '알림 켜짐';
-            btn.classList.add('enabled');
-        } else if (Notification.permission === 'denied') {
-            label.textContent = '알림 차단됨';
-            btn.classList.add('denied');
-        } else {
-            label.textContent = '알림 설정';
-        }
-    }
-
-    async function savePushToken(token) {
-        if (typeof saveFcmToken === 'function') {
-            await saveFcmToken(token);
-            return;
-        }
-        throw new Error('FCM 토큰 저장 기능을 찾지 못했습니다.');
-    }
-
-    /* 기존 자동 호출 함수를 교체:
-       접속 시에는 상태만 표시하고, 버튼을 눌렀을 때만 권한창 표시 */
-    window.requestPushPermission = async function (showMessage) {
-        const btn = document.getElementById(PUSH_BUTTON_ID);
-        const label = document.getElementById(PUSH_LABEL_ID);
-        const pushMessaging = getMessagingInstance();
-        const serviceWorkerPromise = getServiceWorkerPromise();
-
-        if (!pushMessaging || !('Notification' in window) || !serviceWorkerPromise) {
-            updatePushPermissionButton();
-            if (showMessage) {
-                alert('이 기기 또는 브라우저에서는 재난 푸시 알림을 지원하지 않습니다.');
-            }
-            return;
-        }
-
-        try {
-            if (btn) btn.disabled = true;
-            if (label) label.textContent = '설정 중';
-
-            let permission = Notification.permission;
-
-            /* 접속 시 자동 권한 요청 금지 / 버튼을 눌렀을 때만 요청 */
-            if (permission === 'default' && showMessage) {
-                permission = await Notification.requestPermission();
-            }
-
-            if (permission !== 'granted') {
-                updatePushPermissionButton();
-
-                if (showMessage) {
-                    if (permission === 'denied') {
-                        alert('알림이 차단되어 있습니다.\n휴대전화 또는 브라우저 설정에서 알림을 허용한 뒤 다시 눌러 주세요.');
-                    } else {
-                        alert('재난알림 권한이 허용되지 않았습니다.');
-                    }
-                }
-                return;
-            }
-
-            const registration = await serviceWorkerPromise;
-            if (!registration) {
-                throw new Error('FCM 서비스워커 등록에 실패했습니다.');
-            }
-
-            const vapidKey = (typeof FCM_WEB_PUSH_VAPID_KEY !== 'undefined')
-                ? FCM_WEB_PUSH_VAPID_KEY
-                : '';
-
-            const token = await pushMessaging.getToken({
-                vapidKey: vapidKey,
-                serviceWorkerRegistration: registration
-            });
-
-            if (!token) {
-                throw new Error('알림 토큰을 가져오지 못했습니다.');
-            }
-
-            await savePushToken(token);
-            updatePushPermissionButton();
-
-            if (showMessage) {
-                alert('[🚨 세종북부서 재난상황실 알림]\n백그라운드 재난알림 수신 설정이 완료되었습니다.');
-            }
-} catch (error) {
-console.warn('푸시 알림 설정 실패', error);
-updatePushPermissionButton();
-
-if (showMessage) {
-const errorCode = error && error.code
-? error.code
-: '코드 없음';
-
-const errorMessage = error && error.message
-    ? error.message
-    : String(error || '원인 확인 불가');
-
-alert(
-    '알림 설정 오류\n\n' +
-    '코드: ' + errorCode + '\n\n' +
-    '내용: ' + errorMessage
-);
-
-}
-} finally {
-if (btn) btn.disabled = false;
-}
-
-function installPushPermissionButton() {
-        if (document.getElementById(PUSH_BUTTON_ID)) {
-            updatePushPermissionButton();
-            return;
-        }
-
-        const headerActions = document.querySelector('.header-actions');
-        if (!headerActions) return;
-
-        const button = document.createElement('button');
-        button.id = PUSH_BUTTON_ID;
-        button.className = 'push-permission-btn';
-        button.type = 'button';
-        button.title = '백그라운드 재난알림 설정';
-        button.innerHTML =
-            '<i class="fas fa-bell"></i>' +
-            '<span id="' + PUSH_LABEL_ID + '">알림 설정</span>';
-
-        button.addEventListener('click', function () {
-            window.requestPushPermission(true);
-        });
-
-        const refreshButton = document.getElementById('full-refresh-btn');
-        headerActions.insertBefore(button, refreshButton || null);
-
-        updatePushPermissionButton();
-    }
-
-    const style = document.createElement('style');
-    style.textContent = `
-        .push-permission-btn {
-            min-height: 40px;
-            border: 1px solid rgba(60,60,67,0.10);
-            border-radius: 12px;
-            padding: 8px 11px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            background: rgba(0,113,227,0.10);
-            color: var(--blue);
-            box-shadow: 0 5px 14px rgba(0,0,0,0.07);
-            font-size: 12px;
-            font-weight: 800;
-            letter-spacing: -0.25px;
-            white-space: nowrap;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .push-permission-btn:active {
-            transform: scale(0.97);
-            opacity: 0.85;
-        }
-        .push-permission-btn.enabled {
-            background: rgba(52,199,89,0.14);
-            color: var(--green);
-        }
-        .push-permission-btn.denied {
-            background: rgba(255,59,48,0.11);
-            color: var(--red);
-        }
-        .push-permission-btn:disabled {
-            opacity: 0.62;
-            cursor: wait;
-        }
-        @media (max-width: 480px) {
-            .push-permission-btn {
-                min-height: 34px;
-                padding: 7px 9px;
-                font-size: 12px;
-            }
-        }
-    `;
-    document.head.appendChild(style);
-
-    installPushPermissionButton();
-    document.addEventListener('DOMContentLoaded', installPushPermissionButton);
-    window.addEventListener('focus', updatePushPermissionButton);
-})();
-</script>
 </body>
 </html>
