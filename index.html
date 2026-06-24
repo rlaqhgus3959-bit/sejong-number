@@ -3967,7 +3967,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     function toggleSection(id) {
         // 동원경력(경력 현황)은 관리자 모드에서만 확인
         if (id === 'sec-manpower' && !isAdmin) {
-            alert('동원경력은 관리자 모드에서 확인할 수 있습니다.');
+            alert('경력 현황은 관리만 확인할 수 있습니다.');
             return;
         }
         const el = document.getElementById(id);
