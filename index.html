@@ -7768,6 +7768,209 @@ ${error?.message || '네트워크를 확인하세요.'}`));
         </div>
     </div>
 </div>
+<!-- 재난상황실 백그라운드 알림 설정 버튼 통합 코드 : </body> 바로 위에 삽입 -->
+<script>
+(function () {
+    const PUSH_BUTTON_ID = 'push-permission-btn';
+    const PUSH_LABEL_ID = 'push-permission-label';
 
+    function getMessagingInstance() {
+        return (typeof messaging !== 'undefined') ? messaging : null;
+    }
+
+    function getServiceWorkerPromise() {
+        return (typeof fcmServiceWorkerRegistrationPromise !== 'undefined')
+            ? fcmServiceWorkerRegistrationPromise
+            : null;
+    }
+
+    function updatePushPermissionButton() {
+        const btn = document.getElementById(PUSH_BUTTON_ID);
+        const label = document.getElementById(PUSH_LABEL_ID);
+        if (!btn || !label) return;
+
+        btn.classList.remove('enabled', 'denied');
+
+        if (!('Notification' in window) || !getMessagingInstance()) {
+            label.textContent = '알림 미지원';
+            btn.classList.add('denied');
+            return;
+        }
+
+        if (Notification.permission === 'granted') {
+            label.textContent = '알림 켜짐';
+            btn.classList.add('enabled');
+        } else if (Notification.permission === 'denied') {
+            label.textContent = '알림 차단됨';
+            btn.classList.add('denied');
+        } else {
+            label.textContent = '알림 설정';
+        }
+    }
+
+    async function savePushToken(token) {
+        if (typeof saveFcmToken === 'function') {
+            await saveFcmToken(token);
+            return;
+        }
+        throw new Error('FCM 토큰 저장 기능을 찾지 못했습니다.');
+    }
+
+    /* 기존 자동 호출 함수를 교체:
+       접속 시에는 상태만 표시하고, 버튼을 눌렀을 때만 권한창 표시 */
+    window.requestPushPermission = async function (showMessage) {
+        const btn = document.getElementById(PUSH_BUTTON_ID);
+        const label = document.getElementById(PUSH_LABEL_ID);
+        const pushMessaging = getMessagingInstance();
+        const serviceWorkerPromise = getServiceWorkerPromise();
+
+        if (!pushMessaging || !('Notification' in window) || !serviceWorkerPromise) {
+            updatePushPermissionButton();
+            if (showMessage) {
+                alert('이 기기 또는 브라우저에서는 재난 푸시 알림을 지원하지 않습니다.');
+            }
+            return;
+        }
+
+        try {
+            if (btn) btn.disabled = true;
+            if (label) label.textContent = '설정 중';
+
+            let permission = Notification.permission;
+
+            /* 접속 시 자동 권한 요청 금지 / 버튼을 눌렀을 때만 요청 */
+            if (permission === 'default' && showMessage) {
+                permission = await Notification.requestPermission();
+            }
+
+            if (permission !== 'granted') {
+                updatePushPermissionButton();
+
+                if (showMessage) {
+                    if (permission === 'denied') {
+                        alert('알림이 차단되어 있습니다.\n휴대전화 또는 브라우저 설정에서 알림을 허용한 뒤 다시 눌러 주세요.');
+                    } else {
+                        alert('재난알림 권한이 허용되지 않았습니다.');
+                    }
+                }
+                return;
+            }
+
+            const registration = await serviceWorkerPromise;
+            if (!registration) {
+                throw new Error('FCM 서비스워커 등록에 실패했습니다.');
+            }
+
+            const vapidKey = (typeof FCM_WEB_PUSH_VAPID_KEY !== 'undefined')
+                ? FCM_WEB_PUSH_VAPID_KEY
+                : '';
+
+            const token = await pushMessaging.getToken({
+                vapidKey: vapidKey,
+                serviceWorkerRegistration: registration
+            });
+
+            if (!token) {
+                throw new Error('알림 토큰을 가져오지 못했습니다.');
+            }
+
+            await savePushToken(token);
+            updatePushPermissionButton();
+
+            if (showMessage) {
+                alert('[🚨 세종북부서 재난상황실 알림]\n백그라운드 재난알림 수신 설정이 완료되었습니다.');
+            }
+        } catch (error) {
+            console.warn('푸시 알림 설정 실패', error);
+            updatePushPermissionButton();
+
+            if (showMessage) {
+                alert('알림 설정 중 오류가 발생했습니다.\n잠시 후 다시 눌러 주세요.');
+            }
+        } finally {
+            if (btn) btn.disabled = false;
+        }
+    };
+
+    function installPushPermissionButton() {
+        if (document.getElementById(PUSH_BUTTON_ID)) {
+            updatePushPermissionButton();
+            return;
+        }
+
+        const headerActions = document.querySelector('.header-actions');
+        if (!headerActions) return;
+
+        const button = document.createElement('button');
+        button.id = PUSH_BUTTON_ID;
+        button.className = 'push-permission-btn';
+        button.type = 'button';
+        button.title = '백그라운드 재난알림 설정';
+        button.innerHTML =
+            '<i class="fas fa-bell"></i>' +
+            '<span id="' + PUSH_LABEL_ID + '">알림 설정</span>';
+
+        button.addEventListener('click', function () {
+            window.requestPushPermission(true);
+        });
+
+        const refreshButton = document.getElementById('full-refresh-btn');
+        headerActions.insertBefore(button, refreshButton || null);
+
+        updatePushPermissionButton();
+    }
+
+    const style = document.createElement('style');
+    style.textContent = `
+        .push-permission-btn {
+            min-height: 40px;
+            border: 1px solid rgba(60,60,67,0.10);
+            border-radius: 12px;
+            padding: 8px 11px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            background: rgba(0,113,227,0.10);
+            color: var(--blue);
+            box-shadow: 0 5px 14px rgba(0,0,0,0.07);
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: -0.25px;
+            white-space: nowrap;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .push-permission-btn:active {
+            transform: scale(0.97);
+            opacity: 0.85;
+        }
+        .push-permission-btn.enabled {
+            background: rgba(52,199,89,0.14);
+            color: var(--green);
+        }
+        .push-permission-btn.denied {
+            background: rgba(255,59,48,0.11);
+            color: var(--red);
+        }
+        .push-permission-btn:disabled {
+            opacity: 0.62;
+            cursor: wait;
+        }
+        @media (max-width: 480px) {
+            .push-permission-btn {
+                min-height: 34px;
+                padding: 7px 9px;
+                font-size: 12px;
+            }
+        }
+    `;
+    document.head.appendChild(style);
+
+    installPushPermissionButton();
+    document.addEventListener('DOMContentLoaded', installPushPermissionButton);
+    window.addEventListener('focus', updatePushPermissionButton);
+})();
+</script>
 </body>
 </html>
