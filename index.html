@@ -1109,6 +1109,202 @@
             .manpower-admin-caption { font-size: 13px; }
         }
 
+    
+        /* 알림 설정 버튼 · 앱 내부 알림 팝업 */
+        .notification-setting-btn {
+            min-height: 40px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+            padding: 8px 11px;
+            border: 1px solid rgba(0,113,227,0.14);
+            border-radius: 13px;
+            background: rgba(0,113,227,0.10);
+            color: var(--blue);
+            box-shadow: inset 0 1px 0 rgba(255,255,255,0.72);
+            font: inherit;
+            font-size: 12px;
+            font-weight: 850;
+            letter-spacing: -0.25px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+        }
+        .notification-setting-btn:active { transform: scale(.96); }
+        .notification-setting-btn.is-enabled {
+            background: rgba(52,199,89,0.13);
+            color: #168A3C;
+            border-color: rgba(52,199,89,0.23);
+        }
+        .notification-setting-btn.is-enabled:hover { background: rgba(52,199,89,0.18); }
+        .notification-setting-btn i { font-size: 13px; }
+
+        .notification-popup {
+            position: fixed;
+            inset: 0;
+            z-index: 100000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: rgba(9,18,32,0.40);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
+            box-sizing: border-box;
+        }
+        .notification-popup.show { display: flex; animation: notificationOverlayIn .2s ease-out; }
+        @keyframes notificationOverlayIn { from { opacity: 0; } to { opacity: 1; } }
+        .notification-popup-card {
+            width: min(100%, 390px);
+            overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.82);
+            border-radius: 24px;
+            background: rgba(255,255,255,0.98);
+            box-shadow: 0 24px 70px rgba(9,18,32,0.28);
+            transform-origin: center;
+            animation: notificationCardIn .26s cubic-bezier(.2,.85,.25,1.05);
+        }
+        @keyframes notificationCardIn {
+            from { opacity: 0; transform: translateY(16px) scale(.96); }
+            to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .notification-popup-head {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 12px;
+            min-height: 72px;
+            padding: 18px 18px 0;
+            box-sizing: border-box;
+        }
+        .notification-popup-symbol {
+            width: 48px;
+            height: 48px;
+            display: inline-flex;
+            flex: 0 0 48px;
+            align-items: center;
+            justify-content: center;
+            border-radius: 17px;
+            color: #fff;
+            background: linear-gradient(135deg, #FF5B54, #E6302D);
+            box-shadow: 0 10px 20px rgba(230,48,45,.22);
+            font-size: 20px;
+        }
+        .notification-popup[data-tone="success"] .notification-popup-symbol {
+            background: linear-gradient(135deg, #4BD276, #1FA64C);
+            box-shadow: 0 10px 20px rgba(31,166,76,.22);
+        }
+        .notification-popup[data-tone="info"] .notification-popup-symbol {
+            background: linear-gradient(135deg, #378FEF, #0068D9);
+            box-shadow: 0 10px 20px rgba(0,104,217,.22);
+        }
+        .notification-popup[data-tone="warning"] .notification-popup-symbol {
+            background: linear-gradient(135deg, #FFB642, #F38B00);
+            box-shadow: 0 10px 20px rgba(243,139,0,.22);
+        }
+        .notification-popup-close {
+            width: 34px;
+            height: 34px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border: 0;
+            border-radius: 50%;
+            background: #F2F2F7;
+            color: #68686D;
+            cursor: pointer;
+            font-size: 14px;
+        }
+        .notification-popup-close:active { transform: scale(.93); }
+        .notification-popup-body { padding: 8px 21px 18px; }
+        .notification-popup-kicker {
+            display: block;
+            margin-bottom: 7px;
+            color: #8A8A91;
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .25px;
+        }
+        .notification-popup-title {
+            margin: 0;
+            color: #17171A;
+            font-size: 21px;
+            font-weight: 950;
+            line-height: 1.28;
+            letter-spacing: -0.7px;
+            word-break: keep-all;
+        }
+        .notification-popup-message {
+            margin: 10px 0 0;
+            color: #55555C;
+            font-size: 14px;
+            font-weight: 650;
+            line-height: 1.58;
+            letter-spacing: -0.32px;
+            white-space: pre-wrap;
+            word-break: keep-all;
+        }
+        .notification-popup-time {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 15px;
+            padding: 6px 9px;
+            border-radius: 999px;
+            background: #F5F5F7;
+            color: #808087;
+            font-size: 10px;
+            font-weight: 800;
+        }
+        .notification-popup-time i { font-size: 10px; }
+        .notification-popup-actions {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 8px;
+            padding: 0 18px 18px;
+        }
+        .notification-popup-actions.has-secondary { grid-template-columns: 1fr 1.25fr; }
+        .notification-popup-actions button {
+            min-height: 47px;
+            border: 0;
+            border-radius: 14px;
+            font: inherit;
+            font-size: 14px;
+            font-weight: 900;
+            letter-spacing: -0.25px;
+            cursor: pointer;
+        }
+        .notification-popup-secondary {
+            display: none;
+            background: #ECECEF;
+            color: #343439;
+        }
+        .notification-popup-primary {
+            background: #0B75E8;
+            color: #fff;
+            box-shadow: 0 8px 16px rgba(11,117,232,.20);
+        }
+        .notification-popup[data-tone="danger"] .notification-popup-primary {
+            background: #E73732;
+            box-shadow: 0 8px 16px rgba(231,55,50,.20);
+        }
+        .notification-popup[data-tone="success"] .notification-popup-primary {
+            background: #23A951;
+            box-shadow: 0 8px 16px rgba(35,169,81,.20);
+        }
+        .notification-popup[data-tone="warning"] .notification-popup-primary {
+            background: #ED8A00;
+            box-shadow: 0 8px 16px rgba(237,138,0,.20);
+        }
+        .notification-popup-actions button:active { transform: scale(.98); opacity: .92; }
+        @media (max-width: 480px) {
+            .notification-setting-btn { min-height: 36px; padding: 7px 9px; font-size: 11px; border-radius: 12px; }
+            .notification-popup { padding: 16px; align-items: flex-end; }
+            .notification-popup-card { border-radius: 23px; }
+            .notification-popup-title { font-size: 20px; }
+        }
+
     </style>
 </head>
 <body>
@@ -1123,8 +1319,9 @@
         </div>
         
         <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
-            <button id="noti-btn" class="admin-btn" style="color:var(--blue);" onclick="requestNotificationPermission()">
-                <i class="fas fa-bell"></i> 알림 켜기
+            <button id="noti-btn" class="notification-setting-btn" type="button" onclick="toggleNotificationSetting()" aria-label="알림 설정">
+                <i id="noti-btn-icon" class="fas fa-bell" aria-hidden="true"></i>
+                <span id="noti-btn-label">알림 설정</span>
             </button>
             <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
             <button id="full-refresh-btn" class="full-refresh-btn" onclick="forcePageReload()" title="전체 새로고침">
@@ -1417,6 +1614,32 @@
     </div>
 </div>
 
+
+<!-- 앱 내부 알림 팝업 -->
+<div id="notification-popup" class="notification-popup" data-tone="info" role="dialog" aria-modal="true" aria-labelledby="notification-popup-title" aria-describedby="notification-popup-message">
+    <div class="notification-popup-card">
+        <div class="notification-popup-head">
+            <div id="notification-popup-symbol" class="notification-popup-symbol" aria-hidden="true">
+                <i id="notification-popup-icon" class="fas fa-bell"></i>
+            </div>
+            <button type="button" class="notification-popup-close" onclick="closeNotificationPopup()" aria-label="닫기">
+                <i class="fas fa-xmark"></i>
+            </button>
+        </div>
+        <div class="notification-popup-body">
+            <span id="notification-popup-kicker" class="notification-popup-kicker">재난상황실 알림</span>
+            <h2 id="notification-popup-title" class="notification-popup-title">알림</h2>
+            <p id="notification-popup-message" class="notification-popup-message"></p>
+            <span id="notification-popup-time" class="notification-popup-time"><i class="fas fa-clock"></i> 방금 전</span>
+        </div>
+        <div id="notification-popup-actions" class="notification-popup-actions">
+            <button id="notification-popup-secondary" type="button" class="notification-popup-secondary">취소</button>
+            <button id="notification-popup-primary" type="button" class="notification-popup-primary">확인</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
@@ -1432,47 +1655,285 @@
     const db = firebase.database();
 
     // 알림 기능 초기화
-    if (typeof firebase.messaging === 'function' && firebase.messaging.isSupported()) {
-        const messaging = firebase.messaging();
+    const NOTIFICATION_TOKEN_KEY = 'sejongPoliceFcmToken';
+    const NOTIFICATION_OPTOUT_KEY = 'sejongPoliceNotificationOptOut';
+    const NOTIFICATION_VAPID_KEY = 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4';
+    let notificationSwRegistration = null;
+    let notificationPopupAction = null;
 
+    function formatNotificationPopupTime() {
+        return new Intl.DateTimeFormat('ko-KR', {
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            hour12: false
+        }).format(new Date()) + ' 수신';
+    }
+
+    function closeNotificationPopup() {
+        const popup = document.getElementById('notification-popup');
+        if (!popup) return;
+        popup.classList.remove('show');
+        notificationPopupAction = null;
+    }
+    window.closeNotificationPopup = closeNotificationPopup;
+
+    function showNotificationPopup(options = {}) {
+        const {
+            tone = 'info',
+            icon = 'fa-bell',
+            kicker = '재난상황실 알림',
+            title = '알림',
+            message = '',
+            time = formatNotificationPopupTime(),
+            primaryLabel = '확인',
+            secondaryLabel = '',
+            primaryAction = null,
+            secondaryAction = null,
+            closeable = true
+        } = options;
+
+        const popup = document.getElementById('notification-popup');
+        const iconEl = document.getElementById('notification-popup-icon');
+        const kickerEl = document.getElementById('notification-popup-kicker');
+        const titleEl = document.getElementById('notification-popup-title');
+        const messageEl = document.getElementById('notification-popup-message');
+        const timeEl = document.getElementById('notification-popup-time');
+        const primaryBtn = document.getElementById('notification-popup-primary');
+        const secondaryBtn = document.getElementById('notification-popup-secondary');
+        const actions = document.getElementById('notification-popup-actions');
+        const closeBtn = popup?.querySelector('.notification-popup-close');
+
+        if (!popup) return;
+        popup.dataset.tone = tone;
+        iconEl.className = `fas ${icon}`;
+        kickerEl.textContent = kicker;
+        titleEl.textContent = title;
+        messageEl.textContent = message;
+        timeEl.innerHTML = `<i class="fas fa-clock" aria-hidden="true"></i> ${time}`;
+        primaryBtn.textContent = primaryLabel;
+        secondaryBtn.textContent = secondaryLabel;
+        secondaryBtn.style.display = secondaryLabel ? 'block' : 'none';
+        actions.classList.toggle('has-secondary', Boolean(secondaryLabel));
+        closeBtn.style.display = closeable ? 'inline-flex' : 'none';
+
+        primaryBtn.onclick = async () => {
+            const action = notificationPopupAction?.primary;
+            closeNotificationPopup();
+            if (typeof action === 'function') await action();
+        };
+        secondaryBtn.onclick = async () => {
+            const action = notificationPopupAction?.secondary;
+            closeNotificationPopup();
+            if (typeof action === 'function') await action();
+        };
+        notificationPopupAction = { primary: primaryAction, secondary: secondaryAction };
+        popup.classList.add('show');
+    }
+
+    function getSavedNotificationToken() {
+        return localStorage.getItem(NOTIFICATION_TOKEN_KEY) || '';
+    }
+
+    function updateNotificationButton() {
+        const button = document.getElementById('noti-btn');
+        const label = document.getElementById('noti-btn-label');
+        const icon = document.getElementById('noti-btn-icon');
+        if (!button || !label || !icon) return;
+
+        const enabled = Boolean(getSavedNotificationToken()) && localStorage.getItem(NOTIFICATION_OPTOUT_KEY) !== 'true';
+        button.classList.toggle('is-enabled', enabled);
+        button.setAttribute('aria-label', enabled ? '알림 설정 해제' : '알림 설정');
+        label.textContent = enabled ? '알림 해제' : '알림 설정';
+        icon.className = enabled ? 'fas fa-bell-slash' : 'fas fa-bell';
+    }
+
+    function getServiceWorkerRegistration() {
+        if (notificationSwRegistration) return Promise.resolve(notificationSwRegistration);
+        if (!('serviceWorker' in navigator)) return Promise.reject(new Error('서비스워커를 지원하지 않는 브라우저입니다.'));
+        return navigator.serviceWorker.ready.then((registration) => {
+            notificationSwRegistration = registration;
+            return registration;
+        });
+    }
+
+    function showNotificationSetupError(message) {
+        showNotificationPopup({
+            tone: 'warning',
+            icon: 'fa-bell',
+            kicker: '알림 설정 안내',
+            title: '알림을 설정하지 못했습니다',
+            message,
+            primaryLabel: '확인'
+        });
+    }
+
+    let messaging = null;
+    let isMessagingSupported = false;
+    try {
+        isMessagingSupported = typeof firebase.messaging === 'function' && firebase.messaging.isSupported();
+        if (isMessagingSupported) messaging = firebase.messaging();
+    } catch (error) {
+        console.warn('알림 기능 지원 여부 확인 실패:', error);
+    }
+
+    if (isMessagingSupported && messaging) {
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./firebase-messaging-sw.js')
-                .then(reg => console.log('알림 서비스 준비 완료'))
-                .catch(err => console.log('알림 서비스 실패', err));
+                .then((registration) => {
+                    notificationSwRegistration = registration;
+                    console.log('알림 서비스 준비 완료');
+                    updateNotificationButton();
+                })
+                .catch((error) => console.warn('알림 서비스 등록 실패:', error));
         }
 
-        window.requestNotificationPermission = function() {
-            Notification.requestPermission().then((permission) => {
-                if (permission === 'granted') {
-                    navigator.serviceWorker.ready.then((registration) => {
-                        messaging.getToken({ 
-                            vapidKey: 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4',
-                            serviceWorkerRegistration: registration
-                        }).then((token) => {
-                            if(token){
-                                db.ref('fcmTokens/' + token).set(true);
-                                alert('알림 수신이 활성화되었습니다. 재난 통제 발생 시 푸시 알림을 받습니다.');
-                                document.getElementById('noti-btn').style.display = 'none';
-                            }
-                        }).catch(err => console.error('토큰 가져오기 에러:', err));
-                    });
-                } else {
-                    alert('알림 권한이 거부되었습니다.');
+        window.requestNotificationPermission = async function() {
+            if (!('Notification' in window)) {
+                showNotificationSetupError('현재 브라우저에서는 알림을 지원하지 않습니다.');
+                return;
+            }
+
+            try {
+                const permission = await Notification.requestPermission();
+                if (permission !== 'granted') {
+                    showNotificationSetupError('알림 권한이 허용되지 않았습니다. 브라우저 또는 휴대폰 설정에서 알림을 허용한 뒤 다시 시도해 주세요.');
+                    return;
                 }
+
+                const registration = await getServiceWorkerRegistration();
+                const token = await messaging.getToken({
+                    vapidKey: NOTIFICATION_VAPID_KEY,
+                    serviceWorkerRegistration: registration
+                });
+
+                if (!token) {
+                    showNotificationSetupError('알림 수신 토큰을 만들지 못했습니다. 화면을 새로고침한 뒤 다시 시도해 주세요.');
+                    return;
+                }
+
+                await db.ref(`fcmTokens/${token}`).set(true);
+                localStorage.setItem(NOTIFICATION_TOKEN_KEY, token);
+                localStorage.removeItem(NOTIFICATION_OPTOUT_KEY);
+                updateNotificationButton();
+
+                showNotificationPopup({
+                    tone: 'success',
+                    icon: 'fa-bell',
+                    kicker: '재난상황실 알림',
+                    title: '알림 설정이 완료되었습니다',
+                    message: '도로 통제 및 기상특보 발생 시 이 기기로 푸시 알림을 보내드립니다.',
+                    primaryLabel: '확인'
+                });
+            } catch (error) {
+                console.error('알림 설정 실패:', error);
+                showNotificationSetupError('알림 설정 중 오류가 발생했습니다. 홈 화면 추가 여부와 브라우저 알림 권한을 확인해 주세요.');
+            }
+        };
+
+        window.disableNotification = async function() {
+            const token = getSavedNotificationToken();
+            try {
+                if (token) {
+                    await db.ref(`fcmTokens/${token}`).remove();
+                    try {
+                        await messaging.deleteToken(token);
+                    } catch (deleteError) {
+                        console.warn('브라우저 토큰 삭제 확인 필요:', deleteError);
+                    }
+                }
+                localStorage.removeItem(NOTIFICATION_TOKEN_KEY);
+                localStorage.setItem(NOTIFICATION_OPTOUT_KEY, 'true');
+                updateNotificationButton();
+
+                showNotificationPopup({
+                    tone: 'success',
+                    icon: 'fa-bell-slash',
+                    kicker: '재난상황실 알림',
+                    title: '알림이 해제되었습니다',
+                    message: '이 기기에는 더 이상 재난관리 플랫폼 푸시 알림이 발송되지 않습니다. 필요할 때 알림 설정 버튼으로 다시 켤 수 있습니다.',
+                    primaryLabel: '확인'
+                });
+            } catch (error) {
+                console.error('알림 해제 실패:', error);
+                showNotificationSetupError('알림 해제 중 오류가 발생했습니다. 잠시 후 다시 시도해 주세요.');
+            }
+        };
+
+        window.toggleNotificationSetting = function() {
+            const isEnabled = Boolean(getSavedNotificationToken()) && localStorage.getItem(NOTIFICATION_OPTOUT_KEY) !== 'true';
+            if (!isEnabled) {
+                window.requestNotificationPermission();
+                return;
+            }
+
+            showNotificationPopup({
+                tone: 'warning',
+                icon: 'fa-bell-slash',
+                kicker: '재난상황실 알림',
+                title: '알림을 해제할까요?',
+                message: '이 기기에서 도로 통제와 기상특보 푸시 알림 수신을 중지합니다.\n브라우저 알림 권한은 유지되며, 나중에 다시 설정할 수 있습니다.',
+                primaryLabel: '알림 해제',
+                secondaryLabel: '취소',
+                primaryAction: window.disableNotification
             });
         };
 
         messaging.onMessage((payload) => {
             const notification = payload.notification || {};
             const data = payload.data || {};
-            alert(`[🚨 재난상황실 알림]\n${notification.title || data.title}\n${notification.body || data.body}`);
+            showNotificationPopup({
+                tone: 'danger',
+                icon: 'fa-triangle-exclamation',
+                kicker: '재난상황실 알림',
+                title: notification.title || data.title || '재난 알림',
+                message: notification.body || data.body || '새로운 재난 상황이 등록되었습니다. 플랫폼에서 상세 내용을 확인해 주세요.',
+                primaryLabel: '확인'
+            });
+        });
+
+        // 기존 이용자는 권한이 이미 허용된 경우 토큰을 복원해, 버튼이 즉시 "알림 해제" 상태로 보이게 처리
+        window.addEventListener('load', async () => {
+            updateNotificationButton();
+            if (localStorage.getItem(NOTIFICATION_OPTOUT_KEY) === 'true' || !('Notification' in window) || Notification.permission !== 'granted') return;
+            try {
+                const registration = await getServiceWorkerRegistration();
+                const token = await messaging.getToken({
+                    vapidKey: NOTIFICATION_VAPID_KEY,
+                    serviceWorkerRegistration: registration
+                });
+                if (token) {
+                    await db.ref(`fcmTokens/${token}`).set(true);
+                    localStorage.setItem(NOTIFICATION_TOKEN_KEY, token);
+                    updateNotificationButton();
+                }
+            } catch (error) {
+                console.warn('기존 알림 상태 복원 실패:', error);
+            }
         });
     } else {
         window.requestNotificationPermission = function() {
-            alert('현재 브라우저에서는 알림을 지원하지 않습니다. (아이폰의 경우 먼저 홈 화면에 추가 후 실행해 주세요.)');
+            showNotificationSetupError('현재 브라우저에서는 알림을 지원하지 않습니다. 아이폰은 Safari에서 홈 화면에 추가한 뒤 실행해 주세요.');
         };
+        window.disableNotification = function() {
+            localStorage.removeItem(NOTIFICATION_TOKEN_KEY);
+            localStorage.setItem(NOTIFICATION_OPTOUT_KEY, 'true');
+            updateNotificationButton();
+        };
+        window.toggleNotificationSetting = function() {
+            if (getSavedNotificationToken()) {
+                window.disableNotification();
+                return;
+            }
+            window.requestNotificationPermission();
+        };
+        window.addEventListener('load', updateNotificationButton);
     }
 
+    document.getElementById('notification-popup')?.addEventListener('click', (event) => {
+        if (event.target === event.currentTarget) closeNotificationPopup();
+    });
     let isAdmin = false;
 
     // --- 비상연락망 23개 기관 데이터 ---
