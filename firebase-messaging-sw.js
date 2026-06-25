@@ -14,7 +14,7 @@ const firebaseConfig = {
 firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
-// 백그라운드 메시지 수신 (알림 중복 방지를 위해 별도의 화면 팝업 코드는 넣지 않습니다)
+// 백그라운드 메시지 수신 (알림 중복 방지를 위해 화면 팝업 강제 호출 코드는 생략합니다)
 messaging.onBackgroundMessage(function(payload) {
   console.log('[firebase-messaging-sw.js] 백그라운드 알림 수신 완료: ', payload);
 });
