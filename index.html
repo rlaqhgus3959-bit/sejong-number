@@ -5,40 +5,38 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 재난관리 플랫폼</title>
 
-<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
     <link rel="dns-prefetch" href="//openapi.its.go.kr">
     <link rel="preconnect" href="https://openapi.its.go.kr:9443" crossorigin>
-
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <style>
         /* 애플 iOS 라이트 모드 디자인 테마 변수 */
         :root {
-            --bg: #F2F2F7; /* iOS 시스템 기본 배경색 */
-            --card: #FFFFFF; /* 순백색 카드 */
-            --card-elevated: #F2F2F7; /* 카드 내부의 회색 블록 */
-            --text: #000000; /* 기본 검정 텍스트 */
-            --sub: #8E8E93; /* iOS 시스템 회색 텍스트 */
-            --line: #E5E5EA; /* 연한 구분선 */
-            --blue: #007AFF; /* iOS 블루 */
-            --red: #FF3B30; /* iOS 레드 */
-            --green: #34C759; /* iOS 그린 */
-            --orange: #FF9500; /* iOS 오렌지 */
-            --forest: #34C759; /* 산불위험지수 */
+            --bg: #F2F2F7;
+            --card: #FFFFFF;
+            --card-elevated: #F2F2F7;
+            --text: #000000;
+            --sub: #8E8E93;
+            --line: #E5E5EA;
+            --blue: #007AFF;
+            --red: #FF3B30;
+            --green: #34C759;
+            --orange: #FF9500;
+            --forest: #34C759;
             --shelter: #FF9500; 
             --kakao: #FEE500; 
-            --snow: #5AC8FA; /* iOS 스카이블루 */
-            --shadow: 0 4px 14px rgba(0, 0, 0, 0.05); /* 부드러운 그림자 */
+            --snow: #5AC8FA;
+            --shadow: 0 4px 14px rgba(0, 0, 0, 0.05);
         }
         body {
             background: var(--bg); color: var(--text);
-            /* 애플 산돌고딕 및 시스템 폰트 */
             font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Apple SD Gothic Neo", "Pretendard", sans-serif;
             margin: 0; padding: env(safe-area-inset-top) 20px 40px 20px;
             -webkit-tap-highlight-color: transparent; user-select: none;
@@ -48,7 +46,6 @@
         header { margin-bottom: 20px; padding-top: 10px; }
         .top-nav { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
         .title-group { display: flex; align-items: center; gap: 10px; }
-        /* 세종경찰청 마크: 원형 테두리 바깥의 흰 배경은 보이지 않도록 클리핑 */
         .police-emblem {
             width: 34px; height: 34px; flex: 0 0 34px;
             border-radius: 50%; overflow: hidden;
@@ -61,7 +58,6 @@
         }
         h1 { margin: 0; font-size: 26px; font-weight: 800; letter-spacing: -0.5px; color: #000; }
 
-        /* 제목 아래 현재시각 · 세종시 일출·일몰 */
         header .top-nav { margin-bottom: 8px; }
         .header-status-line {
             display: grid;
@@ -153,7 +149,6 @@
         }
         .refresh-btn:active { background: #E5E5EA; transform: scale(0.9); }
 
-        /* 홈 화면 실행 시에도 코드 갱신을 할 수 있는 전체 새로고침 버튼 */
         .full-refresh-btn {
             border: none; border-radius: 12px;
             padding: 8px 11px;
@@ -278,7 +273,6 @@
         .shelter-btn:active { transform: scale(0.95); opacity: 0.8; }
         .shelter-btn i { font-size: 10px; margin-right: 4px; }
 
-        /* CCTV 단일 카드 디자인 */
         .cctv-card {
             background: var(--card-elevated); padding: 16px; border-radius: 16px;
             display: flex; flex-direction: column; justify-content: space-between;
@@ -367,7 +361,6 @@
         .forest-link-btn { font-size: 12px; font-weight:700; color: var(--forest); background: rgba(52, 199, 89, 0.15); padding: 6px 12px; border-radius: 14px; text-decoration: none; }
         @media (max-width: 430px) { .forest-summary-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap:6px; } .forest-summary-card { padding:9px 4px; } }
 
-        /* 비상연락망 모달 (iOS Bottom Sheet 스타일) */
         #contact-modal {
             display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--bg); z-index: 2000; flex-direction: column;
@@ -401,7 +394,6 @@
         }
         .cm-call-btn:active { transform:scale(0.95); opacity:0.8; }
         .cm-call-btn.dual { padding: 6px 10px; font-size: 11px; }
-
 
         .scope-panel {
             background: var(--card); border-radius: 20px; padding: 14px;
@@ -448,7 +440,6 @@
             #cctv-player-modal > div > div:nth-last-child(2) button { padding: 12px 7px !important; font-size: 12px !important; }
         }
 
-        /* Apple-style visual refresh: layout only, no data logic changed */
         :root {
             --bg: #F5F5F7;
             --card: rgba(255,255,255,0.92);
@@ -661,7 +652,6 @@
             border: 1px solid rgba(255,255,255,0.86);
             color: rgba(29,29,31,0.64);
         }
-        /* CCTV player: lighter hierarchy, native iOS button geometry */
         #cctv-player-modal { background: rgba(0,0,0,0.74) !important; backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); }
         #cctv-player-modal > div > div:first-child {
             border-radius: 22px !important;
@@ -681,8 +671,6 @@
             .list-container, .shelter-list { gap: 7px; }
         }
 
-
-        /* 경력 현황 - 지구대·파출소 지원경력 */
         .manpower-note { display:none; margin:0 0 9px; padding:8px 10px; border-radius:11px; background:rgba(0,122,255,.09); color:var(--blue); font-size:10px; font-weight:700; line-height:1.45; }
         body.admin-mode .manpower-note { display:block; }
         .manpower-board { display:grid; gap:10px; }
@@ -742,7 +730,6 @@
             .manpower-grand-total { margin:0 8px 8px; }
         }
 
-        /* 휴대폰별 제목 줄바꿈 방지: 좁은 화면에서는 버튼을 아래 줄로 이동 */
         .title-group { min-width: 0; }
         .title-group h1 {
             min-width: 0;
@@ -790,9 +777,6 @@
             .header-status-line { margin-left: 0; }
         }
 
-
-
-        /* 경력 현황 - 북·남부서 단위 편성 */
         .manpower-board { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:10px; }
         .manpower-station-card { overflow:hidden; border:1px solid var(--line); border-radius:15px; background:var(--card-elevated); box-shadow:inset 0 1px 0 rgba(255,255,255,.55); }
         .manpower-station-head { display:flex; align-items:center; justify-content:space-between; gap:8px; padding:10px 12px; background:linear-gradient(135deg, rgba(0,122,255,.14), rgba(0,122,255,.05)); border-bottom:1px solid var(--line); }
@@ -820,7 +804,6 @@
             .manpower-item-name { font-size:12px; }
         }
 
-        /* 현재시간·일출일몰 Apple 카드 최종 반응형 보정 */
         @media (max-width: 480px) {
             .header-status-line {
                 grid-template-columns: 1fr;
@@ -847,8 +830,6 @@
             .header-status-line { margin-left: 0; }
         }
 
-
-        /* 현재시간·일출일몰: 하단 패널과 같은 폭의 가로형 컴팩트 Apple 바 */
         .header-status-line {
             display: flex !important;
             flex-wrap: nowrap !important;
@@ -946,8 +927,6 @@
             .header-sun-info { font-size: 9.5px; }
         }
 
-
-        /* 요청 반영: 날짜·시간 전체 표시 및 상단/하단 버튼 글씨 확대 */
         .header-time-card .header-status-label {
             overflow: visible;
             text-overflow: clip;
@@ -961,13 +940,11 @@
             font-size: 12px;
             font-weight: 900;
         }
-        /* 세종청 · 북부서 · 남부서 */
         .scope-btn {
             min-height: 44px !important;
             font-size: 16px !important;
             font-weight: 800 !important;
         }
-        /* 비상연락망 · 119 연결 · 112 연결 */
         .link-btn {
             min-height: 58px !important;
             font-size: 16px !important;
@@ -987,9 +964,6 @@
             .link-btn i { font-size: 15px; }
         }
 
-
-
-        /* 요청 반영: 상단 시간·일출일몰 글씨 확대 / 세종청 경력 합계 */
         .header-status-line {
             min-height: 58px;
         }
@@ -1088,7 +1062,6 @@
             .manpower-agency-value { font-size: 14px; }
         }
 
-        /* 요청 반영: 현재시간 · 일출·일몰 표시값 2pt 확대 */
         .header-time-card .header-current-time,
         .header-sun-btn .header-sun-info {
             font-size: 16px !important;
@@ -1106,9 +1079,6 @@
             }
         }
 
-
-
-        /* 경력현황 표기 가독성 보정: 지구대·파출소·지원경력·합계 항목만 1px 확대 */
         .manpower-station-name { font-size: 15px; }
         .manpower-station-support-total { font-size: 11px; }
         .manpower-destination-name { font-size: 12px; }
@@ -1117,8 +1087,6 @@
         .manpower-summary-label { font-size: 11px; }
         .manpower-grand-total span { font-size: 13px; }
 
-
-        /* 요청 반영: 동원경력 관리자 전용 표기 및 연보라색 배경 */
         #sec-manpower {
             background: #F4EEFF !important;
             border-color: rgba(126, 87, 194, 0.20) !important;
@@ -1141,20 +1109,23 @@
             .manpower-admin-caption { font-size: 13px; }
         }
 
-</style>
+    </style>
 </head>
 <body>
 
 <header>
-<header>
     <div class="top-nav">
         <div class="title-group">
             <div class="police-emblem" aria-hidden="true">
-                <img src="data:image/png;base64,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v/n/9v/7/+7/x/8f/x/4P/z/9/+z/7/9//v/6f/f/0v+3/5/9v/q/5v/x/9f/l/5/+/93/9v/z/7/+z/w/93/v/1v/P/5//D/4v/T/2v+3/9f/p/8f/D/5v/2/5v/1//P/y/8v/z/93/v/z/7v/f/4P/2/6f/n/8P/l/9P/9f/t/4P/0//f/v/7v/D/0v/b/2//v/1f/P/1f/7/5v/b/5/9v/7//v/8f/H/2/7v/x/9v/1//z/8v/j/8v/v/y/9v/t/9P/s/7P/9/x//v/r/9P/9f+n/p/7f/P/4f/j/4f/Z/5v/7/5f/j/4v/b/1f/v/5v/d/8v/t/2//f/5//3/z/8P/0/9P/7/9v/v/4f+f/z/+/+n/z/8v/v/9f/P/z/8v/p/7v/j/6P/b/y/9f/t/4P/s/7P/y/9v/n/9v/n/9v/t/7f/v/5v/b/2v/z/8f/n/9v/9f/t/6f/P/w//v/r/9f/n/6v/f/9f/P/1f/z/6v/V/9f/v/4f+f/v/y/9f/n/9v/n/9v/z/8v/X/6//v/2v/P/1f/v/z/8v/z/8v/X/2f/n/4f/V/z/9v/7/4f/H/4f/V/y/9v/z/8P/H/0v/b/7/+P/l/6v/f/6v/V/z/3/7/9P/v/4f/H/4v/P/z/7/+P/p/8v/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/z/7/+P/p/8f/j/8v/V/7/+v/v/4f+f/z/x/9P/v/y/9P/0/9f/7/4f/H/3/9v/7/6v/P/x/9v/j/4f+f/2v/X/7v/v/7f/x/4P/v/2v/H/0v/P/z/7/+f/n/4f/X/3/9v/v/4f/j/4f+f/0v/v/1f/X/z/3/7/v/2/9f/v/1f/j/4f+v/3/7f/H/z/9v/X/1f/3/7v/f/4P/f/7v/4P/v/z/8v/z/9v/j/4f/H/4f/P/
+                <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAb8AAAG/CAMAAAD/zSlAAAABp1BMVEX///8AVKb/ywX/yQCkaB3tGy//zQSiZh0AU6egYx7/zwP/xwD/0QCeYR4AUqgATqSgYQC7kF6XWR+tchuzeRr///ubXR8AT6qobBwASqL//PIATav/+uq/hhcAR6G6gRj0wAjbpRDEjBbUnRIAQp+iZBLrtwvlsA3KkhX/+OH/8cb/1U7/9M/1+fz/9tj/3nf/5JT/4or/7bdRdrb/6KP/zycASq7g6vPN3+//2Wb/1Tydk2ycVwD/2FuQqcyfmGB9hXWRj265zOOzpE3kvy50gXkAOZy7rDTuxBunv9zz7OMsXJ5ObI2pnVlZdoLUtTgnYJWxagDAmnSpcTDBq0Nzl8ezg03WvqZJZ5Vqe37gz71bhr6FjmUTX6xbXmmSZzbNr5CvXiC+UiTNQSdsd4iKhIAAMJ94YkyHZERPXHzcMyv5EyQ6UJbfIjVbS4Wqk2QABZDdu1THy72DkJesoIXh2bHi1J2epZ2+up+utbdqXlnTwXlxj6NcgKprg2upUTO4M0y2sX54V1TQKDxyU3apPGCUPGmARHJ0RX7LLE67MVyvQlOWUDPIWw1UAAAgAElEQVR4nOy9eVcbWZI3jDJzclNmCpe2lEBoA0ns+2ojbMA0IDAUGBubUpWr213LnPeceWt6pnum5pn+4/nkT0Tce1MpKbUCLtdyT7cLkJTKvHFj/0XEyMhvYsXj6fT09NzczMzM2tLi4u7s7Ow6LFWVJFXFn9Z3dhcXl9dWZmbmFqbH0+l0/Je+5T8Wrvj4AhBtbRlItrOuSrIcDsveksQSfwjDq5K6Pru7DbQEUk7/QcZfbAHlgG7L27PrXQjmX22vASEXl5fWZham07/0w/y+Vjw9s7a4DQwn+SjD+QvZD2SmqpooN3dgofQ08S+cBZs+AT+u78zuLi7N/cGJn2DF0+NAOpXJyAYnSUgpEIpLa2srK8hP7XIxnp4GSbuyAuoRKA9E9T7NSS+vL67NjP8hUB9tpcfnZpZmad8F90g7O7PbZJcsAMn63XoydlBnbqPS9DiYzsHs0szC+B/i9MFXemZleVdqsF04rM4uL62gMTk8x6Dxgww5qzKxy66/vo2M+ID3/ntf8fGV7V3BdyTpdhdXpqcDZB1w1vg42DUra2trS8vLi4uL28CewKDL6DrMTcOLbWyKn5meXlmc3YEryx4fbq9N/yFK77/i6TnBd9zY2F6Za5ZvKA7TCysoD9GHUINsT8/kBJtzm4zO8TaBOz63sshNIkbEneW5P9ThfRZoqWXT20+w9pdWpn0vI+MAqy0Db4aRLVt8iMAlCyMUuRiZcqGZjdMrS9wjofeqyzN/OBfDrfjc2uKsJLQSGof+nUzPrayAJbkjyeHeROtISfDmgR2XVlYWfDRE22ZxR+IklGYX1/7wLQZec2vbO3wHw9JuExfEp2eWtnfBcJSGpFwrFSUZpDKejwaZ0tNzS9tqmJ+ene0/3MNBVnqNVJ6kkhZaadjz8fg4MCV33dpoodIycbH/qN7CX0zT+1swGVFA+6zZ+PjMruBCYMO1P+RoPwuMzUVQZ3zTFle8XUuPr6xtC0O/hWyMMsfHx4eHhxevDw729p4+ffrixYvnL9+9fP7y+XP48ene+cHB69cXh4fHxz7qthAR3JLFNd+BSa8skzaUUE5vr9zDV/l9rHHw0LnOU2fBWuH7BUQFvlPbSWeaFtANabb39MXLV2e3l5e1WigUSSbHNnCN4WI/RZxQqF6rXd6+evf8xb/tHfyJCAkfb+NEFVTeirBq4tMrS7vrQpAu/+EYdlnja7vrzEEPzy41dmpmZXG3Vdch5WAdvz5/+vzj7WUtlERaJZMRx3F0PRS0dFjwKpAWSJqs127PXj1/en5xDJcxm6hIX7W9vLLg3dfc0myYBQ7Wd9emg2/+d78WFtc5660vLgjfLL6wvOOFzIS8BOEXPr44+OdZrVZ3kGKdSNZlASmT+Ml67fLd+cVhmAlUPxFBH66JMxSPTy9yJpTWt+d+sT36XBcIyF205snYWxkXf5xZXseMXTPpQFyevzwLgUwEAgxMtwA6goCNnL17enCIirGJhmF5d2lBKMP0DLorpAp3/9CE/pWeW9rhnLe9xqUWegmo8ZpEJpLuxbvLSGRs7N6Ea6ZiciyZqr16vvf68NgvTFEbbjeioQtr25wLd5YW/qAgW/GVRU49dXlO7NTM8q5faqK6U//09OVZTR8buz/TBdPQSY5Famcvn/4JrBrTT8J18P/4fY3PLavMOgZb5pfasc9pxWe4wRne8SLG42vcaBdC07IOD15ehlDXPQ7tvOXAd4Rq7w4OLashSUkXCk8mPr22wyi4vvu7p2B6ZZb2QlrfXWHEQ6/ZbOg8sCnWD396fhvaeCy2a186aMTQ2d7Fsd+gkcPq9hzXevEV7lGEZ1d+z179+BoXnLPLXD6B/7cebnCeaa1fnD+vgaXyqWjn0TC5sXH74vWhz6ABr2Z9aYbTa255llNw7ffqEY5jlIyoJwTnNDcP2AIddLj37jY05nxi2omVTNbOnh8cq6ZPkK5vc44DMcooKO3+Pim4siMxtSdEEHh6PqUHvvn5qxr4aJ+a8/wLfMTQ7fPXvigNRUI5vdIrO+TySDsrv9w2/jKLPToQcJY/enpmt+HpwYk/fv1KH0sOw3mR1sUOgI4/DnE9VIb1lxc+LgSvcFE4hSuz7BCu/670YBqcdZKcQhhNr+36lJ55fPH0dlgPL7Laump4Ib1OPw8nih3w759eNBxDGe98nD/KNov47f5uKBifWWSKQ1BvYWnWRz31cO9jLZIcaqNhTW62rmoE/jxRxR/3J4e8qp6M1D7uHaoNCkoiEAoUZGp8ceZ34dGPUyAR9B6HsYwvN3w90HoXzy+doeQmX0dtX3gy+d133/3/Vfxxa1j6wYK7uvznBbiFHg/OrjGCpeeYHlxf/O0bMukl5vtyvRdfWGwQz1TX92ob9yFeMP3uNsWP96EfkXDj9jznF6NLnGIr3JtY/m1TENx17jHQc8bngPc8wYlab+PevsLRfOuXnqw+FP1gJTfQsW/YMjs8XjvOvYmd37IanENNAXJmiWmOuaX1huBcf/3y8iE8vVTVt4iW1QfjP0bBscuXr48bYnSHP8300jqzyX6rUJlx9O9Qz7PIfZpFrRn1pIOPtXsKTrEiKbEmQkS4m1WPJR+CfihGax/PpQYFZ5eJ50gXwO/rv0khGl9bZ3Y2kzfpNZEbUkFynl929/X0YTy30MQNftN8nVyHE/z5YeiHFBy7PJdFaA0kirCkd+kZd1Z+cyw4jWcT3XXGe6QHOfkOz8+6C85Iqn53Fxl4kyNM7+0f6SFdnxzM/tSZ16+HIp28UGfs7PxQ9XhwlwVG42TIgIz5bYEs4hioRnONHis+s92QnMd7Z2PdnD09dbRa3Z/frA/ozkcmudpbTa2e7O+fbOHP/dJPr9+lJiO6Hrq5CR11ImFy7Gzv2DIFBRdZCH56iZ70N8WCC8xu2WWafW5RmC1EvVA36jmT+t0+0mH+LjUI9VKT9RNGvhMnMrj9EqlublVXU5OrW/NbJ6uhTkcnqd8+FZYMCNFlUg3xORKi0vZC0Fb8Cld8RSW1zgCw8Qb1TPP8tkt8WnciE/XqJjc+9vsMZDtouUTu9vnHtur64PTTdeTW+f27G7zK/E1H2a07yctz4Q+iYU3fkmaWqPrbiGov7IaRekwjpFfUsKDe8cFlF3dPT+mrN/viIvObJ/0J0Mjq/v6+R6+R/XoqNDj9Ind+J3JztZvudTZuD4Q/iEElEjEIVoPffgMsiGYnPBi3W+YWJUE99eBdF8mJJsuJt+2b+9X6REdLomkxm5Ov+ZN6KpICJj45GUj/RW42fVfZD010/eqk/u5ABEZliQtRZsf86rUgMzvlZcZ8aw3RefGy3tFj0CcmV6tbggXmQROFUkepzmqoE/3271JH9dW7u9X6UepoEPtTD63eeN8PcvQmNNmNBfVk/eUFRzzJ4qhyg/vX7QvO7FBIgj3RwqxHPfWrjt66HpmI3Pk37y40OTkRqm5t3vXjAzbod3KnoxEzD2tza/W7Aein63okErqrNm5is1rvaj6BR/8i57HgNrOyV8ibn/31ytD0MoXlWVSeziNXfOehDopPR7m571M+83fAQFWm0Kr9WKATN/Obm/sn1dWjo4nV/caFtu5SfYO066t1/LdJiI7sp5CwII+DL+JshM7XOQXDMuO6cWLB8NKvNCK6sE0BXTI74zMe80mvP3aIpugpOPRbzfFnZB/+42Z3NcT3cfVudbU+AfIOuNh/oc3qpN4fAeEI7J+c7Dd9GugHrJu6279ZdTpR0Hn3WhKW6C45g+k1kj+Lv0YWRJcd4Vl07+llyfP4ntc6ZNbBW25YjpttaQTwxPuJwegphphIrW62fPymT+cvte//1PwJs6PwyyeBppsnd52+eaz2QhXeIPeWFhAeKf8K8THxRXLZmeyYE8xnmq9vnY5mi34iPr11V229IOxbZLL/KKge4fwDwpSzdHc/wFuR1eajU51ASbqJsbQ6uYPVjlzsJM9ee3bMLrPZlpgZ80jb/FhrYQedvlkuRTyX7+Jdt1hZitwuNBa+Y3tIsnMeFVp1dfII2LP/KCiLd45s3h0dTR7VGUft92XBTnqnaGSL3PibCbCH0XiaoFfmux2D5Ni7C8+d5z4ThnrDu7+mgGh8BWWnzOwwUoPEfMfnnUQnW7oD5xyM9aM6M/0271ZvTk6qd7X6xBFzB0/6ogCuFAm9zdUUfiAS2We/9UP+yM3+/tbm5ubWfjV0w24jhfYosDSLh6e6PsNY7fzQEiFR2oDpbXIFf0VYe4wfyRKTnaTCOfP1QiVN3FRXncnJO66AboCQJ6HJiUnPHdyq9Uk/nnu4OeK/1tivfcVQUxMhTDjVwZFhV5mvppDwTDyM3B11PwVO8qPHggwlQtpfBNc+/5Ums1kl6TEuvAbT2qv1jKCAigFRJfyHG4pcAwnAoxAqqXMosnlNsMhlXShMJkGrfSrA+tFkJILx1sgN++It4Fw9xQTrJsjy7k/h1PZ4WgIUH1nfGAEGefSrcCQWCOIyO+39TMyXe9UPtEUPCd6DLUuxkFcjjAaqsW/6kQTeFPTTQ7T3J/04EHpoa35/NcSsWKEMqxOCpXFt9rBknY1XxyK3yxTfNAun/QoKd1dIdi4i88XXuNdgSge1sX62PXLHrzJ/Up9INdug82CBTvabREox/qtFBE365z8mJjerd6EJB5iODsIWHIRI43Z6w0jHagcqZ8F1kqHMHl//3B0JIhl3fsaXuey0Dp/X+7P89Tqz+rdudNBCTaFo9Jy7Wg5NizNLdVL8ypBMfUVwOMth0DyScvQq2k0RXa83kiF9SAGn/lyYMcwQwOAv7sxnHdCOk6ZWKYkyzZPsqnXR2edr23c85Fs3dbD5myMx8yf65AAZeH2SWR71SRCZemSyf/sTxKf3ncjxk5hLvEuJI7C/TznF3tdxIrcXzJnnEcT4nEqe4GdMwOldipiRxJ/hyE71+GnXDHvzitzNb95NTNbvttouDr5A35cBxcWYd/MGoSw1drW+/D89VPeFz+ECYIfW0bKqspuYrFdv+vNikqG9da4EmeKb3mmEgz/HNb0b9g7bkmC+w3eDYHL10OpRxJf5G0H/nf+wWR8Aw6TzKNj81v7J/gDxF71+crI64UtfoeSup8D/ozOwH3KciX7isLicsZeHnAWlNW6Ne4GZz2+hsSmz0Ps4j3eq6uvbgSpRgH5Vf/5hZKt6c3dzwv7SX/yEr0i9hYX7Q9CgmJzfr67WbxqHaH7r5K4+cXOyBZpvIBSOnjy7UFWfEiST4DMlIJEvvCzOGeO+g9pghUSR1eZdBzN0IjXB3bDBMEwtl9q8mejnU9zo3dy/A0HZuACQNPUd0HRQFNzY5YFQgrQzcUqp7X6GCYkVtFwkso8XuOozj18OirsVBiiXmicREnl6qk5/HKz8KxKpNljopHsC1vt+veHkndyl6lWf87l/F+rfABbLSb485o4Eswton9Y/u2AaRRhYjI9bLqp6+Gpj4OeNoL8Fhh8lTxsa6zsGnx6sTZYOLLSPZX9b1dWuAIjGSt35HwoM4bovp9Wf4dl6Extnhyycxq0YxCR8bo4gYQVYri++Ish3cNuXz968wHED4tUnSWI2MIMpMie3+nQjG1dLReqrq3V9ol/LZ4KsnnnPesF7qVUFCbcG578QyVCuBBnVmJ3wWREQvHY1zOTDkiDf+YCqjy3duVkNpRxmrZ94KosFZjZrA5dB6A6LZPa3nBAT287diQef2jxZDbHqiZH+VGjbStbOOQeur+FlyI+Q1j41kTouchZYxDO+KBK1T4ctBnOQVyIsXuntF4MlbQ1igA6zOPoJSDap3zT8+C0GRB0Ywy+WE3nK0rqyTEmIaeLApc/Ek2fko2RfejvMnfZ3g6u+pidm+k5smH7EvK8HKh/quCa8GOfmTQ24rhnFcTJ4DQ1f+sa7Y45tWkQ/Ynr78yFgHCuiw+S1j+9y7jt8NYTq8y+HeQzc3dI5XwxWAzHE8juNoPr0lN96mR+iBkosfezVITdDOQHD4Gx9DsHQ+BIaxJTaEuSzLs7a+l3pg0lTh2dO7yYnIk6KJQEeX3yi+XTTCB+Q317z/rA1uPb1LXDleTyb9golFTj1vzgBiXxhdks82Wf9qd1ycVKDBL8Qq8AsBnC66nWR0e0Pf3S/5UT0Vb/Tt1WdPFo94c5o31cJylQna3/iBNxFqn0eBCThyUIL0zvC8Gx32kEuDRZ+bgvEjAxt/Q269MjkxOq+T/PtgzsDqrBP+Bpd4WY1wNNwIufcjyBLPb5M4N5PSKyAhaZLmDACc7OcfHuhdvIhMbZqA7FP6q4Zvzlf/XSd0PTUZM2fvsJQzOpNv8EDcIHmN1FV6y1s6NT3OAHJU04vY7j/l3Qj4mtkeSL3zXDymU/bfWzOS/sDmd96MwG3bj5tI7tIxF8AhS5E38qX6tU2byK63lpy49SfckeQkJXxbS/k+MusFU/3TfN8g7XXXpeSmuSI2JNBMrCIoPYqSDarvcFPD730lF5rFCD6sFC9Psds2Pmbo7v5k1SzzHGSezycvY72OunAXy4WirhcZg7PiaDL8422x4lUq0cc+nPSb+aMP+3kd1S6fhM6Gozy1OyKvjyZZJbwcC25nNTRhCgkO+nb9xRAJ7TAtlrNto3nIpaGHJhe/AVDacB9qryN50jovuMXbULOCQET3U1wHF510DkNkcnJicmJvvceNA7xqXN5dokf0j/+9WOI/05dCJOtOqnnFSdAjiIJB3Ae/JUzWy1Oo+68OPbpwPHtXwyWNkNBMyTfNCef9LztlDPgHsgS5oDP3wweAe4Pq0DtJvX6uz08Qqmz14cXZ2ORjVeqZb7aiIzdXsDv4NQkX+y9JC081rXnRfP3RybrN/t9lt/rKawT9lWutWV8neRziRMQrdBxDKWt/wL5wDkMwpIhnBaOw7v2sx1ZpTdvrnIg5eZDh1DYNzpnL8/gy5PvVFV98d3k0bmlWuf1unNgSdbrZN2h348mv/srvP4yiXnxl2eO7/M9Fniv/dleTmi/Wp88Ojry4jg3bXuiJ18KN4Ish52wQMt+ykVJEO8EEfe9a9N9oUYdiSDg/GBuYK/9cnDPQsmPx5a1t4F0ksyf9ve3wCsNb8O3Lfr+u7y/v/+TKVkHTn1jz7KOX4FmdNglHux2EOc2v+/roDBfDxA4G+8EBwrp9ckJyL6UJPgu133PA907nUWiQZEzCO1gKKQuW0Xqrfbi4vWrlI5+lboNPvca0mkEFfI6KZXp2Vm6ybmddcotI13X5jf3t1XJ2qtHJj4eXLygkooHoaJeP2nbqM27AIUbec51IFkPxAq7nxSVlkakmYQ7kt7mwvNFhxb/jijemhDY3AcgoJ68vAT/auLdsWX+VD3Z+jt2NB5B4M0sK3qanuFtHRfYwV5gv49vz1JNEPY8/vvWSfUn0zp+l6LLPcCEgua2I3wFqXw9+YKLUHK+ZjCCvPgJI2mY5ZPDaPbGOfms560n2DP0Ihx9eTLB7eqBYGSBSw89PTzcm0it/ofETu704s4suVHp8e41Ivz1mdkdBIHR4fuP1cnJvcPDp/cPjuuhlqAfQ11V2wnoOM+5H0jBjxUcSvkJAzFrsshELoZZ1GWvNd2n66vC4U2F2KeqE3XuSg0+7a3x4FhXkrw9NNXjf9+ilhas1GLAQd/s/XAO5Z2F+a1/P1bNw7Mx7FF/L0GqRzBxT0Wn+CVbPIIUADrUN/ZYJCa8iO9Y+qSBGKpxwMh5fIkLz6et1njEqQpBGamLpGhVBGICTmR/gH5/nN37T2+X+J/85bY/8/f0s+XfR0p7H4C/n9/1/v+r9q/95QJ8R4G+w33h32eHh93t/l7a/u+1b/vX/7k39b/7Z527eO5b1//oH/2/7xL/r/18jH/l2v9t7/4t9eO/2g8f+P3w7d8W/2s/4eN/8rX7+p/xH2gM+3y//s5f8dGf9X9z2//v5z8aH17r6H+L33/9n6bL16d3f2h6e39w5+4P6N9s97wG84t6a9d/5P7/459y7d/0fX/1/XwG/r8N4z6Fv4f5/H6/43n98Pq9j/q+d+h3x2rZ+62/s/9+f92/58v/x9p/Z/H9/b/u/38O/w7t+9d38L/91+7h/u6/v+a/96D/2/d/h/d3f773u9f/3j9+1f5t/+7/x5b/1u7u8c6v95fX/b/+6x/7/1/H/7/p/3X/f/m6/4H/78v/B6+t4H592D7/P/d3/1f3+7h/b/v5/n/3v8+1/7/8+v/B68f/x/1/z8B4H4R8/4H/5d/zVf39d/v/d9z/z7//b/4//t/h/B3b/H7/v6P//jP/3+991/wP/79//7/7P/3/1f/n/l3//w/4P5/6n/2+7/7b/729f/1+G/z76H3gA/5f/f//9/yP9v/38//29h/p/2H8A/w8+n934G8/wAAABJRU5ErkJggg==" alt="세종경찰청 마크">
             </div>
             <h1>세종경찰 재난관리 플랫폼</h1>
         </div>
+        
         <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
+            <button id="noti-btn" class="admin-btn" style="color:var(--blue);" onclick="requestNotificationPermission()">
+                <i class="fas fa-bell"></i> 알림 켜기
+            </button>
             <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
             <button id="full-refresh-btn" class="full-refresh-btn" onclick="forcePageReload()" title="전체 새로고침">
                 <i id="refresh-icon" class="fas fa-rotate-right"></i><span>전체 새로고침</span>
@@ -1251,7 +1222,6 @@
     </div>
 </div>
 
-
 <div class="accord-section" id="sec-snow">
     <div class="accord-header" onclick="toggleSection('sec-snow')">
         <div class="ah-title">
@@ -1289,7 +1259,6 @@
         <div class="rain-grid" id="snow-grid"></div>
     </div>
 </div>
-
 
 <div class="accord-section" id="sec-forest">
     <div class="accord-header" onclick="toggleSection('sec-forest')">
@@ -1391,7 +1360,6 @@
     <button onclick="resetData()" style="background:none; border:none; color:var(--sub); font-size:11px; text-decoration:underline; cursor:pointer;">[관리자] 데이터 초기화</button>
 </div>
 
-
 <div id="cctv-player-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.88); z-index:3000; padding:calc(14px + env(safe-area-inset-top)) 12px 16px; box-sizing:border-box;">
     <div style="max-width:980px; height:100%; margin:0 auto; display:flex; flex-direction:column; gap:10px;">
         <div style="background:#111; border:1px solid rgba(255,255,255,0.12); border-radius:18px; padding:14px; color:white; box-shadow:0 12px 30px rgba(0,0,0,0.35);">
@@ -1463,36 +1431,46 @@
     if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 🚨 알림 기능을 안전하게 로드
-    if (firebase.messaging.isSupported()) {
+    // 알림 기능 초기화
+    if (typeof firebase.messaging === 'function' && firebase.messaging.isSupported()) {
         const messaging = firebase.messaging();
 
-        // 서비스 워커 등록
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./firebase-messaging-sw.js')
                 .then(reg => console.log('알림 서비스 준비 완료'))
                 .catch(err => console.log('알림 서비스 실패', err));
         }
 
-        // 알림 권한 요청 (사용자 버튼 클릭용)
         window.requestNotificationPermission = function() {
             Notification.requestPermission().then((permission) => {
                 if (permission === 'granted') {
-                    messaging.getToken({ 
-                        vapidKey: 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4' 
-                    }).then((token) => {
-                        db.ref('fcmTokens/' + token).set(true);
-                        alert('알림이 설정되었습니다.');
-                        document.getElementById('noti-btn').style.display = 'none';
+                    navigator.serviceWorker.ready.then((registration) => {
+                        messaging.getToken({ 
+                            vapidKey: 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4',
+                            serviceWorkerRegistration: registration
+                        }).then((token) => {
+                            if(token){
+                                db.ref('fcmTokens/' + token).set(true);
+                                alert('알림 수신이 활성화되었습니다. 재난 통제 발생 시 푸시 알림을 받습니다.');
+                                document.getElementById('noti-btn').style.display = 'none';
+                            }
+                        }).catch(err => console.error('토큰 가져오기 에러:', err));
                     });
+                } else {
+                    alert('알림 권한이 거부되었습니다.');
                 }
             });
         };
 
-        // 포그라운드 메시지 수신
         messaging.onMessage((payload) => {
-            alert(`[🚨 세종경찰 재난상황실]\n${payload.notification.title}\n${payload.notification.body}`);
+            const notification = payload.notification || {};
+            const data = payload.data || {};
+            alert(`[🚨 재난상황실 알림]\n${notification.title || data.title}\n${notification.body || data.body}`);
         });
+    } else {
+        window.requestNotificationPermission = function() {
+            alert('현재 브라우저에서는 알림을 지원하지 않습니다. (아이폰의 경우 먼저 홈 화면에 추가 후 실행해 주세요.)');
+        };
     }
 
     let isAdmin = false;
@@ -1631,730 +1609,93 @@
         { area:'소정', name:'소정면 운당2리 경로당', addr:'소정면 운당너머말길 29', cap:'25명', tel:'044-301-6044', lat:36.7255, lng:127.1455 }
     ];
 
-
-    // 남부서 대피소 추가 명단(사진 자료 기준) - 기존 북부서 대피소는 수정하지 않고 남부서만 병합
     const SOUTH_SHELTER_ITEMS = [
-        {
-                "id": "south-shelter-yeongi-susan",
-                "station": "남부서",
-                "area": "연기면",
-                "name": "수산리마을회관",
-                "addr": "연기면 수산길 2",
-                "cap": "48명",
-                "tel": "010-5420-5821"
-        },
-        {
-                "id": "south-shelter-boram-community",
-                "station": "남부서",
-                "area": "보람동",
-                "name": "보람동주민센터",
-                "addr": "호려울로 42 (보람동)",
-                "cap": "296명",
-                "tel": "044-301-6710"
-        },
-        {
-                "id": "south-shelter-hansol-es",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "한솔초등학교",
-                "addr": "누리로 32 (한솔동)",
-                "cap": "218명",
-                "tel": "044-410-4303"
-        },
-        {
-                "id": "south-shelter-goun-community",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "고운동주민센터",
-                "addr": "마음로 284 (고운동)",
-                "cap": "263명",
-                "tel": "044-301-6614"
-        },
-        {
-                "id": "south-shelter-duru-ms",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "두루중학교(강당)",
-                "addr": "만남로 211 (고운동)",
-                "cap": "194명",
-                "tel": "044-903-3100"
-        },
-        {
-                "id": "south-shelter-dodam-es",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "도담초등학교",
-                "addr": "보람로 33 (도담동)",
-                "cap": "240명",
-                "tel": "044-410-0103"
-        },
-        {
-                "id": "south-shelter-geumnam-gamseong-es",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "감성초등학교",
-                "addr": "금남면 감성길 6",
-                "cap": "180명",
-                "tel": "044-866-8892"
-        },
-        {
-                "id": "south-shelter-yeongi-neulwang1",
-                "station": "남부서",
-                "area": "연기면",
-                "name": "눌왕1리마을회관",
-                "addr": "연기면 원왕길 8-3",
-                "cap": "15명",
-                "tel": "044-865-3076"
-        },
-        {
-                "id": "south-shelter-geumnam-gamseong-ri",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "감성리 경로당",
-                "addr": "금남면 감성길 45",
-                "cap": "21명",
-                "tel": "010-7765-8677"
-        },
-        {
-                "id": "south-shelter-geumnam-dohoe",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "도회 경로당",
-                "addr": "금남면 용포로 57",
-                "cap": "17명",
-                "tel": "044-863-9538"
-        },
-        {
-                "id": "south-shelter-geumnam-geumcheon1",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "금천1리 경로당",
-                "addr": "금남면 금천1길 18-4",
-                "cap": "23명",
-                "tel": "044-866-6291"
-        },
-        {
-                "id": "south-shelter-geumnam-daebak",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "대박리경로당",
-                "addr": "금남면 대박길 3",
-                "cap": "24명",
-                "tel": "011-720-3555"
-        },
-        {
-                "id": "south-shelter-geumnam-doam1",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "도암1리 경로당",
-                "addr": "금남면 도암1길 8-5",
-                "cap": "24명",
-                "tel": "041-866-9081"
-        },
-        {
-                "id": "south-shelter-geumnam-buyong2",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "부용2리 경로당",
-                "addr": "금남면 부용길 16-5",
-                "cap": "23명",
-                "tel": "044-300-3625"
-        },
-        {
-                "id": "south-shelter-geumnam-yeonggok1",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "영곡1리 경로당",
-                "addr": "금남면 성덕영곡길 196",
-                "cap": "24명",
-                "tel": "041-866-8482"
-        },
-        {
-                "id": "south-shelter-geumnam-office",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "금남면사무소",
-                "addr": "금남면 용포로 57",
-                "cap": "58명",
-                "tel": "044-301-5510"
-        },
-        {
-                "id": "south-shelter-geumnam-es",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "금남초등학교",
-                "addr": "금남면 금남구즉로 62",
-                "cap": "210명",
-                "tel": "044-866-7052"
-        },
-        {
-                "id": "south-shelter-geumho-ms",
-                "station": "남부서",
-                "area": "금남면",
-                "name": "금호중학교",
-                "addr": "금남면 금남구즉로 196",
-                "cap": "178명",
-                "tel": "041-866-7800"
-        },
-        {
-                "id": "south-shelter-janggun-bongan",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "봉안리경로당",
-                "addr": "장군면 월현윗길 7",
-                "cap": "37명",
-                "tel": "044-857-1274"
-        },
-        {
-                "id": "south-shelter-janggun-songmun",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "송문리 경로당",
-                "addr": "장군면 송문송정길 95",
-                "cap": "50명",
-                "tel": "044-300-3625"
-        },
-        {
-                "id": "south-shelter-janggun-office",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "장군면사무소",
-                "addr": "장군면 장척로 400-1",
-                "cap": "59명",
-                "tel": "044-301-5644"
-        },
-        {
-                "id": "south-shelter-janggun-geumam",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "금암리마을회관",
-                "addr": "장군면 정자말길 37",
-                "cap": "46명",
-                "tel": "010-4123-2751"
-        },
-        {
-                "id": "south-shelter-uirang-es",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "의랑초등학교",
-                "addr": "장군면 태산길 50-1",
-                "cap": "663명",
-                "tel": "044-852-6871"
-        },
-        {
-                "id": "south-shelter-janggi-ms",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "장기중학교",
-                "addr": "장군면 장척로 359",
-                "cap": "228명",
-                "tel": "044-857-1033"
-        },
-        {
-                "id": "south-shelter-janggi-es",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "장기초등학교",
-                "addr": "장군면 장척로 398-9",
-                "cap": "269명",
-                "tel": "044-858-4066"
-        },
-        {
-                "id": "south-shelter-janggun-dogye",
-                "station": "남부서",
-                "area": "장군면",
-                "name": "도계리 마을회관",
-                "addr": "장군면 장기초교길 13",
-                "cap": "97명",
-                "tel": "044-300-3625"
-        },
-        {
-                "id": "south-shelter-hansol-community",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "한솔동주민센터",
-                "addr": "노을3로 85 (한솔동)",
-                "cap": "86명",
-                "tel": "044-301-6110"
-        },
-        {
-                "id": "south-shelter-gadeuk-es",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "가득초등학교",
-                "addr": "세종로 941 (새롬동)",
-                "cap": "50명",
-                "tel": "044-999-7603"
-        },
-        {
-                "id": "south-shelter-geulbit-ms",
-                "station": "남부서",
-                "area": "소담동",
-                "name": "글빛중학교",
-                "addr": "소담4로 33 (소담동)",
-                "cap": "199명",
-                "tel": "044-999-6903"
-        },
-        {
-                "id": "south-shelter-geulbeot-es",
-                "station": "남부서",
-                "area": "소담동",
-                "name": "글벗초등학교",
-                "addr": "소담로 121 (소담동)",
-                "cap": "194명",
-                "tel": "044-999-5305"
-        },
-        {
-                "id": "south-shelter-mir-es",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "미르초등학교",
-                "addr": "나리로 26-16 (한솔동)",
-                "cap": "206명",
-                "tel": "044-998-2703"
-        },
-        {
-                "id": "south-shelter-boram-hs",
-                "station": "남부서",
-                "area": "보람동",
-                "name": "보람고등학교(강당)",
-                "addr": "한누리대로 2176 (보람동)",
-                "cap": "252명",
-                "tel": "044-999-7100"
-        },
-        {
-                "id": "south-shelter-boram-ms",
-                "station": "남부서",
-                "area": "보람동",
-                "name": "보람중학교",
-                "addr": "남세종로 423 (보람동)",
-                "cap": "219명",
-                "tel": "044-999-6403"
-        },
-        {
-                "id": "south-shelter-boram-es",
-                "station": "남부서",
-                "area": "보람동",
-                "name": "보람초등학교(강당)",
-                "addr": "보람동로 39 (보람동)",
-                "cap": "249명",
-                "tel": "044-868-4743"
-        },
-        {
-                "id": "south-shelter-saetteum-ms",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "새뜸중학교",
-                "addr": "새롬중앙로 62-12 (새롬동)",
-                "cap": "166명",
-                "tel": "044-999-5905"
-        },
-        {
-                "id": "south-shelter-saetteum-es",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "새뜸초등학교",
-                "addr": "새롬남로 75 (새롬동)",
-                "cap": "200명",
-                "tel": "044-999-7403"
-        },
-        {
-                "id": "south-shelter-saerom-hs",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "새롬고등학교",
-                "addr": "새롬서로 68 (새롬동)",
-                "cap": "231명",
-                "tel": "044-999-6303"
-        },
-        {
-                "id": "south-shelter-saerom-ms",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "새롬중학교",
-                "addr": "어울로 41 (새롬동)",
-                "cap": "180명",
-                "tel": "044-998-2651"
-        },
-        {
-                "id": "south-shelter-saerom-es",
-                "station": "남부서",
-                "area": "새롬동",
-                "name": "새롬초등학교",
-                "addr": "새롬중앙1로 27 (새롬동)",
-                "cap": "245명",
-                "tel": "044-999-5600"
-        },
-        {
-                "id": "south-shelter-saeon-ms",
-                "station": "남부서",
-                "area": "다정동",
-                "name": "새온중학교",
-                "addr": "다정서로 12 (다정동)",
-                "cap": "200명",
-                "tel": "044-999-6504"
-        },
-        {
-                "id": "south-shelter-sodam-hs",
-                "station": "남부서",
-                "area": "소담동",
-                "name": "소담고등학교",
-                "addr": "남세종로 326 (소담동)",
-                "cap": "274명",
-                "tel": "044-902-2200"
-        },
-        {
-                "id": "south-shelter-sodam-ms",
-                "station": "남부서",
-                "area": "소담동",
-                "name": "소담중학교(강당)",
-                "addr": "남세종로 340 (소담동)",
-                "cap": "182명",
-                "tel": "044-905-0200"
-        },
-        {
-                "id": "south-shelter-sodam-es",
-                "station": "남부서",
-                "area": "소담동",
-                "name": "소담초등학교(강당)",
-                "addr": "남세종로 326 (소담동)",
-                "cap": "289명",
-                "tel": "044-861-7300"
-        },
-        {
-                "id": "south-shelter-yeoul-es",
-                "station": "남부서",
-                "area": "보람동",
-                "name": "여울초등학교",
-                "addr": "남세종로 504-12 (보람동)",
-                "cap": "244명",
-                "tel": "044-999-5905"
-        },
-        {
-                "id": "south-shelter-chamsaem-es",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "참샘초등학교",
-                "addr": "노을1로 29 (한솔동)",
-                "cap": "200명",
-                "tel": "044-868-3782"
-        },
-        {
-                "id": "south-shelter-hansol-hs",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "한솔고등학교",
-                "addr": "누리로 34 (한솔동)",
-                "cap": "214명",
-                "tel": "044-410-4100"
-        },
-        {
-                "id": "south-shelter-hansol-ms",
-                "station": "남부서",
-                "area": "한솔동",
-                "name": "한솔중학교",
-                "addr": "나리로 43 (한솔동)",
-                "cap": "280명",
-                "tel": "044-868-1735"
-        },
-        {
-                "id": "south-shelter-dodam-community",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "도담동주민센터",
-                "addr": "보듬8로 45 (도담동)",
-                "cap": "522명",
-                "tel": "044-301-6210"
-        },
-        {
-                "id": "south-shelter-neulbom-es",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "늘봄초등학교(강당)",
-                "addr": "다솜1로 183 (도담동)",
-                "cap": "230명",
-                "tel": "044-903-3400"
-        },
-        {
-                "id": "south-shelter-dodam-hs",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "도담고등학교",
-                "addr": "보듬4로 41 (도담동)",
-                "cap": "274명",
-                "tel": "044-410-0300"
-        },
-        {
-                "id": "south-shelter-dodam-ms",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "도담중학교",
-                "addr": "보람로 80 (도담동)",
-                "cap": "272명",
-                "tel": "044-410-0200"
-        },
-        {
-                "id": "south-shelter-seongnam-hs",
-                "station": "남부서",
-                "area": "어진동",
-                "name": "성남고등학교(강당)",
-                "addr": "다솜로 22 (어진동)",
-                "cap": "191명",
-                "tel": "044-860-3700"
-        },
-        {
-                "id": "south-shelter-yangji-hs",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "양지고등학교(강당)",
-                "addr": "갈매로 518 (도담동)",
-                "cap": "266명",
-                "tel": "044-903-2000"
-        },
-        {
-                "id": "south-shelter-yangji-ms",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "양지중학교(강당)",
-                "addr": "갈매로 512 (도담동)",
-                "cap": "266명",
-                "tel": "044-703-3015"
-        },
-        {
-                "id": "south-shelter-yangji-es",
-                "station": "남부서",
-                "area": "도담동",
-                "name": "양지초등학교(강당)",
-                "addr": "보듬8로 11 (도담동)",
-                "cap": "188명",
-                "tel": "044-867-9053"
-        },
-        {
-                "id": "south-shelter-eojin-ms",
-                "station": "남부서",
-                "area": "어진동",
-                "name": "어진중학교",
-                "addr": "다솜로 10 (어진동)",
-                "cap": "172명",
-                "tel": "044-410-0700"
-        },
-        {
-                "id": "south-shelter-yeonsei-es",
-                "station": "남부서",
-                "area": "어진동",
-                "name": "연세초등학교",
-                "addr": "다솜로 290 (어진동)",
-                "cap": "136명",
-                "tel": "044-860-6500"
-        },
-        {
-                "id": "south-shelter-yeonyang-es",
-                "station": "남부서",
-                "area": "어진동",
-                "name": "연양초등학교(강당)",
-                "addr": "도움3로 37 (어진동)",
-                "cap": "160명",
-                "tel": "044-998-4205"
-        },
-        {
-                "id": "south-shelter-areum-community",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "아름동주민센터",
-                "addr": "보듬3로 114 (아름동)",
-                "cap": "88명",
-                "tel": "044-301-6310"
-        },
-        {
-                "id": "south-shelter-jongchon-community",
-                "station": "남부서",
-                "area": "종촌동",
-                "name": "종촌동주민센터",
-                "addr": "도움3로 125 (종촌동)",
-                "cap": "416명",
-                "tel": "044-301-6410"
-        },
-        {
-                "id": "south-shelter-garak-es",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "가락초등학교",
-                "addr": "마음로 208 (고운동)",
-                "cap": "209명",
-                "tel": "044-903-1205"
-        },
-        {
-                "id": "south-shelter-goun-hs",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "고운고등학교",
-                "addr": "마음안로 93 (고운동)",
-                "cap": "187명",
-                "tel": "044-903-2310"
-        },
-        {
-                "id": "south-shelter-goun-ms",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "고운중학교",
-                "addr": "만남로 65 (고운동)",
-                "cap": "376명",
-                "tel": "044-903-3300"
-        },
-        {
-                "id": "south-shelter-goun-es",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "고운초등학교(강당)",
-                "addr": "만남로 45 (고운동)",
-                "cap": "259명",
-                "tel": "044-903-4306"
-        },
-        {
-                "id": "south-shelter-narae-es",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "나래초등학교(강당)",
-                "addr": "달빛1로 108 (아름동)",
-                "cap": "152명",
-                "tel": "044-867-8061"
-        },
-        {
-                "id": "south-shelter-dabit-es",
-                "station": "남부서",
-                "area": "종촌동",
-                "name": "다빛초등학교(강당)",
-                "addr": "달빛1로 7 (종촌동)",
-                "cap": "236명",
-                "tel": "044-903-3504"
-        },
-        {
-                "id": "south-shelter-duru-hs",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "두루고등학교",
-                "addr": "마음안1로 53 (고운동)",
-                "cap": "189명",
-                "tel": "044-903-2200"
-        },
-        {
-                "id": "south-shelter-duru-es",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "두루초등학교(강당)",
-                "addr": "만남로 227 (고운동)",
-                "cap": "253명",
-                "tel": "044-903-2700"
-        },
-        {
-                "id": "south-shelter-science-art-school",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "세종과학예술영재학교(체육관)",
-                "addr": "달빛1로 265 (아름동)",
-                "cap": "176명",
-                "tel": "044-903-1106"
-        },
-        {
-                "id": "south-shelter-international-hs",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "세종국제고등학교",
-                "addr": "달빛1로 251 (아름동)",
-                "cap": "1682명",
-                "tel": "044-410-0511"
-        },
-        {
-                "id": "south-shelter-nuri-school",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "세종누리학교(강당)",
-                "addr": "만남로 326-14 (고운동)",
-                "cap": "207명",
-                "tel": "044-410-2100"
-        },
-        {
-                "id": "south-shelter-areum-hs",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "아름고등학교",
-                "addr": "달빛1로 151 (아름동)",
-                "cap": "285명",
-                "tel": "044-868-6071"
-        },
-        {
-                "id": "south-shelter-areum-ms",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "아름중학교",
-                "addr": "달빛1로 167 (아름동)",
-                "cap": "187명",
-                "tel": "044-867-9371"
-        },
-        {
-                "id": "south-shelter-areum-es",
-                "station": "남부서",
-                "area": "아름동",
-                "name": "아름초등학교",
-                "addr": "달빛로 174 (아름동)",
-                "cap": "173명",
-                "tel": "044-998-1845"
-        },
-        {
-                "id": "south-shelter-onbit-es",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "온빛초등학교(강당)",
-                "addr": "만남로 174 (고운동)",
-                "cap": "261명",
-                "tel": "044-903-3700"
-        },
-        {
-                "id": "south-shelter-eutteum-es",
-                "station": "남부서",
-                "area": "고운동",
-                "name": "으뜸초등학교",
-                "addr": "마음로 132 (고운동)",
-                "cap": "202명",
-                "tel": "044-903-2507"
-        },
-        {
-                "id": "south-shelter-jongchon-hs",
-                "station": "남부서",
-                "area": "종촌동",
-                "name": "종촌고등학교(강당)",
-                "addr": "달빛1로 60 (종촌동)",
-                "cap": "244명",
-                "tel": "044-903-2100"
-        },
-        {
-                "id": "south-shelter-jongchon-ms",
-                "station": "남부서",
-                "area": "종촌동",
-                "name": "종촌중학교(강당)",
-                "addr": "도움1로 126 (종촌동)",
-                "cap": "223명",
-                "tel": "044-903-3200"
-        },
-        {
-                "id": "south-shelter-jongchon-es",
-                "station": "남부서",
-                "area": "종촌동",
-                "name": "종촌초등학교(강당)",
-                "addr": "도움1로 160 (종촌동)",
-                "cap": "194명",
-                "tel": "044-903-3600"
-        }
-];
-
+        { "id": "south-shelter-yeongi-susan", "station": "남부서", "area": "연기면", "name": "수산리마을회관", "addr": "연기면 수산길 2", "cap": "48명", "tel": "010-5420-5821" },
+        { "id": "south-shelter-boram-community", "station": "남부서", "area": "보람동", "name": "보람동주민센터", "addr": "호려울로 42 (보람동)", "cap": "296명", "tel": "044-301-6710" },
+        { "id": "south-shelter-hansol-es", "station": "남부서", "area": "한솔동", "name": "한솔초등학교", "addr": "누리로 32 (한솔동)", "cap": "218명", "tel": "044-410-4303" },
+        { "id": "south-shelter-goun-community", "station": "남부서", "area": "고운동", "name": "고운동주민센터", "addr": "마음로 284 (고운동)", "cap": "263명", "tel": "044-301-6614" },
+        { "id": "south-shelter-duru-ms", "station": "남부서", "area": "고운동", "name": "두루중학교(강당)", "addr": "만남로 211 (고운동)", "cap": "194명", "tel": "044-903-3100" },
+        { "id": "south-shelter-dodam-es", "station": "남부서", "area": "도담동", "name": "도담초등학교", "addr": "보람로 33 (도담동)", "cap": "240명", "tel": "044-410-0103" },
+        { "id": "south-shelter-geumnam-gamseong-es", "station": "남부서", "area": "금남면", "name": "감성초등학교", "addr": "금남면 감성길 6", "cap": "180명", "tel": "044-866-8892" },
+        { "id": "south-shelter-yeongi-neulwang1", "station": "남부서", "area": "연기면", "name": "눌왕1리마을회관", "addr": "연기면 원왕길 8-3", "cap": "15명", "tel": "044-865-3076" },
+        { "id": "south-shelter-geumnam-gamseong-ri", "station": "남부서", "area": "금남면", "name": "감성리 경로당", "addr": "금남면 감성길 45", "cap": "21명", "tel": "010-7765-8677" },
+        { "id": "south-shelter-geumnam-dohoe", "station": "남부서", "area": "금남면", "name": "도회 경로당", "addr": "금남면 용포로 57", "cap": "17명", "tel": "044-863-9538" },
+        { "id": "south-shelter-geumnam-geumcheon1", "station": "남부서", "area": "금남면", "name": "금천1리 경로당", "addr": "금남면 금천1길 18-4", "cap": "23명", "tel": "044-866-6291" },
+        { "id": "south-shelter-geumnam-daebak", "station": "남부서", "area": "금남면", "name": "대박리경로당", "addr": "금남면 대박길 3", "cap": "24명", "tel": "011-720-3555" },
+        { "id": "south-shelter-geumnam-doam1", "station": "남부서", "area": "금남면", "name": "도암1리 경로당", "addr": "금남면 도암1길 8-5", "cap": "24명", "tel": "041-866-9081" },
+        { "id": "south-shelter-geumnam-buyong2", "station": "남부서", "area": "금남면", "name": "부용2리 경로당", "addr": "금남면 부용길 16-5", "cap": "23명", "tel": "044-300-3625" },
+        { "id": "south-shelter-geumnam-yeonggok1", "station": "남부서", "area": "금남면", "name": "영곡1리 경로당", "addr": "금남면 성덕영곡길 196", "cap": "24명", "tel": "041-866-8482" },
+        { "id": "south-shelter-geumnam-office", "station": "남부서", "area": "금남면", "name": "금남면사무소", "addr": "금남면 용포로 57", "cap": "58명", "tel": "044-301-5510" },
+        { "id": "south-shelter-geumnam-es", "station": "남부서", "area": "금남면", "name": "금남초등학교", "addr": "금남면 금남구즉로 62", "cap": "210명", "tel": "044-866-7052" },
+        { "id": "south-shelter-geumho-ms", "station": "남부서", "area": "금남면", "name": "금호중학교", "addr": "금남면 금남구즉로 196", "cap": "178명", "tel": "041-866-7800" },
+        { "id": "south-shelter-janggun-bongan", "station": "남부서", "area": "장군면", "name": "봉안리경로당", "addr": "장군면 월현윗길 7", "cap": "37명", "tel": "044-857-1274" },
+        { "id": "south-shelter-janggun-songmun", "station": "남부서", "area": "장군면", "name": "송문리 경로당", "addr": "장군면 송문송정길 95", "cap": "50명", "tel": "044-300-3625" },
+        { "id": "south-shelter-janggun-office", "station": "남부서", "area": "장군면", "name": "장군면사무소", "addr": "장군면 장척로 400-1", "cap": "59명", "tel": "044-301-5644" },
+        { "id": "south-shelter-janggun-geumam", "station": "남부서", "area": "장군면", "name": "금암리마을회관", "addr": "장군면 정자말길 37", "cap": "46명", "tel": "010-4123-2751" },
+        { "id": "south-shelter-uirang-es", "station": "남부서", "area": "장군면", "name": "의랑초등학교", "addr": "장군면 태산길 50-1", "cap": "663명", "tel": "044-852-6871" },
+        { "id": "south-shelter-janggi-ms", "station": "남부서", "area": "장군면", "name": "장기중학교", "addr": "장군면 장척로 359", "cap": "228명", "tel": "044-857-1033" },
+        { "id": "south-shelter-janggi-es", "station": "남부서", "area": "장군면", "name": "장기초등학교", "addr": "장군면 장척로 398-9", "cap": "269명", "tel": "044-858-4066" },
+        { "id": "south-shelter-janggun-dogye", "station": "남부서", "area": "장군면", "name": "도계리 마을회관", "addr": "장군면 장기초교길 13", "cap": "97명", "tel": "044-300-3625" },
+        { "id": "south-shelter-hansol-community", "station": "남부서", "area": "한솔동", "name": "한솔동주민센터", "addr": "노을3로 85 (한솔동)", "cap": "86명", "tel": "044-301-6110" },
+        { "id": "south-shelter-gadeuk-es", "station": "남부서", "area": "새롬동", "name": "가득초등학교", "addr": "세종로 941 (새롬동)", "cap": "50명", "tel": "044-999-7603" },
+        { "id": "south-shelter-geulbit-ms", "station": "남부서", "area": "소담동", "name": "글빛중학교", "addr": "소담4로 33 (소담동)", "cap": "199명", "tel": "044-999-6903" },
+        { "id": "south-shelter-geulbeot-es", "station": "남부서", "area": "소담동", "name": "글벗초등학교", "addr": "소담로 121 (소담동)", "cap": "194명", "tel": "044-999-5305" },
+        { "id": "south-shelter-mir-es", "station": "남부서", "area": "한솔동", "name": "미르초등학교", "addr": "나리로 26-16 (한솔동)", "cap": "206명", "tel": "044-998-2703" },
+        { "id": "south-shelter-boram-hs", "station": "남부서", "area": "보람동", "name": "보람고등학교(강당)", "addr": "한누리대로 2176 (보람동)", "cap": "252명", "tel": "044-999-7100" },
+        { "id": "south-shelter-boram-ms", "station": "남부서", "area": "보람동", "name": "보람중학교", "addr": "남세종로 423 (보람동)", "cap": "219명", "tel": "044-999-6403" },
+        { "id": "south-shelter-boram-es", "station": "남부서", "area": "보람동", "name": "보람초등학교(강당)", "addr": "보람동로 39 (보람동)", "cap": "249명", "tel": "044-868-4743" },
+        { "id": "south-shelter-saetteum-ms", "station": "남부서", "area": "새롬동", "name": "새뜸중학교", "addr": "새롬중앙로 62-12 (새롬동)", "cap": "166명", "tel": "044-999-5905" },
+        { "id": "south-shelter-saetteum-es", "station": "남부서", "area": "새롬동", "name": "새뜸초등학교", "addr": "새롬남로 75 (새롬동)", "cap": "200명", "tel": "044-999-7403" },
+        { "id": "south-shelter-saerom-hs", "station": "남부서", "area": "새롬동", "name": "새롬고등학교", "addr": "새롬서로 68 (새롬동)", "cap": "231명", "tel": "044-999-6303" },
+        { "id": "south-shelter-saerom-ms", "station": "남부서", "area": "새롬동", "name": "새롬중학교", "addr": "어울로 41 (새롬동)", "cap": "180명", "tel": "044-998-2651" },
+        { "id": "south-shelter-saerom-es", "station": "남부서", "area": "새롬동", "name": "새롬초등학교", "addr": "새롬중앙1로 27 (새롬동)", "cap": "245명", "tel": "044-999-5600" },
+        { "id": "south-shelter-saeon-ms", "station": "남부서", "area": "다정동", "name": "새온중학교", "addr": "다정서로 12 (다정동)", "cap": "200명", "tel": "044-999-6504" },
+        { "id": "south-shelter-sodam-hs", "station": "남부서", "area": "소담동", "name": "소담고등학교", "addr": "남세종로 326 (소담동)", "cap": "274명", "tel": "044-902-2200" },
+        { "id": "south-shelter-sodam-ms", "station": "남부서", "area": "소담동", "name": "소담중학교(강당)", "addr": "남세종로 340 (소담동)", "cap": "182명", "tel": "044-905-0200" },
+        { "id": "south-shelter-sodam-es", "station": "남부서", "area": "소담동", "name": "소담초등학교(강당)", "addr": "남세종로 326 (소담동)", "cap": "289명", "tel": "044-861-7300" },
+        { "id": "south-shelter-yeoul-es", "station": "남부서", "area": "보람동", "name": "여울초등학교", "addr": "남세종로 504-12 (보람동)", "cap": "244명", "tel": "044-999-5905" },
+        { "id": "south-shelter-chamsaem-es", "station": "남부서", "area": "한솔동", "name": "참샘초등학교", "addr": "노을1로 29 (한솔동)", "cap": "200명", "tel": "044-868-3782" },
+        { "id": "south-shelter-hansol-hs", "station": "남부서", "area": "한솔동", "name": "한솔고등학교", "addr": "누리로 34 (한솔동)", "cap": "214명", "tel": "044-410-4100" },
+        { "id": "south-shelter-hansol-ms", "station": "남부서", "area": "한솔동", "name": "한솔중학교", "addr": "나리로 43 (한솔동)", "cap": "280명", "tel": "044-868-1735" },
+        { "id": "south-shelter-dodam-community", "station": "남부서", "area": "도담동", "name": "도담동주민센터", "addr": "보듬8로 45 (도담동)", "cap": "522명", "tel": "044-301-6210" },
+        { "id": "south-shelter-neulbom-es", "station": "남부서", "area": "도담동", "name": "늘봄초등학교(강당)", "addr": "다솜1로 183 (도담동)", "cap": "230명", "tel": "044-903-3400" },
+        { "id": "south-shelter-dodam-hs", "station": "남부서", "area": "도담동", "name": "도담고등학교", "addr": "보듬4로 41 (도담동)", "cap": "274명", "tel": "044-410-0300" },
+        { "id": "south-shelter-dodam-ms", "station": "남부서", "area": "도담동", "name": "도담중학교", "addr": "보람로 80 (도담동)", "cap": "272명", "tel": "044-410-0200" },
+        { "id": "south-shelter-seongnam-hs", "station": "남부서", "area": "어진동", "name": "성남고등학교(강당)", "addr": "다솜로 22 (어진동)", "cap": "191명", "tel": "044-860-3700" },
+        { "id": "south-shelter-yangji-hs", "station": "남부서", "area": "도담동", "name": "양지고등학교(강당)", "addr": "갈매로 518 (도담동)", "cap": "266명", "tel": "044-903-2000" },
+        { "id": "south-shelter-yangji-ms", "station": "남부서", "area": "도담동", "name": "양지중학교(강당)", "addr": "갈매로 512 (도담동)", "cap": "266명", "tel": "044-703-3015" },
+        { "id": "south-shelter-yangji-es", "station": "남부서", "area": "도담동", "name": "양지초등학교(강당)", "addr": "보듬8로 11 (도담동)", "cap": "188명", "tel": "044-867-9053" },
+        { "id": "south-shelter-eojin-ms", "station": "남부서", "area": "어진동", "name": "어진중학교", "addr": "다솜로 10 (어진동)", "cap": "172명", "tel": "044-410-0700" },
+        { "id": "south-shelter-yeonsei-es", "station": "남부서", "area": "어진동", "name": "연세초등학교", "addr": "다솜로 290 (어진동)", "cap": "136명", "tel": "044-860-6500" },
+        { "id": "south-shelter-yeonyang-es", "station": "남부서", "area": "어진동", "name": "연양초등학교(강당)", "addr": "도움3로 37 (어진동)", "cap": "160명", "tel": "044-998-4205" },
+        { "id": "south-shelter-areum-community", "station": "남부서", "area": "아름동", "name": "아름동주민센터", "addr": "보듬3로 114 (아름동)", "cap": "88명", "tel": "044-301-6310" },
+        { "id": "south-shelter-jongchon-community", "station": "남부서", "area": "종촌동", "name": "종촌동주민센터", "addr": "도움3로 125 (종촌동)", "cap": "416명", "tel": "044-301-6410" },
+        { "id": "south-shelter-garak-es", "station": "남부서", "area": "고운동", "name": "가락초등학교", "addr": "마음로 208 (고운동)", "cap": "209명", "tel": "044-903-1205" },
+        { "id": "south-shelter-goun-hs", "station": "남부서", "area": "고운동", "name": "고운고등학교", "addr": "마음안로 93 (고운동)", "cap": "187명", "tel": "044-903-2310" },
+        { "id": "south-shelter-goun-ms", "station": "남부서", "area": "고운동", "name": "고운중학교", "addr": "만남로 65 (고운동)", "cap": "376명", "tel": "044-903-3300" },
+        { "id": "south-shelter-goun-es", "station": "남부서", "area": "고운동", "name": "고운초등학교(강당)", "addr": "만남로 45 (고운동)", "cap": "259명", "tel": "044-903-4306" },
+        { "id": "south-shelter-narae-es", "station": "남부서", "area": "아름동", "name": "나래초등학교(강당)", "addr": "달빛1로 108 (아름동)", "cap": "152명", "tel": "044-867-8061" },
+        { "id": "south-shelter-dabit-es", "station": "남부서", "area": "종촌동", "name": "다빛초등학교(강당)", "addr": "달빛1로 7 (종촌동)", "cap": "236명", "tel": "044-903-3504" },
+        { "id": "south-shelter-duru-hs", "station": "남부서", "area": "고운동", "name": "두루고등학교", "addr": "마음안1로 53 (고운동)", "cap": "189명", "tel": "044-903-2200" },
+        { "id": "south-shelter-duru-es", "station": "남부서", "area": "고운동", "name": "두루초등학교(강당)", "addr": "만남로 227 (고운동)", "cap": "253명", "tel": "044-903-2700" },
+        { "id": "south-shelter-science-art-school", "station": "남부서", "area": "아름동", "name": "세종과학예술영재학교(체육관)", "addr": "달빛1로 265 (아름동)", "cap": "176명", "tel": "044-903-1106" },
+        { "id": "south-shelter-international-hs", "station": "남부서", "area": "아름동", "name": "세종국제고등학교", "addr": "달빛1로 251 (아름동)", "cap": "1682명", "tel": "044-410-0511" },
+        { "id": "south-shelter-nuri-school", "station": "남부서", "area": "고운동", "name": "세종누리학교(강당)", "addr": "만남로 326-14 (고운동)", "cap": "207명", "tel": "044-410-2100" },
+        { "id": "south-shelter-areum-hs", "station": "남부서", "area": "아름동", "name": "아름고등학교", "addr": "달빛1로 151 (아름동)", "cap": "285명", "tel": "044-868-6071" },
+        { "id": "south-shelter-areum-ms", "station": "남부서", "area": "아름동", "name": "아름중학교", "addr": "달빛1로 167 (아름동)", "cap": "187명", "tel": "044-867-9371" },
+        { "id": "south-shelter-areum-es", "station": "남부서", "area": "아름동", "name": "아름초등학교", "addr": "달빛로 174 (아름동)", "cap": "173명", "tel": "044-998-1845" },
+        { "id": "south-shelter-onbit-es", "station": "남부서", "area": "고운동", "name": "온빛초등학교(강당)", "addr": "만남로 174 (고운동)", "cap": "261명", "tel": "044-903-3700" },
+        { "id": "south-shelter-eutteum-es", "station": "남부서", "area": "고운동", "name": "으뜸초등학교", "addr": "마음로 132 (고운동)", "cap": "202명", "tel": "044-903-2507" },
+        { "id": "south-shelter-jongchon-hs", "station": "남부서", "area": "종촌동", "name": "종촌고등학교(강당)", "addr": "달빛1로 60 (종촌동)", "cap": "244명", "tel": "044-903-2100" },
+        { "id": "south-shelter-jongchon-ms", "station": "남부서", "area": "종촌동", "name": "종촌중학교(강당)", "addr": "도움1로 126 (종촌동)", "cap": "223명", "tel": "044-903-3200" },
+        { "id": "south-shelter-jongchon-es", "station": "남부서", "area": "종촌동", "name": "종촌초등학교(강당)", "addr": "도움1로 160 (종촌동)", "cap": "194명", "tel": "044-903-3600" }
+    ];
 
     const defaultCctvData = [
         { id:4547, station:'북부서', area:'조치원', name:'상리사거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4547', active:true },
         { id:4546, station:'북부서', area:'조치원', name:'홍대입구삼거리', url:'https://m.map.kakao.com/actions/cctvView?cctvid=4546', active:true }
     ];
 
-    // 남부서 대피소 좌표 보강표(사진 위도·경도 자료 반영)
-    // 기존 Firebase에 좌표 없는 남부서 항목이 저장되어 있어도 이 표로 즉시 거리계산·길찾기를 보정합니다.
     const SOUTH_SHELTER_COORD_MAP = {
         '수산리마을회관': { lat: 36.542968, lng: 127.228342 },
         '보람동주민센터': { lat: 36.478837, lng: 127.290355 },
@@ -2437,7 +1778,6 @@
         '종촌초등학교(강당)': { lat: 36.5030527924313, lng: 127.24152086440742 },
     };
 
-
     const ESSENTIAL_CCTV_IDS = ['4547', '4546'];
 
     function extractCctvIdFromText(input = '') {
@@ -2496,7 +1836,6 @@
             if (!item.url || !isDirectCctvUrl(item.url, item)) return;
             const key = normalizeCctvKey(item);
             const existing = map.get(key);
-            // 같은 ITS 지점에서 HLS와 MP4/JPEG가 같이 내려오면, iPhone·Android 모두 재생 안정적인 HLS를 우선 보관합니다.
             if (existing && item.source === 'ITS' && existing.source === 'ITS' && getItsStreamRank(existing) > getItsStreamRank(item)) return;
             map.set(key, item);
         });
@@ -2506,13 +1845,9 @@
     const ITS_CCTV_API_KEY = "56934196b0354a48ab5a1d020262c673";
     const ITS_CCTV_BASE = "https://openapi.its.go.kr:9443/cctvInfo";
 
-
-    // ITS API 호출 보호 설정
-    // - 공개 GitHub 페이지에서 자동·반복 조회가 발생하지 않도록 브라우저별 호출을 제한합니다.
-    // - 실제 개인 제한량은 ITS 서버 기준이므로, 목록 자동갱신·카드 클릭 자동조회는 사용하지 않습니다.
     const ITS_API_USAGE_KEY = 'sejongPoliceItsApiUsage:v1';
-    const ITS_API_DAILY_MAX_REQUESTS = 20;       // 이 기기·브라우저 기준 하루 최대 20회
-    const ITS_API_MIN_INTERVAL_MS = 15000;       // 연속 호출은 최소 15초 간격
+    const ITS_API_DAILY_MAX_REQUESTS = 20;       
+    const ITS_API_MIN_INTERVAL_MS = 15000;       
     const ITS_PRIMARY_TYPE = 'its';
     const ITS_PRIMARY_CCTV_TYPE = '1';
 
@@ -2584,8 +1919,6 @@
         }
     }
 
-    // 세종시 읍·면·동별 ITS CCTV 조회용 좌표 범위(대략 범위)
-    // ITS API는 행정동 코드가 아니라 좌표 박스로 CCTV를 조회하므로, 각 지역 중심 범위를 사용합니다.
     const SEJONG_ITS_CCTV_AREAS = {
         '조치원': { label:'조치원읍', station:'북부서', minX:127.245, maxX:127.335, minY:36.575, maxY:36.635 },
         '연서': { label:'연서면', station:'북부서', minX:127.235, maxX:127.315, minY:36.535, maxY:36.605 },
