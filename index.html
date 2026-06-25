@@ -11,7 +11,7 @@
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.6.4/dist/hls.min.js" onerror="this.onerror=null;this.src='https://unpkg.com/hls.js@1.6.4/dist/hls.min.js';"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js"></script>/script>
     <link rel="dns-prefetch" href="//openapi.its.go.kr">
     <link rel="preconnect" href="https://openapi.its.go.kr:9443" crossorigin>
 
@@ -1458,48 +1458,39 @@
         appId: "1:620282815079:web:bd561b5a00483e94fdaac2"
     };
     
-    // 파이어베이스 초기화
-    if (!firebase.apps.length) {
-        firebase.initializeApp(firebaseConfig);
-    }
+    if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
     const db = firebase.database();
 
-    // 🚨 안전장치 추가: 브라우저가 알림을 지원하는 환경(인터넷 배포 후)에서만 알림 코드 실행!
-    if (
-        typeof firebase.messaging === 'function' &&
-        typeof firebase.messaging.isSupported === 'function' &&
-        firebase.messaging.isSupported()
-    ) {
+    // 🚨 알림 기능을 안전하게 로드
+    if (firebase.messaging.isSupported()) {
         const messaging = firebase.messaging();
 
+        // 서비스 워커 등록
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./firebase-messaging-sw.js')
-                .then(function(registration) {
-                    console.log('Service Worker 등록 성공:', registration.scope);
-                }).catch(function(err) {
-                    console.log('Service Worker 등록 실패:', err);
-                });
+                .then(reg => console.log('알림 서비스 준비 완료'))
+                .catch(err => console.log('알림 서비스 실패', err));
         }
 
-        Notification.requestPermission().then((permission) => {
-            if (permission === 'granted') {
-                console.log('상황실 알림 권한이 허용되었습니다.');
-                messaging.getToken({ vapidKey: 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4' })
-                    .then((currentToken) => {
-                        if (currentToken) {
-                            db.ref('fcmTokens/' + currentToken).set(true);
-                            console.log('상황실 알림 수신 준비 완료');
-                        }
-                    }).catch((err) => console.log('토큰 가져오기 에러:', err));
-            }
-        });
+        // 알림 권한 요청 (사용자 버튼 클릭용)
+        window.requestNotificationPermission = function() {
+            Notification.requestPermission().then((permission) => {
+                if (permission === 'granted') {
+                    messaging.getToken({ 
+                        vapidKey: 'BMvhvRBRcZP8MHi0rBWQe_pBXu4l1IfWimLElVsoEww7ghAJ1arQm9henTdxoMLpjQFN-KrlchbR-8oN3BiSOY4' 
+                    }).then((token) => {
+                        db.ref('fcmTokens/' + token).set(true);
+                        alert('알림이 설정되었습니다.');
+                        document.getElementById('noti-btn').style.display = 'none';
+                    });
+                }
+            });
+        };
 
+        // 포그라운드 메시지 수신
         messaging.onMessage((payload) => {
-            console.log('상황 발생 알림 수신: ', payload);
-            alert(`[🚨 세종북부경찰서 재난상황실 알림]\n${payload.notification.title}\n${payload.notification.body}`);
+            alert(`[🚨 세종경찰 재난상황실]\n${payload.notification.title}\n${payload.notification.body}`);
         });
-    } else {
-        console.log("현재 환경(일반 폴더 실행)에서는 푸시 알림이 제한됩니다. 데이터 로딩은 정상 진행됩니다.");
     }
 
     let isAdmin = false;
