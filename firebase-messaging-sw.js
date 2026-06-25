@@ -1,4 +1,4 @@
-// 1. 메인 화면(index.html)과 똑같이 8.10.1 버전으로 통일합니다.
+// 1. 메인 화면과 동일한 8.10.1 버전으로 통일합니다.
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js');
 importScripts('https://www.gstatic.com/firebasejs/8.10.1/firebase-messaging.js');
 
@@ -16,21 +16,22 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage(function(payload) {
-  console.log('[firebase-messaging-sw.js] 백그라운드 알림 수신 완료: ', payload);
-
+  console.log('백그라운드 알림 수신:', payload);
+  
+  // 2. 서버에서 보내는 데이터 형식에 상관없이 에러가 나지 않도록 방어
   const notification = payload.notification || {};
   const data = payload.data || {};
 
-  // 2. 스마트폰이 알림을 띄울 때까지 기다려주도록 반드시 'return'을 붙여야 합니다.
-  return self.registration.showNotification(
-    notification.title || data.title || '🚨 세종경찰 재난상황실',
-    {
-      body: notification.body || data.body || '새로운 상황이 발생했습니다.',
-      icon: '/firebase-logo.png', // 이미지가 없다면 안 보여도 알림은 정상적으로 뜹니다.
-      badge: '/firebase-logo.png',
-      tag: 'sejong-disaster-alert',
-      renotify: true,
-      data: { url: '/' }
-    }
-  );
+  const title = notification.title || data.title || '🚨 세종경찰 재난상황실';
+  const options = {
+    body: notification.body || data.body || '새로운 상황이 발생했습니다.',
+    icon: '/firebase-logo.png', // 이미지가 없다면 기본 알림 모양으로 뜹니다.
+    badge: '/firebase-logo.png',
+    tag: 'sejong-disaster-alert',
+    renotify: true,
+    data: { url: data.url || '/' }
+  };
+
+  // 3. 반드시 return을 붙여야 백그라운드에서 정상적으로 팝업이 생성됩니다!
+  return self.registration.showNotification(title, options);
 });
