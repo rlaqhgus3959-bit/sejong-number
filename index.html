@@ -1465,7 +1465,11 @@
     const db = firebase.database();
 
     // 🚨 안전장치 추가: 브라우저가 알림을 지원하는 환경(인터넷 배포 후)에서만 알림 코드 실행!
-    if (firebase.messaging.isSupported()) {
+    if (
+        typeof firebase.messaging === 'function' &&
+        typeof firebase.messaging.isSupported === 'function' &&
+        firebase.messaging.isSupported()
+    ) {
         const messaging = firebase.messaging();
 
         if ('serviceWorker' in navigator) {
