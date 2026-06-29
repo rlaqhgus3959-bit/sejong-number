@@ -5334,16 +5334,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     }
                 }
 
+                // 상세 통보문에는 지역만 있고, 목록 제목에는 “발표/해제”가 있는 경우가 있습니다.
+                // 두 정보를 합쳐야 해제 통보를 놓치지 않고 현재 상태를 정확히 판정할 수 있습니다.
+                const sourceText = typeof item === 'string' ? String(item) : itemTextValue;
+                const itemReleased = isReleasedSpecial(item);
+                const itemAnnounced = /(특보\s*)?발표/.test(sourceText);
+
                 rows.forEach(row => {
                     if (onlySejong && !isSejongSpecialRegion(row.region)) return;
 
+                    const isReleased = row.isReleased || itemReleased;
+                    const isAnnouncement = row.isAnnouncement || itemAnnounced;
                     const publishedKey = typeof item === 'object' && item
                         ? String(item.tmFc || item.tmSeq || item.time || item.tm || '')
                         : '';
                     const effectiveKey = typeof item === 'object' && item
                         ? String(item.tmEf || item.tmSt || item.effTime || item.effectTime || '')
                         : '';
-                    const key = [row.alertName, row.region, row.isReleased ? 'released' : 'active', publishedKey, effectiveKey].join('|');
+                    const key = [row.alertName, row.region, isReleased ? 'released' : 'active', publishedKey, effectiveKey].join('|');
                     if (dedupe.has(key)) return;
                     dedupe.add(key);
 
@@ -5351,10 +5359,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     clone.title = row.alertName;
                     clone.__alertName = row.alertName;
                     clone.__detailRegion = row.region;
-                    clone.__isAnnouncement = row.isAnnouncement === true;
-                    clone.__detailText = `${row.alertName}${row.isReleased ? ' 해제' : (clone.__isAnnouncement ? ' 발표' : '')} : ${row.region}`;
+                    clone.__isAnnouncement = isAnnouncement;
+                    clone.__detailText = `${row.alertName}${isReleased ? ' 해제' : (clone.__isAnnouncement ? ' 발표' : '')} : ${row.region}`;
                     clone.__normalizedSpecial = true;
-                    clone.__isReleased = row.isReleased;
+                    clone.__isReleased = isReleased;
                     result.push(clone);
                 });
             });
@@ -5648,7 +5656,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV3';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV4';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5749,8 +5757,51 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const statusRows = scopedStatusItems
                 .map(item => makeSpecialRow(item, 'status'))
                 .filter(row => row.alertName);
-            const activeRows = statusRows
-                .filter(row => rowState(row) === 'active')
+            const statusActiveRows = statusRows.filter(row => rowState(row) === 'active');
+
+            /*
+             * 상단은 원래 getPwnStatus(현재 발효현황)만 사용했습니다. 다만 기상청 API가
+             * 간헐적으로 세종 항목을 누락하거나 상세지역 연결이 늦어지면, 아래 최근 목록에는
+             * “폭염주의보 발표”가 있어도 상단은 “특보 없음”이 되는 문제가 생깁니다.
+             *
+             * 현재현황이 비어 있을 때만 최근 통보문을 보조 기준으로 씁니다.
+             * 발효시각이 지난 최근 발표 건 중 같은 지역·같은 특보의 뒤이은 해제 통보가 없는
+             * 항목을 발효 중으로 간주합니다. 오래된 통보문은 잘못 되살아나는 것을 막기 위해
+             * 48시간까지만 대체 판정에 사용합니다.
+             */
+            const historyRows = sejongHistoryItems
+                .map(item => makeSpecialRow(item, 'history'))
+                .filter(row => row.alertName);
+
+            function sameWarningRegion(a, b) {
+                const aa = cleanText(a).replace(/\s+/g, '');
+                const bb = cleanText(b).replace(/\s+/g, '');
+                if (!aa || !bb) return false;
+                if (aa === bb || aa.includes(bb) || bb.includes(aa)) return true;
+                return isSejongSpecialRegion(aa) && isSejongSpecialRegion(bb);
+            }
+
+            function hasLaterRelease(row) {
+                const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
+                return historyRows.some(other => {
+                    if (!isReleasedSpecial(other.item)) return false;
+                    if (other.alertName !== row.alertName) return false;
+                    if (!sameWarningRegion(other.region, row.region)) return false;
+                    const releasedTime = other.publishedAt?.getTime() || other.effectiveAt?.getTime() || 0;
+                    return releasedTime >= rowTime;
+                });
+            }
+
+            const historyFallbackActiveRows = historyRows
+                .filter(row => {
+                    if (isReleasedSpecial(row.item)) return false;
+                    const startedAt = row.effectiveAt || row.publishedAt;
+                    if (!startedAt || startedAt.getTime() > now) return false;
+                    if (now - startedAt.getTime() > 48 * 60 * 60 * 1000) return false;
+                    return !hasLaterRelease(row);
+                });
+
+            const activeRows = uniqueRows(statusActiveRows.length ? statusActiveRows : historyFallbackActiveRows)
                 .sort((a, b) => (b.effectiveAt?.getTime() || b.publishedAt?.getTime() || 0) - (a.effectiveAt?.getTime() || a.publishedAt?.getTime() || 0));
             const pendingStatusRows = statusRows.filter(row => rowState(row) === 'pending');
             const pendingHistoryRows = getPendingSpecials(sejongHistoryItems)
@@ -5939,14 +5990,19 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 }
             });
 
-            const sejongTexts = warnings.filter(t => t.includes('세종'));
+            // 대체 수신도 “특보명 : 대상지역” 단위로 분리합니다.
+            // 그래야 한 문장에 다른 지역 호우주의보와 세종 폭염주의보가 함께 있을 때
+            // 첫 번째 특보명이 세종 특보로 표시되지 않습니다.
+            const sejongWarningItems = normalizeSpecialItemsByWarning(warnings, true)
+                .filter(item => !isReleasedSpecial(item));
+            const sejongTexts = sejongWarningItems.map(item => specialRecordText(item)).filter(Boolean);
             renderSpecial({
                 sourceName: 'Weatheri 기상특보 페이지 자동 대체 수신',
                 latestTime,
                 sejongTexts,
-                allTexts: warnings,
-                listItems: warnings.filter(item => !isReleasedSpecial(item)),
-                historyItems: []
+                allTexts: sejongTexts,
+                listItems: sejongWarningItems,
+                historyItems: sejongWarningItems
             });
         }
 
