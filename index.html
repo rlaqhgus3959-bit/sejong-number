@@ -5422,11 +5422,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const text = cleanText(rawText);
             if (!text) return null;
 
-            // “발효 202606291100”처럼 구분자 없이 붙는 API 표기도 처리합니다.
-            const compact = text.match(/발효(?:시각|시간|일시)?\s*[:：]?\s*(20\d{10})/i);
-            if (compact) return parseSpecialDateTime(compact[1]);
-
-            // 예: 발효시각 : 2026년 06월 29일 11시 00분 / 발효시간: 2026.06.29. 11:00
+            // 통보문에 적힌 사람이 읽는 발효시각을 최우선으로 사용합니다.
+            // API 메타값(예: 202606292200)이 본문보다 먼저 섞여 있어도
+            // “발효: 2026-06-29 11:00”을 우선 읽어 22:00으로 잘못 표기되지 않게 합니다.
             const korean = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
             if (korean) {
                 const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
@@ -5438,6 +5436,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const parsed = new Date(Number(numeric[1]), Number(numeric[2]) - 1, Number(numeric[3]), Number(numeric[4]), Number(numeric[5] || 0), 0, 0);
                 if (!Number.isNaN(parsed.getTime())) return parsed;
             }
+
+            // 위 형식이 없을 때만 API의 12자리 시간값을 보조적으로 사용합니다.
+            const compact = text.match(/발효(?:시각|시간|일시)?\s*[:：]?\s*(20\d{10})/i);
+            if (compact) return parseSpecialDateTime(compact[1]);
             return null;
         }
 
