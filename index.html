@@ -5174,12 +5174,30 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 if (!Number.isNaN(parsed.getTime())) return parsed;
             }
 
-            // 3. 시간만 있는 경우에는 당일 날짜로 보정
-            const timeOnly = raw.match(/(?:(\d{1,2})\s*시\s*(\d{1,2})\s*분?|((?:[01]?\d|2[0-3])):(\d{2}))/);
+            // 2-b. 연도 없는 한국어 날짜: "6월 29일 14시" / "6월 29일 14시 00분" → 올해로 보정
+            //      통보문 발효시각은 연도를 생략하는 경우가 많아 별도로 처리합니다.
+            const monthDayHour = raw.match(
+                /(\d{1,2})\s*월\s*(\d{1,2})\s*일\s*(?:\([^)]*\))?\s*(\d{1,2})\s*(?:시|:)\s*(\d{1,2})?\s*분?/
+            );
+            if (monthDayHour) {
+                const now = new Date();
+                const parsed = new Date(
+                    now.getFullYear(),
+                    Number(monthDayHour[1]) - 1,
+                    Number(monthDayHour[2]),
+                    Number(monthDayHour[3]),
+                    Number(monthDayHour[4] || 0),
+                    0, 0
+                );
+                if (!Number.isNaN(parsed.getTime())) return parsed;
+            }
+
+            // 3. 시간만 있는 경우에는 당일 날짜로 보정 (분 생략 시 00분)
+            const timeOnly = raw.match(/(?:(\d{1,2})\s*시\s*(\d{1,2})?\s*분?|((?:[01]?\d|2[0-3])):(\d{2}))/);
             if (timeOnly) {
                 const now = new Date();
-                const h = Number(timeOnly[1] || timeOnly[3]);
-                const mi = Number(timeOnly[2] || timeOnly[4]);
+                const h = Number(timeOnly[1] ?? timeOnly[3]);
+                const mi = Number((timeOnly[2] ?? timeOnly[4]) || 0);
                 if (!Number.isNaN(h) && !Number.isNaN(mi) && h <= 23 && mi <= 59) {
                     return new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, mi, 0, 0);
                 }
@@ -5343,7 +5361,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         // 세종 통보문이 없더라도, API가 어떤 지역 통보문을 반환했는지 확인할 수 있습니다.
         function receivedNoticeRecord(item) {
             const title = cleanApiText(firstField(item, ['title', 't1', 'name']));
-            const rawContent = firstField(item, ['t4', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
+            const rawContent = firstField(item, ['t6', 't4', 't5', 't7', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
             const content = cleanApiText(rawContent || itemValues(item));
             const source = cleanApiText(`${title}\n${content}`);
             const issuedAt = noticeIssuedAt(item, source);
@@ -5355,8 +5373,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
 
         function parseOfficialNotice(item) {
-            const rawContent = firstField(item, ['t4', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
-            const source = cleanApiText(`${firstField(item, ['title', 't1', 'name'])}\n${rawContent || itemValues(item)}`);
+            // 기상청 getWthrWrnMsg는 발효시각·해당구역이 담긴 통보문 전문을 t6에 둡니다.
+            // t4만 읽으면 발효시각 구간이 통째로 빠지므로 t6을 우선하고, 누락 방지를 위해
+            // 항목 전체 값(itemValues)도 함께 포함합니다.
+            const rawContent = firstField(item, ['t6', 't4', 't5', 't7', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
+            const source = cleanApiText(`${firstField(item, ['title', 't1', 'name'])}\n${rawContent}\n${itemValues(item)}`);
             const issuedAt = noticeIssuedAt(item, source);
             const timeBlock = getSection(source, ['발효시각', '발효시간', '발효일시']);
             const areaBlock = getSection(source, ['해당구역', '발효구역', '대상구역', '대상지역', '특보구역']);
