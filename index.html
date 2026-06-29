@@ -5094,7 +5094,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        const CACHE_KEY = 'sejongWeatherWarningOfficialV3';
+        const CACHE_KEY = 'sejongWeatherWarningOfficialV4';
         const CACHE_MAX_MS = 20 * 60 * 1000;
         const ALERT_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
 
@@ -5194,8 +5194,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         };
 
         const formatTime = value => {
-            // 0은 날짜가 없는 상태입니다. new Date(0)으로 1970년이 표시되지 않도록 처리합니다.
-            if (value === null || value === undefined || value === '' || value === 0) return '기상청 미제공';
+            // 0은 날짜가 없는 상태입니다. 상태 API 갱신시각을 임의로 넣지 않고 통보문 수신 전에는 확인중으로 표시합니다.
+            if (value === null || value === undefined || value === '' || value === 0) return '통보문 확인 중';
             const d = value instanceof Date ? value : (typeof value === 'number' ? new Date(value) : parseKmaDate(value));
             if (!d || Number.isNaN(d.getTime())) return '기상청 미제공';
             const y = d.getFullYear();
@@ -5366,9 +5366,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const rows = [];
             (items || []).forEach(item => {
                 const source = cleanApiText(itemValues(item));
-                const fieldIssuedAt = parseKmaDate(firstField(item, ['tmFc', 'announceTime', 'pubTime']))
-                    || parseKmaDate(firstField(item, ['tm', 'tmSeq', 'time']));
-                const fieldEffectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime']));
+                // getPwnStatus의 tmFc·tmSt 등은 현재특보 상태 갱신시각일 수 있어
+                // 실제 발표·발효시각으로 사용하면 안 됩니다. 시간은 통보문(getWthrWrnMsg)을
+                // 최우선으로 사용하고, 상태 API에서는 명시적으로 이름이 확인되는 필드만 보조로 씁니다.
+                const fieldIssuedAt = parseKmaDate(firstField(item, ['announceTime', 'pubTime', 'issuedAt', 'issuedTime']));
+                const fieldEffectiveAt = parseKmaDate(firstField(item, ['effTime', 'effectTime', 'effectiveAt', 'effectiveTime']));
 
                 const marker = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]`, 'g');
                 const markers = [];
@@ -5387,11 +5389,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
                         // 상태 API 한 건에 여러 특보가 있으면 전체 문서의 시간은 쓰지 않습니다.
                         // 해당 특보 구간 또는 전용 필드의 시간만 사용합니다.
-                        const scopedIssuedAt = fieldIssuedAt
-                            || findLabeledKmaDate(scopedSegment, ['발표시각', '발표시간', '발표일시']);
-                        const scopedEffectiveAt = fieldEffectiveAt
-                            || findLabeledKmaDate(scopedSegment, ['발효시각', '발효시간', '발효일시'])
-                            || parseKmaDate(regionText);
+                        const scopedIssuedAt = findLabeledKmaDate(scopedSegment, ['발표시각', '발표시간', '발표일시'])
+                            || fieldIssuedAt;
+                        const scopedEffectiveAt = findLabeledKmaDate(scopedSegment, ['발효시각', '발효시간', '발효일시'])
+                            || fieldEffectiveAt;
                         rows.push({
                             alert: row.alert,
                             action: '발표',
@@ -5409,8 +5410,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const region = firstField(item, ['region', 'area', 'areaName', 'regName', 'target', 'wrnArea', 'loc', 'location']) || source;
                 if (!alert || !isSejong(region) || /해제|취소/.test(source)) return;
 
-                const singleIssuedAt = fieldIssuedAt || findSingleWarningLabeledDate(source, ['발표시각', '발표시간', '발표일시']);
-                const singleEffectiveAt = fieldEffectiveAt || findSingleWarningLabeledDate(source, ['발효시각', '발효시간', '발효일시']);
+                const singleIssuedAt = findSingleWarningLabeledDate(source, ['발표시각', '발표시간', '발표일시']) || fieldIssuedAt;
+                const singleEffectiveAt = findSingleWarningLabeledDate(source, ['발효시각', '발효시간', '발효일시']) || fieldEffectiveAt;
                 rows.push({
                     alert,
                     action: '발표',
@@ -5556,7 +5557,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 }).join('<br><br>')
                 : '<span style="color:var(--sub);">최근 세종 기상특보 통보문 없음</span>';
 
-            const activeTime = primary ? formatTime(primary.effectiveAt) : '해당 없음';
+            const activeTime = primary
+                ? (primary.effectiveAt ? formatTime(primary.effectiveAt) : '통보문 시간 확인 중')
+                : '해당 없음';
             const cacheNote = stale ? ' · 직전 정상 수신값' : '';
             contentEl.innerHTML = main
                 + `<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">${esc(nowText())}</div></div>`
@@ -5623,7 +5626,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const ymd = date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
             const [statusResult, messageResult] = await Promise.allSettled([
                 fetchJson(buildUrl('/getPwnStatus', { numOfRows: 500 })),
-                fetchJson(buildUrl('/getWthrWrnMsg', { numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
+                // 기상특보 통보문은 발표관서(108)를 지정해야 실제 통보문(t1~t4)이 안정적으로 반환됩니다.
+                // 여기의 통보문에만 공식 발표·발효시각이 들어 있으므로, 상태 API 갱신시각을 대신 표시하지 않습니다.
+                fetchJson(buildUrl('/getWthrWrnMsg', { stnId: 108, numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
             ]);
 
             const statusSuccess = statusResult.status === 'fulfilled';
