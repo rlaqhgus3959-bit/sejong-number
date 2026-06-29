@@ -5157,10 +5157,16 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
 
         function cleanSpecialRegion(value) {
+            // 통보문 본문 뒤에는 API 내부값(예: “o 없음 202606291000 7 1”)이 붙을 수 있습니다.
+            // 지역명으로 쓰면 안 되므로 “o 없음/있음” 또는 12자리 시각 뒤의 값은 모두 제거합니다.
             const text = cleanText(value)
                 .replace(/^[oO•·\-\s]+/, '')
-                .replace(/\b(?:발표시간|발효시각|특보번호|제\s*\d+[\-–]\d+호)\b.*$/i, '')
+                .replace(/\b(?:발표시간|발표시각|발효시각|발효시간|특보번호|제\s*\d+[\-–]\d+호)\b.*$/i, '')
+                .replace(/\s+o\s*(?:없음|있음)(?:\s+.*)?$/i, '')
+                .replace(/\s+(?:없음|있음)\s+\d{12}(?:\s+\d+){1,5}\s*$/i, '')
+                .replace(/\s+\d{12}(?:\s+\d+){1,5}\s*$/, '')
                 .replace(/[\[\]{}]/g, '')
+                .replace(/[，,]\s*$/, '')
                 .trim();
             if (!text) return '';
             if (/^(?:전국|전국\s*일부|해당\s*없음|없음|\*)$/.test(text)) return text;
@@ -5191,7 +5197,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             // 2026-06-29 통보문 형식:
             // “폭염 [탭/공백] 주의보 [탭/공백] 경기도(...), 세종특별자치시(세종남부) 발표 2026-... 발효 2026-...”
             // 콜론이 없는 표 형식도 지역을 정확히 잘라냅니다.
-            const tabular = text.match(/(?:^|\s)(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)\s+(?:주의보|경보)\s+([\s\S]*?)(?=\s+(?:발표|발효|해제)\s*[:：]?\s*(?:\d{4}|$)|$)/i);
+            const tabular = text.match(/(?:^|\s)(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)\s+(?:주의보|경보)\s+([\s\S]*?)(?=\s+(?:발표|발효|해제)\s*[:：]?\s*(?:\d{4}|$)|\s+o\s*(?:없음|있음)\b|\s+\d{12}(?:\s+\d+){1,5}\s*$|$)/i);
             if (tabular?.[1]) {
                 const region = cleanSpecialRegion(tabular[1]);
                 if (region) return region;
@@ -5233,32 +5239,57 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return m ? m[0].replace(/\s+/g, '') : '';
         }
 
+        function specialDetailKey(tmFc, tmSeq) {
+            const timeKey = normalizeSpecialTime(tmFc);
+            const seqKey = String(tmSeq ?? '').trim();
+            return timeKey && seqKey ? `${timeKey}|${seqKey}` : '';
+        }
+
         function buildSpecialDetailIndex(messageItems) {
-            const byTime = new Map();
+            const byPair = new Map();
             const byNo = new Map();
+            const byTime = new Map();
             (messageItems || []).forEach(item => {
                 const detailText = itemText(item);
                 const region = extractSpecialRegionFromText(detailText);
-                if (!region) return;
-                const timeKey = normalizeSpecialTime(item.tmFc || item.tmEf || item.tmSeq || item.time);
+                const alertName = findAlertName(detailText);
+                if (!region && !alertName) return;
+
+                // __parent* 값은 목록 항목별 상세 통보문을 조회한 경우의 정확한 연결키입니다.
+                const tmFc = item.__parentTmFc || item.tmFc || item.tmEf || item.time;
+                const tmSeq = item.__parentTmSeq ?? item.tmSeq;
+                const timeKey = normalizeSpecialTime(tmFc);
+                const pairKey = specialDetailKey(tmFc, tmSeq);
                 const no = specialNoticeNumber(detailText);
-                const record = { region, detailText };
-                if (timeKey && !byTime.has(timeKey)) byTime.set(timeKey, record);
-                if (no && !byNo.has(no)) byNo.set(no, record);
+                const record = { region, detailText, alertName, tmFc, tmSeq };
+
+                if (pairKey) byPair.set(pairKey, record);
+                if (timeKey) {
+                    const rows = byTime.get(timeKey) || [];
+                    rows.push(record);
+                    byTime.set(timeKey, rows);
+                }
+                if (no) byNo.set(no, record);
             });
-            return { byTime, byNo };
+            return { byPair, byTime, byNo };
         }
 
         function attachSpecialDetail(item, detailIndex) {
             const clone = { ...(item || {}) };
-            const timeKey = normalizeSpecialTime(clone.tmFc || clone.tmEf || clone.tmSeq || clone.time);
+            const timeKey = normalizeSpecialTime(clone.tmFc || clone.tmEf || clone.time);
+            const pairKey = specialDetailKey(clone.tmFc || clone.tmEf || clone.time, clone.tmSeq);
             const title = clone.title || itemText(clone);
-            const byTime = timeKey ? detailIndex?.byTime?.get(timeKey) : null;
+            const itemAlertName = findAlertName(title);
+            const byPair = pairKey ? detailIndex?.byPair?.get(pairKey) : null;
             const byNo = specialNoticeNumber(title) ? detailIndex?.byNo?.get(specialNoticeNumber(title)) : null;
-            const hit = byTime || byNo;
+            const sameTime = timeKey ? (detailIndex?.byTime?.get(timeKey) || []) : [];
+            // 발표시각만 같은 특보가 여럿이면 종류까지 일치하는 통보문만 사용합니다.
+            const byTime = sameTime.find(row => row.alertName && row.alertName === itemAlertName)
+                || (sameTime.length === 1 ? sameTime[0] : null);
+            const hit = byPair || byNo || byTime;
             if (hit) {
-                clone.__detailRegion = hit.region;
-                clone.__detailText = hit.detailText;
+                clone.__detailRegion = hit.region || '';
+                clone.__detailText = hit.detailText || '';
             }
             return clone;
         }
@@ -5359,6 +5390,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const text = cleanText(rawText);
             if (!text) return null;
 
+            // “발표 202606291000”처럼 구분자 없이 붙는 API 표기도 처리합니다.
+            const compact = text.match(/발표(?:시각|시간|일시)?\s*[:：]?\s*(20\d{10})/i);
+            if (compact) return parseSpecialDateTime(compact[1]);
+
             // “발표 2026-06-29 10:00”, “발표시각 : 2026년 06월 29일 10시 00분” 모두 처리
             const korean = text.match(/발표(?:시각|시간|일시)?[^0-9]{0,24}(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
             if (korean) {
@@ -5376,16 +5411,20 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         function getSpecialPublishedAt(item) {
             if (!item || typeof item === 'string') return extractPublishedAtFromText(String(item || ''));
-            // 상세 통보문에 “발표 YYYY-MM-DD HH:mm”가 있으면 그것이 최우선 기준입니다.
+            // 목록 API의 tmFc는 공식 발표시각입니다. 다른 특보 상세문이 섞여 발표시각이 바뀌는 것을 막기 위해 최우선 사용합니다.
+            const fieldTime = parseSpecialDateTime(item.tmFc || item.time || item.tm);
+            if (fieldTime) return fieldTime;
             const fromDetail = extractPublishedAtFromText(item.__detailText || '');
-            if (fromDetail) return fromDetail;
-            const fieldTime = parseSpecialDateTime(item.tmFc || item.tmSeq || item.time || item.tm);
-            return fieldTime || extractPublishedAtFromText(itemText(item));
+            return fromDetail || extractPublishedAtFromText(itemText(item));
         }
 
         function extractEffectiveAtFromText(rawText) {
             const text = cleanText(rawText);
             if (!text) return null;
+
+            // “발효 202606291100”처럼 구분자 없이 붙는 API 표기도 처리합니다.
+            const compact = text.match(/발효(?:시각|시간|일시)?\s*[:：]?\s*(20\d{10})/i);
+            if (compact) return parseSpecialDateTime(compact[1]);
 
             // 예: 발효시각 : 2026년 06월 29일 11시 00분 / 발효시간: 2026.06.29. 11:00
             const korean = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
@@ -5567,7 +5606,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV5';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV8';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5679,13 +5718,26 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 });
             }
 
+            const scopedHistoryItems = filterSpecialListByScope(sejongHistoryItems);
+            const latestScopedAnnouncement = scopedHistoryItems
+                .filter(isAnnouncementSpecial)
+                .map(item => makeSpecialRow(item, 'history'))
+                .filter(row => row.alertName && row.publishedAt)
+                .sort((a, b) => b.publishedAt.getTime() - a.publishedAt.getTime())[0] || null;
+
             const statusRows = scopedStatusItems
                 .map(item => makeSpecialRow(item, 'status'))
-                .filter(row => row.alertName);
+                .filter(row => row.alertName)
+                // 최신 공식 발표보다 오래된 다른 종류의 상태값(예: 이미 해제된 호우주의보)은 제외합니다.
+                .filter(row => {
+                    if (!latestScopedAnnouncement || !latestScopedAnnouncement.publishedAt) return true;
+                    if (row.alertName === latestScopedAnnouncement.alertName) return true;
+                    const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
+                    return rowTime > latestScopedAnnouncement.publishedAt.getTime();
+                });
 
             // 현재발효(getPwnStatus)는 갱신이 늦거나 이전 특보가 잠시 남을 수 있습니다.
             // 따라서 최신 발표 통보문도 발효시각이 지나면 현재 특보 후보로 함께 반영합니다.
-            const scopedHistoryItems = filterSpecialListByScope(sejongHistoryItems);
             const historyActiveRows = scopedHistoryItems
                 .filter(isAnnouncementSpecial)
                 .map(item => makeSpecialRow(item, 'history'))
@@ -5802,6 +5854,23 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 + '<div style="font-size:10px; color:var(--sub); margin-top:8px; text-align:right;">출처: ' + sourceName + '</div>';
         }
 
+        async function fetchWarningMessageForListItem(item) {
+            const tmFc = normalizeSpecialTime(item?.tmFc);
+            if (!tmFc) return [];
+            const msgUrl = buildUrl('/getWthrWrnMsg', {
+                numOfRows: 20,
+                stnId: item?.stnId || '133',
+                tmFc,
+                tmSeq: item?.tmSeq
+            });
+            const result = await fetchJsonWithFallback(msgUrl, 4800);
+            return normalizeItems(result).map(detail => ({
+                ...detail,
+                __parentTmFc: item.tmFc,
+                __parentTmSeq: item.tmSeq
+            }));
+        }
+
         async function tryPublicData() {
             const now = new Date();
             const from = new Date();
@@ -5814,27 +5883,25 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 fromTmFc: yyyymmdd(from),
                 toTmFc: yyyymmdd(now)
             });
-            const msgUrl = buildUrl('/getWthrWrnMsg', {
-                numOfRows: 300,
-                stnId: '133',
-                fromTmFc: yyyymmdd(from),
-                toTmFc: yyyymmdd(now)
-            });
 
-            // 현재발효·발표목록·통보문을 독립적으로 수신합니다.
-            // getPwnStatus가 오래된 값을 주거나 일시 실패해도 최신 통보문으로 화면을 갱신합니다.
-            const [statusResult, listResult, msgResult] = await Promise.allSettled([
+            // 목록과 현재발효현황을 먼저 받고, 각 목록의 tmFc+tmSeq로 통보문 원문을 정확히 조회합니다.
+            // 같은 시각에 발표된 호우·폭염 통보문이 서로 섞이는 문제를 차단합니다.
+            const [statusResult, listResult] = await Promise.allSettled([
                 fetchJsonWithFallback(statusUrl, 3600),
-                fetchJsonWithFallback(listUrl, 3800),
-                fetchJsonWithFallback(msgUrl, 3800)
+                fetchJsonWithFallback(listUrl, 4200)
             ]);
-            if (statusResult.status !== 'fulfilled' && listResult.status !== 'fulfilled' && msgResult.status !== 'fulfilled') {
+            if (statusResult.status !== 'fulfilled' && listResult.status !== 'fulfilled') {
                 throw new Error('기상특보 API 수신 실패');
             }
 
             const currentItems = statusResult.status === 'fulfilled' ? normalizeItems(statusResult.value) : [];
             const listItems = listResult.status === 'fulfilled' ? normalizeItems(listResult.value) : [];
-            const messageItems = msgResult.status === 'fulfilled' ? normalizeItems(msgResult.value) : [];
+            const newestFirst = [...listItems]
+                .sort((a, b) => String(b.tmFc || '').localeCompare(String(a.tmFc || '')))
+                .slice(0, 18);
+            const detailResults = await Promise.allSettled(newestFirst.map(fetchWarningMessageForListItem));
+            const messageItems = detailResults.flatMap(result => result.status === 'fulfilled' ? result.value : []);
+
             const detailIndex = buildSpecialDetailIndex(messageItems);
             const rawListItems = listItems
                 .map(item => attachSpecialDetail(item, detailIndex))
