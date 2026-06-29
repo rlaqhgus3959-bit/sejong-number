@@ -5094,7 +5094,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        const CACHE_KEY = 'sejongWeatherWarningOfficialV1';
+        const CACHE_KEY = 'sejongWeatherWarningOfficialV2';
         const CACHE_MAX_MS = 20 * 60 * 1000;
         const ALERT_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
 
@@ -5142,6 +5142,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
             const raw = cleanApiText(value);
             if (!raw) return null;
+
+            // 1. 12자리 이상 숫자 (YYYYMMDDHHMM 우선) - 단, 2000년 이후만 신뢰
             const digits = raw.replace(/\D/g, '');
             if (digits.length >= 12) {
                 const y = Number(digits.slice(0, 4));
@@ -5149,13 +5151,40 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const d = Number(digits.slice(6, 8));
                 const h = Number(digits.slice(8, 10));
                 const mi = Number(digits.slice(10, 12));
-                const parsed = new Date(y, mo - 1, d, h, mi, 0, 0);
-                return Number.isNaN(parsed.getTime()) ? null : parsed;
+                // 1970~1999년대 값은 API 오염/특보번호 등으로 잘못 들어온 경우가 많아서 무시
+                if (y >= 2000 && y <= 2100) {
+                    const parsed = new Date(y, mo - 1, d, h, mi, 0, 0);
+                    if (!Number.isNaN(parsed.getTime())) return parsed;
+                }
             }
-            const korean = raw.match(/(20\d{2})\s*(?:년|[.\-/\s])\s*(\d{1,2})\s*(?:월|[.\-/\s])\s*(\d{1,2})\s*(?:일)?\s*(?:\([^)]*\))?\s*(\d{1,2})\s*(?:시|:)\s*(\d{1,2})?/);
-            if (!korean) return null;
-            const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
-            return Number.isNaN(parsed.getTime()) ? null : parsed;
+
+            // 2. 한국어 전체 날짜+시간 (기존 로직)
+            const koreanFull = raw.match(/(20\d{2})\s*(?:년|[.\-/\s])\s*(\d{1,2})\s*(?:월|[.\-/\s])\s*(\d{1,2})\s*(?:일)?\s*(?:\([^)]*\))?\s*(\d{1,2})\s*(?:시|:)\s*(\d{1,2})?/);
+            if (koreanFull) {
+                const parsed = new Date(
+                    Number(koreanFull[1]),
+                    Number(koreanFull[2]) - 1,
+                    Number(koreanFull[3]),
+                    Number(koreanFull[4]),
+                    Number(koreanFull[5] || 0),
+                    0, 0
+                );
+                if (!Number.isNaN(parsed.getTime())) return parsed;
+            }
+
+            // 3. 시간만 있는 경우 → 오늘 날짜로 보정 (가장 흔한 버그 원인)
+            const timeOnly = raw.match(/(?:(\d{1,2})\s*시\s*(\d{1,2})\s*분?|(\d{1,2}):(\d{2}))/);
+            if (timeOnly) {
+                const now = new Date();
+                const h = Number(timeOnly[1] || timeOnly[3]);
+                const mi = Number(timeOnly[2] || timeOnly[4]);
+                if (!isNaN(h) && !isNaN(mi)) {
+                    const parsed = new Date(now.getFullYear(), now.getMonth(), now.getDate(), h, mi, 0, 0);
+                    return parsed;
+                }
+            }
+
+            return null;
         }
 
         const toMillis = value => {
@@ -5165,6 +5194,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         };
 
         const formatTime = value => {
+            // 0은 날짜가 없는 상태입니다. new Date(0)으로 1970년이 표시되지 않도록 처리합니다.
+            if (value === null || value === undefined || value === '' || value === 0) return '기상청 미제공';
             const d = value instanceof Date ? value : (typeof value === 'number' ? new Date(value) : parseKmaDate(value));
             if (!d || Number.isNaN(d.getTime())) return '기상청 미제공';
             const y = d.getFullYear();
@@ -5216,6 +5247,19 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return parseKmaDate(declared);
         }
 
+        // 통보문은 “발표시각”과 “발효시각”이 특보명과 다른 줄에 나오는 경우가 많습니다.
+        // 해당 항목을 별도로 찾아야 발표 10:00 / 발효 11:00이 섞이지 않습니다.
+        function findLabeledKmaDate(source, labels) {
+            const text = cleanApiText(source);
+            for (const label of labels) {
+                const safeLabel = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\s+/g, '\\s*');
+                const match = text.match(new RegExp(`${safeLabel}\\s*[:：]?\\s*([^\\n□]+)`, 'i'));
+                const parsed = parseKmaDate(match?.[1] || '');
+                if (parsed) return parsed;
+            }
+            return null;
+        }
+
         function parseOfficialNotice(item) {
             const rawContent = firstField(item, ['t4', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
             const source = cleanApiText(`${firstField(item, ['title', 't1', 'name'])}\n${rawContent || itemValues(item)}`);
@@ -5224,6 +5268,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const areaBlock = getSection(source, ['해당구역', '발효구역', '대상구역', '대상지역', '특보구역']);
             const timeRows = parseSectionLines(timeBlock);
             const areaRows = parseSectionLines(areaBlock);
+            // 예: “□ 발효시각 : 2026년 06월 29일 11:00”처럼 공통 발효시각만 있는 통보문 처리
+            const commonEffectiveAt = parseKmaDate(timeBlock)
+                || findLabeledKmaDate(source, ['발효시각', '발효시간', '발효일시']);
             const events = [];
 
             areaRows.forEach(areaRow => {
@@ -5233,7 +5280,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     (timeRow.no === areaRow.no || !timeRow.no || !areaRow.no)
                 );
                 const sameAlert = timeRows.find(timeRow => timeRow.alert === areaRow.alert && timeRow.action === areaRow.action);
-                const effectiveAt = parseKmaDate((exact || sameAlert)?.value || '');
+                const effectiveAt = parseKmaDate((exact || sameAlert)?.value || '') || commonEffectiveAt;
                 events.push({
                     alert: areaRow.alert,
                     action: areaRow.action || '발표',
@@ -5246,12 +5293,21 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             // API가 줄바꿈을 제거한 단순 형식으로 줄 때의 보조 파서입니다.
             if (!events.length) {
-                const segmentRe = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=(?:${ALERT_PATTERN})\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)`, 'g');
+                // non-greedy + 더 안전한 경계 (□ 또는 다음 특보)
+                const segmentRe = new RegExp(
+                    `(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\n?□|\\n?\\s*(?:${ALERT_PATTERN})\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)`,
+                    'gi'
+                );
                 let segment;
                 while ((segment = segmentRe.exec(source)) !== null) {
-                    if (!isSejong(segment[3])) continue;
+                    const timeText = segment[3] || '';
+                    if (!isSejong(timeText)) continue;
+
                     const action = segment[2] || '발표';
-                    const effective = parseKmaDate(segment[3]);
+                    const effective = findLabeledKmaDate(timeText, ['발효시각', '발효시간', '발효일시'])
+                        || commonEffectiveAt
+                        || parseKmaDate(timeText);
+
                     events.push({
                         alert: segment[1],
                         action,
@@ -5265,4 +5321,1665 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return events;
         }
 
-        fun
+        function parseCurrentStatus(items) {
+            const rows = [];
+            (items || []).forEach(item => {
+                const source = cleanApiText(itemValues(item));
+                // 항목 필드가 없거나 명칭이 달라도 통보문 안의 ‘발표시각/발효시각’을 우선 사용합니다.
+                const explicitIssuedAt = parseKmaDate(firstField(item, ['tmFc', 'announceTime', 'pubTime']))
+                    || findLabeledKmaDate(source, ['발표시각', '발표시간', '발표일시'])
+                    || parseKmaDate(firstField(item, ['tm', 'tmSeq', 'time']));
+                const explicitEffectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime']))
+                    || findLabeledKmaDate(source, ['발효시각', '발효시간', '발효일시']);
+
+                const marker = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]`, 'g');
+                const markers = [];
+                let hit;
+                while ((hit = marker.exec(source)) !== null) {
+                    markers.push({ index: hit.index, end: marker.lastIndex, alert: hit[1], action: hit[2] || '발표' });
+                }
+
+                if (markers.length) {
+                    markers.forEach((row, index) => {
+                        const regionText = source.slice(row.end, index + 1 < markers.length ? markers[index + 1].index : undefined)
+                            .split(/(?:발효시각|발효시간|발효일시|발표시각|발표시간|발표일시|특보번호)/i)[0];
+                        if (!isSejong(regionText) || actionIsRelease(row.action)) return;
+
+                        // 반드시 명시된 발효시각을 먼저 사용합니다. 없을 때만 특보 구역 문장 안의 시각을 보조로 사용합니다.
+                        const effectiveAt = explicitEffectiveAt || parseKmaDate(regionText);
+                        rows.push({
+                            alert: row.alert,
+                            action: '발표',
+                            region: '세종특별자치시',
+                            issuedAt: explicitIssuedAt ? explicitIssuedAt.getTime() : 0,
+                            effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
+                            raw: source,
+                            fromStatus: true
+                        });
+                    });
+                    return;
+                }
+
+                const alert = findAlert(source);
+                const region = firstField(item, ['region', 'area', 'areaName', 'regName', 'target', 'wrnArea', 'loc', 'location']) || source;
+                if (!alert || !isSejong(region) || /해제|취소/.test(source)) return;
+
+                rows.push({
+                    alert,
+                    action: '발표',
+                    region: '세종특별자치시',
+                    issuedAt: explicitIssuedAt ? explicitIssuedAt.getTime() : 0,
+                    effectiveAt: explicitEffectiveAt ? explicitEffectiveAt.getTime() : 0,
+                    raw: source,
+                    fromStatus: true
+                });
+            });
+            return rows;
+        }
+
+        function latestStateFromNotices(events, useShortWindow) {
+            const now = Date.now();
+            const byWarning = new Map();
+            (events || []).forEach(event => {
+                const key = warningKey(event);
+                const eventTime = event.issuedAt || event.effectiveAt || 0;
+                const previous = byWarning.get(key);
+                const previousTime = previous ? (previous.issuedAt || previous.effectiveAt || 0) : -1;
+                // 같은 발표시각에는 해제 통보를 우선합니다.
+                if (!previous || eventTime > previousTime || (eventTime === previousTime && actionIsRelease(event.action) && !actionIsRelease(previous.action))) {
+                    byWarning.set(key, event);
+                }
+            });
+
+            const active = [];
+            const pending = [];
+            Array.from(byWarning.values()).forEach(event => {
+                if (actionIsRelease(event.action)) return;
+                const eventTime = event.issuedAt || event.effectiveAt || 0;
+                const windowMs = useShortWindow ? 36 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+                if (eventTime && now - eventTime > windowMs) return;
+                if (event.effectiveAt && event.effectiveAt > now) pending.push(event);
+                else active.push(event);
+            });
+            return { active, pending, latest: Array.from(byWarning.values()) };
+        }
+
+        function normalizeUnique(rows) {
+            // 현재특보와 통보문에 같은 특보가 함께 있을 때, 발효시각이 확인된 행을 하나만 사용합니다.
+            // 그래야 발표시각을 잘못 읽은 상태 행이 정확한 통보문 발효시각을 덮어쓰지 않습니다.
+            const bestByWarning = new Map();
+
+            (rows || []).forEach(row => {
+                const key = `${row.alert || ''}|${row.region || '세종특별자치시'}`;
+                const previous = bestByWarning.get(key);
+                if (!previous) {
+                    bestByWarning.set(key, row);
+                    return;
+                }
+
+                const previousEffective = Number(previous.effectiveAt || 0);
+                const currentEffective = Number(row.effectiveAt || 0);
+                const previousIssued = Number(previous.issuedAt || 0);
+                const currentIssued = Number(row.issuedAt || 0);
+
+                const shouldReplace =
+                    currentEffective > previousEffective ||
+                    (currentEffective === previousEffective && currentIssued > previousIssued) ||
+                    (currentEffective === previousEffective && currentIssued === previousIssued && !row.fromStatus && previous.fromStatus);
+
+                if (shouldReplace) bestByWarning.set(key, row);
+            });
+
+            return Array.from(bestByWarning.values());
+        }
+
+        function sortCurrent(rows) {
+            return normalizeUnique(rows).sort((a, b) => (b.effectiveAt || b.issuedAt || 0) - (a.effectiveAt || a.issuedAt || 0));
+        }
+
+        function saveCache(payload) {
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), payload })); } catch (_) {}
+        }
+
+        function loadCache() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+                if (!saved?.savedAt || !saved?.payload || Date.now() - saved.savedAt > CACHE_MAX_MS) return null;
+
+                // 캐시된 데이터에 2000년 이전 날짜가 있으면 (이전 파싱 버그) 무시하고 새로 조회
+                const hasBadDate = (saved.payload.active || []).some(r => {
+                    const y = new Date(r.issuedAt || r.effectiveAt || 0).getFullYear();
+                    return y > 0 && y < 2000;
+                });
+                if (hasBadDate) {
+                    localStorage.removeItem(CACHE_KEY);
+                    return null;
+                }
+
+                return saved.payload;
+            } catch (_) { return null; }
+        }
+
+        function render(state, stale = false) {
+            const active = sortCurrent(state.active || []);
+            const pending = sortCurrent(state.pending || []);
+            const events = (state.events || []).slice().sort((a, b) => (b.issuedAt || b.effectiveAt || 0) - (a.issuedAt || a.effectiveAt || 0));
+            const primary = active[0] || pending[0] || null;
+            const source = state.source || '공공데이터포털 기상청 기상특보 조회서비스';
+
+            if (active.length) {
+                headerStatusEl.textContent = `세종: ${active[0].alert} 발효 중`;
+                headerStatusEl.className = 'sejong-summary warn';
+            } else if (pending.length) {
+                headerStatusEl.textContent = `세종: ${pending[0].alert} 발효 예정`;
+                headerStatusEl.className = 'sejong-summary pending';
+            } else if (state.confirmedNone) {
+                headerStatusEl.textContent = '세종: 특보 없음';
+                headerStatusEl.className = 'sejong-summary safe';
+            } else {
+                headerStatusEl.textContent = '세종: 수신 지연';
+                headerStatusEl.className = 'sejong-summary warn';
+            }
+
+            let main = '';
+            if (active.length) {
+                const row = active[0];
+                main = `<div class="weather-main-box warn"><i class="fas fa-triangle-exclamation" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 중</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+            } else if (pending.length) {
+                const row = pending[0];
+                main = `<div class="weather-main-box pending"><i class="fas fa-hourglass-half" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 예정</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+            } else if (state.confirmedNone) {
+                main = '<div class="weather-main-box safe"><i class="fas fa-check-circle" style="font-size:22px;"></i><div><div class="weather-main-title">세종 특보 없음</div><div class="weather-main-sub">공공데이터포털 기상청 현재특보 조회 결과입니다.</div></div></div>';
+            } else {
+                main = '<div class="weather-main-box pending"><i class="fas fa-satellite-dish" style="font-size:22px;"></i><div><div class="weather-main-title">기상특보 수신 지연</div><div class="weather-main-sub">자료를 확인하지 못해 특보 없음으로 표시하지 않습니다.</div></div></div>';
+            }
+
+            const currentRows = active.length ? active : pending;
+            const currentHtml = currentRows.length
+                ? currentRows.slice(0, 10).map(row => `<b>${active.includes(row) ? '🚨' : '⏳'} ${esc(row.alert)} ${active.includes(row) ? '발효 중' : '발효 예정'}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`).join('<br><br>')
+                : (state.confirmedNone ? '<i class="fas fa-check-circle" style="color:var(--green)"></i> 세종 관련 현재 특보 없음' : '<i class="fas fa-satellite-dish" style="color:var(--orange)"></i> 기상특보 수신 지연');
+
+            const historyHtml = events.length
+                ? events.slice(0, 8).map(row => {
+                    const label = actionIsRelease(row.action) ? '해제' : (row.effectiveAt && row.effectiveAt > Date.now() ? '발효 예정' : '발표');
+                    return `📌 <b>${esc(row.alert)} ${esc(label)}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`;
+                }).join('<br><br>')
+                : '<span style="color:var(--sub);">최근 세종 기상특보 통보문 없음</span>';
+
+            const activeTime = primary ? formatTime(primary.effectiveAt) : '해당 없음';
+            const cacheNote = stale ? ' · 직전 정상 수신값' : '';
+            contentEl.innerHTML = main
+                + `<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">${esc(nowText())}</div></div>`
+                + `<div class="info-group"><span class="info-label">현재 특보 발효시각</span><div class="info-val time">${esc(activeTime)}</div></div>`
+                + `<div class="info-group"><span class="info-label">세종 특보현황</span><div class="info-val content">${currentHtml}</div></div>`
+                + `<div class="info-group"><span class="info-label">최근 기상특보 목록</span><div class="info-val content">${historyHtml}</div></div>`
+                + `<div style="font-size:10px; color:var(--sub); margin-top:8px; text-align:right;">출처: ${esc(source)}${cacheNote}</div>`;
+        }
+
+        function buildUrl(path, params = {}) {
+            const url = new URL(API_BASE + path);
+            url.searchParams.set('serviceKey', SERVICE_KEY);
+            url.searchParams.set('pageNo', '1');
+            url.searchParams.set('numOfRows', String(params.numOfRows || 1000));
+            url.searchParams.set('dataType', 'JSON');
+            Object.entries(params).forEach(([key, value]) => {
+                if (key !== 'numOfRows' && value !== undefined && value !== null) url.searchParams.set(key, String(value));
+            });
+            return url.toString();
+        }
+
+        async function fetchJson(url, timeoutMs = 4500) {
+            const candidates = [
+                url,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
+                `https://corsproxy.io/?${encodeURIComponent(url)}`
+            ];
+            let lastError;
+            for (const candidate of candidates) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const response = await fetch(candidate, { cache: 'no-store', signal: controller.signal });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const raw = await response.text();
+                    const trimmed = String(raw || '').trim();
+                    if (!trimmed || trimmed.startsWith('<')) throw new Error('JSON 응답 없음');
+                    const data = JSON.parse(trimmed);
+                    if (!isApiOk(data)) throw new Error(data?.response?.header?.resultMsg || '기상청 API 오류');
+                    clearTimeout(timer);
+                    return data;
+                } catch (error) {
+                    lastError = error;
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+            throw lastError || new Error('기상청 API 수신 실패');
+        }
+
+        const cached = loadCache();
+        if (cached) render(cached, true);
+        else if (!silent) {
+            headerStatusEl.textContent = '세종: 확인중';
+            headerStatusEl.className = 'sejong-summary';
+            contentEl.innerHTML = '<div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상청 특보 수신중...</div>';
+        }
+
+        try {
+            const today = new Date();
+            const from = new Date(today);
+            from.setDate(from.getDate() - 7);
+            const ymd = date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+            const [statusResult, messageResult] = await Promise.allSettled([
+                fetchJson(buildUrl('/getPwnStatus', { numOfRows: 500 })),
+                fetchJson(buildUrl('/getWthrWrnMsg', { numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
+            ]);
+
+            const statusSuccess = statusResult.status === 'fulfilled';
+            const messageSuccess = messageResult.status === 'fulfilled';
+            const statusRows = statusSuccess ? parseCurrentStatus(normalizeItems(statusResult.value)) : [];
+            const noticeEvents = messageSuccess
+                ? normalizeItems(messageResult.value).flatMap(parseOfficialNotice)
+                : [];
+            const noticeState = latestStateFromNotices(noticeEvents, statusSuccess);
+
+            // getPwnStatus가 세종 행을 누락해도, 최근 36시간 내 세종 통보문에
+            // “폭염주의보 발표”가 있고 뒤의 세종 폭염주의보 해제가 없으면 반드시 표시합니다.
+            const active = sortCurrent([...statusRows, ...noticeState.active]);
+            const pending = active.length ? [] : sortCurrent(noticeState.pending);
+            const confirmedNone = !active.length && !pending.length && (
+                statusSuccess || (messageSuccess && noticeState.latest.some(row => actionIsRelease(row.action)))
+            );
+
+            const state = {
+                source: '공공데이터포털 기상청 기상특보 조회서비스',
+                active,
+                pending,
+                events: noticeEvents,
+                confirmedNone
+            };
+            // 최소 하나의 공식 API 응답을 받았을 때만 캐시를 갱신합니다.
+            if (statusSuccess || messageSuccess) saveCache(state);
+            render(state);
+        } catch (error) {
+            console.warn('기상특보 공공데이터 수신 실패:', error);
+            if (!cached) {
+                render({
+                    source: '공공데이터포털 기상청 기상특보 조회서비스',
+                    active: [], pending: [], events: [], confirmedNone: false
+                });
+            }
+        } finally {
+            isSpecialFetching = false;
+        }
+    }
+
+    function getAllShelterData() {
+        const rows = applyShelterOverrides();
+        managedShelterData = rows;
+        return rows;
+    }
+
+    function saveManagedShelters() {
+        // 전체 대피소 목록을 통째로 저장하지 않습니다.
+        // 수정·추가·삭제는 아래 전용 함수에서 항목 하나만 저장합니다.
+        managedShelterData = getAllShelterData();
+    }
+
+    function renderShelterCards(data, showDistance = false) {
+        const container = document.getElementById('shelter-list');
+        container.innerHTML = '';
+
+        if (!data.length) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">조건에 맞는 대피소가 없습니다.</div>`;
+            return;
+        }
+
+        data.forEach(item => {
+            const station = item.station || '북부서';
+            const distHtml = showDistance && typeof item.distance === 'number'
+                ? `<div style="font-size:12px; color:var(--blue); font-weight:800; margin:6px 0;">📍 ${item.distance < 1 ? (item.distance * 1000).toFixed(0) + 'm' : item.distance.toFixed(1) + 'km'} <span style="font-size:10px; color:var(--sub); font-weight:600;">(${item.distanceSourceLabel || '좌표기준'})</span></div>`
+                : '';
+
+            const safeName = String(item.name || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const safeAddr = String(item.addr || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const safeId = String(item.id || '').replace(/\\/g, "\\\\").replace(/'/g, "\\'");
+            const div = document.createElement('div');
+            div.className = 'shelter-card';
+            div.innerHTML = `
+                <div class="shelter-name">${item.name}</div>
+                <div style="font-size:9px; color:var(--sub); margin-top:2px;">${station} · ${item.area || '-'}</div>
+                <div class="shelter-addr">${item.addr || '-'}</div>
+                ${distHtml}
+                <div class="shelter-cap">수용: ${item.cap || '-'}</div>
+                <div class="shelter-btn-group">
+                    <a href="tel:${String(item.tel || '').replace(/[^0-9]/g, '')}" class="shelter-btn call"><i class="fas fa-phone"></i> 전화</a>
+                    <button class="shelter-btn" onclick="openKakaoNaviById('${safeId}')"><i class="fas fa-location-arrow"></i> 길찾기</button>
+                    <div class="admin-actions">
+                        <button class="mini-btn" onclick="editShelterLocation('${safeId}')">수정</button>
+                        <button class="mini-btn danger" onclick="deleteShelterLocation('${safeId}')">삭제</button>
+                    </div>
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    }
+
+    function renderShelters() {
+        if (String(shelterFilter).includes('가까운순') || String(shelterFilter).includes('내주변')) return;
+
+        const search = (document.getElementById('shelter-search')?.value || '').toLowerCase();
+        let data = getAllShelterData();
+        const forcedStation = scopeStation();
+        if (forcedStation) data = data.filter(s => (s.station || '북부서') === forcedStation);
+
+        if (shelterFilter === '북부서' || shelterFilter === '남부서') {
+            data = data.filter(s => (s.station || '북부서') === shelterFilter);
+        } else if (String(shelterFilter).startsWith('area:')) {
+            const key = String(shelterFilter).replace('area:', '');
+            data = data.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
+        } else if (shelterFilter !== '전체') {
+            data = data.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, shelterFilter));
+        }
+
+        if (search) {
+            data = data.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+        }
+
+        renderShelterCards(data, false);
+    }
+
+    function filterShelter(area, btn) {
+        shelterFilter = area;
+        renderShelterFilterButtons();
+        renderShelters(); 
+    }
+
+    function addShelterLocation() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력 (예: 조치원읍, 한솔동)'); if (!area) return;
+        const name = prompt('대피소명 입력'); if (!name) return;
+        const addr = prompt('주소 입력') || '';
+        const cap = prompt('수용인원 입력 (예: 100명)') || '-';
+        const tel = prompt('전화번호 입력') || '';
+        const lat = parseFloat(prompt('위도 입력 (예: 36.6015)') || '0');
+        const lng = parseFloat(prompt('경도 입력 (예: 127.3005)') || '0');
+        const item = { id: `shelter-${Date.now()}`, station, area, name, addr, cap, tel, lat, lng };
+        upsertShelterOverride(item).catch(error => alert(`대피소 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function editShelterLocation(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
+        const station = normalizeStation(prompt('관할 수정 (북부서/남부서)', item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
+        const area = prompt('행정구역 수정', item.area || ''); if (!area) return;
+        const name = prompt('대피소명 수정', item.name || ''); if (!name) return;
+        const addr = prompt('주소 수정', item.addr || '') || '';
+        const cap = prompt('수용인원 수정', item.cap || '-') || '-';
+        const tel = prompt('전화번호 수정', item.tel || '') || '';
+        const lat = parseFloat(prompt('위도 수정', item.lat || '0') || '0');
+        const lng = parseFloat(prompt('경도 수정', item.lng || '0') || '0');
+        upsertShelterOverride({ ...item, station, area, name, addr, cap, tel, lat, lng })
+            .catch(error => alert(`대피소 수정에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function deleteShelterLocation(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
+        if (!confirm('이 대피소를 삭제하시겠습니까?')) return;
+        removeShelterOverride(item)
+            .catch(error => alert(`대피소 삭제에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function getShelterById(id) {
+        return getAllShelterData().find(s => String(s.id || '') === String(id));
+    }
+
+    function hasValidCoord(lat, lng) {
+        const y = Number(lat);
+        const x = Number(lng);
+        return Number.isFinite(y) && Number.isFinite(x) && !(y === 0 && x === 0) && y > 33 && y < 39 && x > 124 && x < 132;
+    }
+
+    function buildKakaoRouteUrls(lat, lng, name) {
+        const y = Number(lat);
+        const x = Number(lng);
+        const targetName = encodeURIComponent(name || '대피소');
+        return {
+            webUrl: `https://map.kakao.com/link/to/${targetName},${y},${x}`,
+            mobileAppUrl: `kakaomap://route?ep=${y},${x}&by=CAR`,
+            mobileWebUrl: `https://m.map.kakao.com/scheme/route?ep=${y},${x}&by=CAR`
+        };
+    }
+
+    function openKakaoNavi(lat, lng, name, addr = '') {
+        const targetName = name || '대피소';
+        const targetAddr = addr || name || '세종시 대피소';
+        const validCoord = hasValidCoord(lat, lng);
+        if (!validCoord) {
+            window.open(`https://map.kakao.com/link/search/${encodeURIComponent(targetAddr)}`, '_blank');
+            return;
+        }
+        const urls = buildKakaoRouteUrls(lat, lng, targetName);
+        const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+        if (isMobile) {
+            location.href = urls.mobileAppUrl;
+            setTimeout(() => {
+                if (!document.hidden) window.location.href = urls.mobileWebUrl;
+            }, 1200);
+        } else {
+            window.open(urls.webUrl, '_blank');
+        }
+    }
+
+    async function openKakaoNaviById(id) {
+        const item = getShelterById(id);
+        if (!item) return alert('대피소 정보를 찾을 수 없습니다.');
+
+        const targetName = item.name || '대피소';
+        const targetAddr = item.addr || item.name || '세종시 대피소';
+        const known = getKnownShelterCoord(item);
+        if (known && hasValidCoord(known.lat, known.lng)) {
+            openKakaoNavi(known.lat, known.lng, targetName, targetAddr);
+            return;
+        }
+
+        // 좌표가 없는 항목은 느린 주소좌표 변환 없이 검색 화면으로만 연결
+        window.open(`https://map.kakao.com/link/search/${encodeURIComponent('세종특별자치시 ' + targetAddr)}`, '_blank');
+    }
+
+    function toggleStatus(idx) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return;
+        const updated = { ...item, status: item.status === 0 ? 2 : 0 };
+        trafficData[idx] = updated;
+        upsertTrafficItem(updated).catch(error => alert(`통제상태 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function toggleAdmin() {
+        if (!isAdmin) {
+            if (prompt('비밀번호:') === '2580') {
+                isAdmin = true;
+                document.body.classList.add('admin-mode');
+                document.getElementById('admin-btn').classList.add('active');
+                ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'block';
+                });
+                renderAllScopedFilterButtons();
+                render(); renderShelters(); renderCctvs(); renderManpower();
+                syncRealtimeSubscriptions();
+            }
+        } else {
+            isAdmin = false;
+            document.body.classList.remove('admin-mode');
+            document.getElementById('admin-btn').classList.remove('active');
+            const manpowerSection = document.getElementById('sec-manpower');
+            if (manpowerSection) manpowerSection.classList.remove('open');
+            ['add-loc-btn','add-shelter-btn','add-cctv-btn'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) el.style.display = 'none';
+            });
+            renderAllScopedFilterButtons();
+            render(); renderShelters(); renderCctvs(); renderManpower();
+            syncRealtimeSubscriptions();
+        }
+    }
+
+
+    function makeManpowerOptions(max, selected, suffix = '') {
+        const value = Math.max(0, Number(selected) || 0);
+        const rangeMax = Math.max(Number(max) || 0, value, 20);
+        let html = '';
+        for (let n = 0; n <= rangeMax; n++) {
+            html += `<option value="${n}" ${n === value ? 'selected' : ''}>${n}${suffix}</option>`;
+        }
+        return html;
+    }
+
+    function cleanManpowerNumber(value) {
+        return Math.max(0, Math.min(999, Math.round(Number(value) || 0)));
+    }
+
+    function normalizeManpowerData(raw) {
+        const rows = Array.isArray(raw)
+            ? raw.filter(Boolean)
+            : Object.values(raw || {}).filter(Boolean);
+        return manpowerDefaultData.map(base => {
+            const found = rows.find(item => String(item && item.id) === String(base.id)) || {};
+            return { ...base, count:cleanManpowerNumber(found.count) };
+        });
+    }
+
+    function getManpowerItem(id) {
+        return manpowerData.find(item => String(item.id) === String(id));
+    }
+
+    function getVisibleManpowerStations() {
+        if (globalScope === 'north') return ['north'];
+        if (globalScope === 'south') return ['south'];
+        return ['north', 'south'];
+    }
+
+    function manpowerStationName(station) {
+        return station === 'south' ? '남부서' : '북부서';
+    }
+
+    function getManpowerDestinations(station) {
+        return MANPOWER_DESTINATIONS[station] || [];
+    }
+
+    function getSupportItem(station, destinationId, sourceKey) {
+        return manpowerData.find(item =>
+            item.station === station &&
+            item.kind === 'support' &&
+            item.destinationId === destinationId &&
+            item.sourceKey === sourceKey
+        );
+    }
+
+    function getTrafficItem(station) {
+        return manpowerData.find(item => item.station === station && item.kind === 'traffic');
+    }
+
+    function getDestinationSupportTotal(station, destinationId) {
+        return MANPOWER_SUPPORT_SOURCES.reduce((sum, source) => {
+            const item = getSupportItem(station, destinationId, source.key);
+            return sum + cleanManpowerNumber(item && item.count);
+        }, 0);
+    }
+
+    function getStationSupportTotal(station) {
+        return manpowerData
+            .filter(item => item.station === station && item.kind === 'support')
+            .reduce((sum, item) => sum + cleanManpowerNumber(item.count), 0);
+    }
+
+    function getStationTrafficTotal(station) {
+        const item = getTrafficItem(station);
+        return cleanManpowerNumber(item && item.count);
+    }
+
+    function getStationGrandTotal(station) {
+        return getStationSupportTotal(station) + getStationTrafficTotal(station);
+    }
+
+    function manpowerAgencySummaryCard() {
+        const northTotal = getStationGrandTotal('north');
+        const southTotal = getStationGrandTotal('south');
+        const agencyTotal = northTotal + southTotal;
+        return `<section class="manpower-agency-card" aria-label="세종청 경력 총합">
+            <div class="manpower-agency-head">
+                <div class="manpower-agency-title">세종청 경력현황</div>
+                <div class="manpower-agency-total">총합 ${agencyTotal}명</div>
+            </div>
+            <div class="manpower-agency-grid">
+                <div class="manpower-agency-cell total">
+                    <span class="manpower-agency-label">세종청 총합</span>
+                    <strong class="manpower-agency-value">${agencyTotal}명</strong>
+                </div>
+                <div class="manpower-agency-cell">
+                    <span class="manpower-agency-label">북부서 총계</span>
+                    <strong class="manpower-agency-value">${northTotal}명</strong>
+                </div>
+                <div class="manpower-agency-cell">
+                    <span class="manpower-agency-label">남부서 총계</span>
+                    <strong class="manpower-agency-value">${southTotal}명</strong>
+                </div>
+            </div>
+        </section>`;
+    }
+
+    function manpowerSourceCell(item) {
+        if (!item) return '';
+        const editable = isAdmin;
+        const click = editable ? `onclick="openManpowerEditor('${item.id}')"` : '';
+        return `<button type="button" class="manpower-source-cell ${editable ? 'editable' : ''}" ${click} title="${editable ? `${item.destinationLabel} ${item.sourceLabel} 지원 인원 수정` : ''}">
+            <span class="manpower-source-label">${item.sourceLabel}<i class="fas fa-pen manpower-edit-mark"></i></span>
+            <strong class="manpower-source-count">${cleanManpowerNumber(item.count)}명</strong>
+        </button>`;
+    }
+
+    function manpowerDestinationCard(station, destination) {
+        const total = getDestinationSupportTotal(station, destination.id);
+        const sources = MANPOWER_SUPPORT_SOURCES
+            .map(source => manpowerSourceCell(getSupportItem(station, destination.id, source.key)))
+            .join('');
+        return `<article class="manpower-destination-card" aria-label="${destination.label} 지원경력">
+            <div class="manpower-destination-head">
+                <div class="manpower-destination-name">${destination.label}</div>
+                <div class="manpower-destination-total">${total}명</div>
+            </div>
+            <div class="manpower-source-grid">${sources}</div>
+        </article>`;
+    }
+
+    function manpowerStationCard(station) {
+        const label = manpowerStationName(station);
+        const supportTotal = getStationSupportTotal(station);
+        const trafficItem = getTrafficItem(station);
+        const trafficTotal = getStationTrafficTotal(station);
+        const grandTotal = supportTotal + trafficTotal;
+        const editable = isAdmin;
+        const trafficClick = editable && trafficItem ? `onclick="openManpowerEditor('${trafficItem.id}')"` : '';
+        return `<section class="manpower-station-card" aria-label="${label} 지구대·파출소 지원경력">
+            <div class="manpower-station-head">
+                <div class="manpower-station-name">${label} 지원경력</div>
+                <div class="manpower-station-support-total">지원 합계 ${supportTotal}명</div>
+            </div>
+            <div class="manpower-dest-grid">
+                ${getManpowerDestinations(station).map(destination => manpowerDestinationCard(station, destination)).join('')}
+            </div>
+            <div class="manpower-summary">
+                <div class="manpower-summary-row">
+                    <span class="manpower-summary-label">지구대·파출소<br>지원 합계</span>
+                    <strong class="manpower-summary-value">${supportTotal}명</strong>
+                </div>
+                <div class="manpower-summary-row traffic">
+                    <button type="button" class="manpower-traffic-btn ${editable ? 'editable' : ''}" ${trafficClick} title="${editable ? `${label} 교통안전대책반 인원 수정` : ''}">
+                        <span class="manpower-summary-label">교통안전대책반<i class="fas fa-pen manpower-edit-mark"></i></span>
+                        <strong class="manpower-summary-value">${trafficTotal}명</strong>
+                    </button>
+                </div>
+            </div>
+            <div class="manpower-grand-total"><span>${label} 총계</span><strong>${grandTotal}명</strong></div>
+        </section>`;
+    }
+
+    function renderManpower() {
+        const board = document.getElementById('manpower-board');
+        const note = document.getElementById('manpower-note');
+        if (!board) return;
+
+        if (note) {
+            const scopeText = globalScope === 'north' ? '북부서' : globalScope === 'south' ? '남부서' : '각 부서';
+            note.innerHTML = `<i class="fas fa-pen-to-square"></i> ${scopeText} 지구대·파출소별로 지원 가능한 자서·기동대·광예대·청 인원을 입력하세요. 지원 합계와 교통안전대책반을 더한 총계는 자동 계산됩니다.`;
+        }
+        const stationCards = getVisibleManpowerStations().map(manpowerStationCard).join('');
+        board.innerHTML = (globalScope === 'all' ? manpowerAgencySummaryCard() : '') + stationCards;
+    }
+
+    function openManpowerEditor(id) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getManpowerItem(id);
+        if (!item) return alert('경력 정보를 찾을 수 없습니다.');
+
+        editingManpowerId = item.id;
+        const modal = document.getElementById('manpower-modal');
+        const title = document.getElementById('manpower-modal-title');
+        const select = document.getElementById('manpower-count-select');
+        const label = document.querySelector('label[for="manpower-count-select"]');
+        title.textContent = item.kind === 'traffic'
+            ? `${manpowerStationName(item.station)} · 교통안전대책반`
+            : `${manpowerStationName(item.station)} · ${item.destinationLabel} · ${item.sourceLabel}`;
+        if (label) label.textContent = '지원 인원';
+        select.innerHTML = makeManpowerOptions(500, item.count, '명');
+        modal.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeManpowerEditor() {
+        const modal = document.getElementById('manpower-modal');
+        if (modal) modal.style.display = 'none';
+        document.body.style.overflow = '';
+        editingManpowerId = '';
+    }
+
+    function handleManpowerModalOverlay(event) {
+        if (event.target && event.target.id === 'manpower-modal') closeManpowerEditor();
+    }
+
+    function saveManpowerEditor() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = getManpowerItem(editingManpowerId);
+        const select = document.getElementById('manpower-count-select');
+        if (!item || !select) return closeManpowerEditor();
+
+        item.count = cleanManpowerNumber(select.value);
+        const payload = { ...item, count:item.count };
+        manpowerPendingWrites[item.id] = payload;
+        renderManpower();
+        closeManpowerEditor();
+
+        db.ref(`${MANPOWER_DB_PATH}/${item.id}`).set(payload)
+            .then(() => {
+                delete manpowerPendingWrites[item.id];
+                renderManpower();
+            })
+            .catch((error) => {
+                console.error('경력 현황 저장 실패:', error);
+                delete manpowerPendingWrites[item.id];
+                renderManpower();
+                alert(`경력 현황 저장에 실패했습니다.\n${error && error.message ? error.message : 'Firebase 권한 또는 네트워크를 확인하세요.'}`);
+            });
+    }
+
+    function render() {
+        const container = document.getElementById('list');
+        const searchVal = (document.getElementById('search')?.value || '').toLowerCase();
+        let banCnt = 0;
+        let visibleTotal = 0;
+        container.innerHTML = '';
+
+        trafficData = trafficData.map(withStation);
+
+        trafficData.forEach((item, idx) => {
+            const station = item.station || getOfficeByAreaName(`${item.area || ''} ${item.name || ''}`);
+            const forcedStation = scopeStation();
+            if (forcedStation && station !== forcedStation) return;
+            if(currFilter === 'ban' && item.status === 0) return;
+            if(currFilter === 'free' && item.status !== 0) return;
+            if(currFilter === 'north' && station !== '북부서') return;
+            if(currFilter === 'south' && station !== '남부서') return;
+            if(String(currFilter).startsWith('area:')) {
+                const key = String(currFilter).replace('area:', '');
+                if(!areaMatches(`${item.area || ''} ${item.name || ''}`, key)) return;
+            }
+            if(searchVal && !(`${item.name || ''} ${item.area || ''} ${item.addr || ''} ${item.type || ''} ${item.grade || ''} ${station}`.toLowerCase().includes(searchVal))) return;
+
+            visibleTotal++;
+            if(item.status === 2) banCnt++;
+            const div = document.createElement('div');
+            div.className = 'traffic-card';
+            const trafficMeta = [item.area, item.addr, item.type ? `구분 ${item.type}` : '', item.grade ? `등급 ${item.grade}` : ''].filter(Boolean).join(' · ');
+            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px; line-height:1.4;">${trafficMeta}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
+            container.appendChild(div);
+        });
+        document.getElementById('cnt-total').innerText = visibleTotal;
+        document.getElementById('cnt-ban').innerText = banCnt;
+    }
+
+    function setFilter(type, btn) {
+        currFilter = type;
+        renderTrafficFilterButtons();
+        render();
+    }
+
+    function addTrafficLocation() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력 (예: 조치원읍, 한솔동)'); if (!area) return;
+        const name = prompt('통제장소명 입력'); if (!name) return;
+        const status = Number(prompt('상태 입력: 0 정상 / 2 통제', '0') || '0');
+        const item = withStation({ id: Date.now(), station, area, name, status: status === 2 ? 2 : 0 });
+        trafficData.push(item);
+        upsertTrafficItem(item).catch(error => alert(`통제장소 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function editTrafficLocation(idx) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return alert('통제장소 정보를 찾을 수 없습니다.');
+        const station = normalizeStation(prompt('관할 수정 (북부서/남부서)', item.station || '북부서'), `${item.area || ''} ${item.name || ''}`);
+        const area = prompt('행정구역 수정', item.area || ''); if (!area) return;
+        const name = prompt('통제장소명 수정', item.name || ''); if (!name) return;
+        const status = Number(prompt('상태 수정: 0 정상 / 2 통제', String(item.status || 0)) || '0');
+        const updated = withStation({ ...item, station, area, name, status: status === 2 ? 2 : 0 });
+        trafficData[idx] = updated;
+        upsertTrafficItem(updated).catch(error => alert(`통제장소 수정에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function deleteTrafficLocation(idx) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const item = trafficData[idx];
+        if (!item) return;
+        if (!confirm(`통제장소 [${item.name}]을 삭제하시겠습니까?`)) return;
+        trafficData.splice(idx, 1);
+        removeTrafficItem(item).catch(error => alert(`통제장소 삭제에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+    }
+
+    function setCctvFilter(type, btn) {
+        cctvFilter = type;
+        renderCctvFilterButtons();
+        renderCctvSectorButtons();
+        renderCctvs();
+    }
+
+    function setCctvSectorFilter(type, btn) {
+        cctvSectorFilter = type;
+        renderCctvSectorButtons();
+        renderCctvs();
+    }
+
+    let currentCctvUrl = '';
+    let currentCctvTitle = 'CCTV 재생';
+    let currentCctvFormat = '';
+    let currentHls = null;
+    let hlsRetryTimer = null;
+    let hlsRecoveryCount = 0;
+    let cctvPlaybackGuardTimer = null;
+    let cctvPlaybackAttemptId = '';
+
+    function clearCctvPlaybackGuard() {
+        if (cctvPlaybackGuardTimer) {
+            clearTimeout(cctvPlaybackGuardTimer);
+            cctvPlaybackGuardTimer = null;
+        }
+    }
+
+    function clearHlsRetryTimer() {
+        if (hlsRetryTimer) {
+            clearTimeout(hlsRetryTimer);
+            hlsRetryTimer = null;
+        }
+    }
+
+    function setCctvPlaybackGuide(message) {
+        const guideEl = document.getElementById('cctv-player-guide');
+        if (guideEl && message) guideEl.innerText = message;
+    }
+
+    function setCctvLoading(show, message = '') {
+        const loader = document.getElementById('cctv-player-loading');
+        const loaderText = document.getElementById('cctv-player-loading-text');
+        const video = document.getElementById('cctv-player-video');
+        if (loader) loader.style.display = show ? 'flex' : 'none';
+        if (loaderText && message) loaderText.innerText = message;
+        if (video) {
+            video.style.visibility = show ? 'hidden' : 'visible';
+            video.controls = !show;
+        }
+    }
+
+    function openItsLoadingModal(title = 'CCTV 재생') {
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const frame = document.getElementById('cctv-player-frame');
+        clearHlsRetryTimer();
+        resetCctvFrameDisplay();
+        setCctvModalInfo(title, 'ITS 영상 재생', '저장된 ITS 영상주소가 없습니다. 하단 최신 주소 조회를 눌러주세요.', '#34C759');
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        if (video) {
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = 'block';
+        }
+        if (modal) modal.style.display = 'block';
+        setCctvLoading(true, '영상 주소를 확인하고 있습니다.');
+    }
+
+    function closeCctvPlayer() {
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const frame = document.getElementById('cctv-player-frame');
+        clearHlsRetryTimer();
+        clearCctvPlaybackGuard();
+        cctvPlaybackAttemptId = '';
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        if (video) {
+            video.onloadedmetadata = null;
+            video.oncanplay = null;
+            video.onerror = null;
+            video.pause();
+            video.removeAttribute('src');
+            video.load();
+            video.style.display = 'block';
+        }
+        if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        resetCctvFrameDisplay();
+        setCctvLoading(false);
+        window.__itsCctvRequestToken = '';
+        window.__itsCctvActiveToken = '';
+        window.__itsCctvPlaybackReadyToken = '';
+        window.__itsCctvRetry = null;
+        window.__itsCctvForceRefresh = null;
+        const retryButton = document.getElementById('cctv-retry-button');
+        if (retryButton) retryButton.textContent = '재생 다시 시도';
+        if (modal) modal.style.display = 'none';
+    }
+
+    function setCctvModalInfo(title, badgeText, guideText, badgeColor = '#007AFF') {
+        const titleEl = document.getElementById('cctv-player-title');
+        const badgeEl = document.getElementById('cctv-player-badge');
+        const guideEl = document.getElementById('cctv-player-guide');
+        if (titleEl) titleEl.innerText = title || 'CCTV 재생';
+        if (badgeEl) {
+            badgeEl.innerHTML = `${badgeText || 'CCTV'}`;
+            badgeEl.style.background = badgeColor;
+        }
+        if (guideEl) guideEl.innerText = guideText || '저장된 ITS 영상주소로 재생합니다.';
+    }
+
+    function resetCctvFrameDisplay() {
+        const screen = document.getElementById('cctv-player-screen');
+        const frame = document.getElementById('cctv-player-frame');
+        if (screen) {
+            screen.style.padding = '8px';
+            screen.style.background = '#000';
+        }
+        if (frame) {
+            frame.style.position = '';
+            frame.style.left = '';
+            frame.style.top = '';
+            frame.style.width = '100%';
+            frame.style.height = '100%';
+            frame.style.minHeight = '62vh';
+            frame.style.borderRadius = '12px';
+            frame.style.transform = '';
+            frame.style.transformOrigin = '';
+        }
+    }
+
+    function applySejongBisCleanView() {
+        const screen = document.getElementById('cctv-player-screen');
+        const frame = document.getElementById('cctv-player-frame');
+        const cutTop = window.innerWidth <= 600 ? 92 : 108;
+        if (screen) {
+            screen.style.padding = '0';
+            screen.style.background = '#101010';
+        }
+        if (frame) {
+            frame.style.position = 'absolute';
+            frame.style.left = '0';
+            frame.style.top = `-${cutTop}px`;
+            frame.style.width = '100%';
+            frame.style.height = `calc(100% + ${cutTop}px)`;
+            frame.style.minHeight = `calc(62vh + ${cutTop}px)`;
+            frame.style.borderRadius = '18px';
+            frame.style.transform = 'scale(1.01)';
+            frame.style.transformOrigin = 'top center';
+        }
+    }
+
+    function isHlsUrl(url = '', format = '') {
+        return /m3u8|application\/vnd\.apple\.mpegurl|application\/x-mpegurl|hls/i.test(`${url} ${format}`);
+    }
+
+    function safePlayCctvVideo(video) {
+        if (!video) return;
+        const result = video.play();
+        if (result && typeof result.catch === 'function') result.catch(() => {});
+    }
+
+    function retryCurrentCctvPlayback() {
+        // ITS는 기존 주소를 반복 재생하지 않고 매번 최신 주소를 다시 조회합니다.
+        if (typeof window.__itsCctvRetry === 'function') {
+            window.__itsCctvRetry();
+            return;
+        }
+        if (!currentCctvUrl) return;
+        playCctvInModal(currentCctvUrl, currentCctvTitle || 'CCTV 재생', currentCctvFormat || '');
+    }
+
+    function playCctvInModal(url, title = 'CCTV 재생', format = '') {
+        currentCctvUrl = url;
+        currentCctvTitle = title || 'CCTV 재생';
+        currentCctvFormat = format || '';
+        hlsRecoveryCount = 0;
+
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const frame = document.getElementById('cctv-player-frame');
+        if (!modal || !video) return window.open(url, '_blank', 'noopener,noreferrer');
+
+        clearHlsRetryTimer();
+        clearCctvPlaybackGuard();
+        const attemptId = `${url}|${Date.now()}`;
+        cctvPlaybackAttemptId = attemptId;
+
+        resetCctvFrameDisplay();
+        setCctvModalInfo(title, 'ITS 영상 재생', '저장된 ITS 영상주소로 재생 중입니다.', '#34C759');
+        modal.style.display = 'block';
+        if (frame) { frame.src = 'about:blank'; frame.style.display = 'none'; }
+        video.style.display = 'block';
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        video.pause();
+        video.removeAttribute('src');
+        video.load();
+        setCctvLoading(true, 'ITS 영상에 연결하고 있습니다.');
+
+        const isCurrentAttempt = () => cctvPlaybackAttemptId === attemptId;
+        const finishSuccess = (guide = 'ITS CCTV 영상 재생 중입니다.') => {
+            if (!isCurrentAttempt()) return;
+            clearCctvPlaybackGuard();
+            window.__itsCctvPlaybackReadyToken = window.__itsCctvActiveToken || '';
+            setCctvLoading(false);
+            setCctvPlaybackGuide(guide);
+            safePlayCctvVideo(video);
+        };
+        const finishFailure = (guide = 'ITS 영상 연결에 실패했습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.') => {
+            if (!isCurrentAttempt()) return;
+            clearCctvPlaybackGuard();
+            setCctvLoading(false);
+            setCctvPlaybackGuide(guide);
+        };
+        const revealOnMetadata = () => {
+            if (!isCurrentAttempt()) return;
+            finishSuccess('ITS CCTV 영상 재생 준비 중입니다.');
+        };
+        const markRetrying = (message) => {
+            if (!isCurrentAttempt()) return;
+            setCctvLoading(true, message || 'ITS 영상에 다시 연결하고 있습니다.');
+            setCctvPlaybackGuide(message || 'ITS 영상에 다시 연결하고 있습니다.');
+        };
+        const requestFreshUrlOnce = () => {
+            if (!isCurrentAttempt()) return;
+            // 재생 오류만으로 API를 자동 호출하지 않습니다.
+            // 사용자가 아래 "최신 주소 조회" 버튼을 눌렀을 때만 1회 갱신합니다.
+            finishFailure('저장된 ITS 영상 주소 재생에 실패했습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
+        };
+
+        // iPhone Safari에서 스트림 이벤트가 오지 않으면 로딩을 끝내고 사용자가 다시 시도할 수 있게 합니다.
+        cctvPlaybackGuardTimer = setTimeout(() => {
+            if (!isCurrentAttempt()) return;
+            requestFreshUrlOnce();
+            setTimeout(() => {
+                if (isCurrentAttempt() && window.__itsCctvPlaybackReadyToken !== (window.__itsCctvActiveToken || '')) {
+                    finishFailure('ITS 영상 연결 시간이 초과되었습니다. 아래 최신 주소 조회를 눌러 1회만 갱신하세요.');
+                }
+            }, 6500);
+        }, 12000);
+
+        video.oncanplay = () => finishSuccess();
+        video.onloadeddata = revealOnMetadata;
+        video.onplaying = () => finishSuccess();
+        video.onerror = requestFreshUrlOnce;
+
+        const hlsStream = isHlsUrl(url, format);
+        const nativeHls = video.canPlayType('application/vnd.apple.mpegurl') || video.canPlayType('application/x-mpegURL');
+
+        if (hlsStream && nativeHls) {
+            video.setAttribute('playsinline', '');
+            video.setAttribute('webkit-playsinline', '');
+            video.setAttribute('autoplay', '');
+            video.setAttribute('muted', '');
+            video.preload = 'auto';
+            video.defaultMuted = true;
+            video.muted = true;
+            video.onloadedmetadata = revealOnMetadata;
+            video.src = url;
+            safePlayCctvVideo(video);
+            return;
+        }
+
+        if (hlsStream && window.Hls && Hls.isSupported()) {
+            currentHls = new Hls({
+                enableWorker: true,
+                lowLatencyMode: false,
+                startPosition: -1,
+                liveSyncDurationCount: 4,
+                liveMaxLatencyDurationCount: 12,
+                maxBufferLength: 20,
+                backBufferLength: 10,
+                manifestLoadingTimeOut: 9000,
+                levelLoadingTimeOut: 9000,
+                fragLoadingTimeOut: 12000,
+                manifestLoadingMaxRetry: 2,
+                levelLoadingMaxRetry: 2,
+                fragLoadingMaxRetry: 2
+            });
+            currentHls.on(Hls.Events.MEDIA_ATTACHED, () => currentHls && currentHls.loadSource(url));
+            currentHls.on(Hls.Events.MANIFEST_PARSED, () => finishSuccess());
+            currentHls.on(Hls.Events.ERROR, function(event, data) {
+                console.warn('ITS HLS 재생 오류', data);
+                if (!data || !data.fatal || !currentHls || !isCurrentAttempt()) return;
+
+                if (data.type === Hls.ErrorTypes.NETWORK_ERROR && hlsRecoveryCount < 2) {
+                    hlsRecoveryCount += 1;
+                    markRetrying(`ITS 영상 재연결 중입니다. (${hlsRecoveryCount}/2)`);
+                    clearHlsRetryTimer();
+                    hlsRetryTimer = setTimeout(() => {
+                        if (currentHls && isCurrentAttempt()) currentHls.startLoad(-1);
+                    }, 800 * hlsRecoveryCount);
+                    return;
+                }
+                if (data.type === Hls.ErrorTypes.MEDIA_ERROR && hlsRecoveryCount < 2) {
+                    hlsRecoveryCount += 1;
+                    markRetrying(`ITS 영상 복구 중입니다. (${hlsRecoveryCount}/2)`);
+                    currentHls.recoverMediaError();
+                    return;
+                }
+                requestFreshUrlOnce();
+            });
+            currentHls.attachMedia(video);
+            return;
+        }
+
+        video.src = url;
+        video.onloadedmetadata = revealOnMetadata;
+        safePlayCctvVideo(video);
+    }
+
+    function playCctvPageInModal(url, title = 'CCTV 화면', source = '') {
+        currentCctvUrl = url;
+        const modal = document.getElementById('cctv-player-modal');
+        const video = document.getElementById('cctv-player-video');
+        const frame = document.getElementById('cctv-player-frame');
+        if (!modal || !frame) return window.open(url, '_blank', 'noopener,noreferrer');
+
+        let badgeText = '공식 CCTV 화면';
+        let badgeColor = '#5856D6';
+        let guideText = '세종시 교통정보시스템 화면입니다. 영상이 바로 안 보이면 지도에서 CCTV 아이콘을 한 번 누르세요.';
+
+        if (source === 'FLOOD_CCTV') {
+            badgeText = '하천 수위 CCTV';
+            badgeColor = '#007AFF';
+            guideText = '홍수정보시스템 수위 CCTV 화면입니다. 화면이 보이지 않으면 화면을 한 번 터치하세요.';
+        } else if (source === 'DISASTER_CCTV') {
+            badgeText = '재난 CCTV';
+            badgeColor = '#FF9500';
+            guideText = '재난 관련 CCTV 후보 화면입니다. 세종시 교통CCTV 화면에서 해당 지점 CCTV 아이콘을 선택하세요.';
+        } else if (source === 'SEJONG_BIS') {
+            badgeText = '세종 교통 CCTV';
+            badgeColor = '#5856D6';
+            guideText = '세종시 교통정보시스템 CCTV 화면입니다. 영상이 바로 안 보이면 지도에서 해당 CCTV 아이콘을 누르세요.';
+        }
+
+        resetCctvFrameDisplay();
+        if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') applySejongBisCleanView();
+        setCctvModalInfo(title, badgeText, guideText, badgeColor);
+        setCctvLoading(false);
+        if (currentHls) { currentHls.destroy(); currentHls = null; }
+        if (video) { video.pause(); video.removeAttribute('src'); video.load(); video.style.display = 'none'; }
+        frame.style.display = 'block';
+        frame.src = url;
+        modal.style.display = 'block';
+    }
+
+    function openSejongBisCctvPopup() {
+        playCctvPageInModal(SEJONG_TRAFFIC_CCTV_URL, '세종시 교통정보시스템 CCTV', 'SEJONG_BIS');
+    }
+
+    function openCctvUrl(url, title = 'CCTV 재생', source = '', format = '') {
+        if (!url) {
+            alert('관리자 모드에서 CCTV 링크 또는 cctvid를 추가하세요.');
+            return;
+        }
+        if (source === 'FLOOD_CCTV') {
+            playCctvPageInModal(url, title || '홍수정보 CCTV', 'FLOOD_CCTV');
+            return;
+        }
+        if (source === 'SEJONG_BIS' || source === 'DISASTER_CCTV') {
+            playCctvPageInModal(url, title || '세종시 교통CCTV', source);
+            return;
+        }
+        if (String(url).includes('m.map.kakao.com/actions/cctvView')) {
+            window.open(url, '_blank', 'noopener,noreferrer');
+            return;
+        }
+        if (source === 'ITS' || /\.(m3u8|mp4|jpg|jpeg)(\?|$)/i.test(url) || String(url).includes('openapi.its.go.kr') || String(url).includes('cctv')) {
+            playCctvInModal(url, title, format);
+        } else {
+            window.open(url, '_blank', 'noopener,noreferrer');
+        }
+    }
+
+    function itsCoordinatePair(item = {}) {
+        let x = Number(item.coordx || item.x || 0);
+        let y = Number(item.coordy || item.y || 0);
+        // ITS: coordx=경도(127.x), coordy=위도(36.x). 저장 과정에서 뒤집힌 값도 자동 보정합니다.
+        if (x > 0 && y > 0 && x < 90 && y > 100) [x, y] = [y, x];
+        if (!(x >= 124 && x <= 132 && y >= 33 && y <= 39)) return null;
+        return { lng: x, lat: y };
+    }
+
+    function buildItsCctvUrlForPoint(item = {}, type = 'its', cctvType = '4', pad = 0.004) {
+        const point = itsCoordinatePair(item);
+        if (!point) return '';
+        return buildItsCctvUrlForBounds({
+            minX: +(point.lng - pad).toFixed(6), maxX: +(point.lng + pad).toFixed(6),
+            minY: +(point.lat - pad).toFixed(6), maxY: +(point.lat + pad).toFixed(6)
+        }, type, cctvType);
+    }
+
+    function itsCandidateScore(row, target = {}) {
+        const targetName = compactCctvName(target.name || '');
+        const rowName = compactCctvName(row.cctvname || row.name || '');
+        const targetPoint = itsCoordinatePair(target);
+        let rx = Number(row.coordx || row.x || 0);
+        let ry = Number(row.coordy || row.y || 0);
+        if (rx > 0 && ry > 0 && rx < 90 && ry > 100) [rx, ry] = [ry, rx];
+        const nameScore = targetName && rowName === targetName ? 100000 : (targetName && rowName.includes(targetName) ? 60000 : 0);
+        let distancePenalty = 0;
+        if (targetPoint && rx && ry) distancePenalty = Math.hypot(targetPoint.lng - rx, targetPoint.lat - ry) * 100000;
+        const rank = getItsStreamRank({ cctvformat: row.cctvformat || row.format || '', url: row.cctvurl || row.url || '' });
+        return nameScore + rank * 100 - distancePenalty;
+    }
+
+    async function fetchFreshItsCctv(item = {}) {
+        // 중요: 최신 주소 조회는 사용자가 버튼을 눌렀을 때만, 단 1회 호출합니다.
+        // 이전의 its/ex × 여러 cctvType 반복 조회는 하지 않습니다.
+        const url = buildItsCctvUrlForPoint(item, ITS_PRIMARY_TYPE, ITS_PRIMARY_CCTV_TYPE);
+        if (!url) throw new Error('CCTV 좌표 정보가 없습니다.');
+        const json = await requestItsCctvJson(url, `${item.name || 'ITS CCTV'} 최신 주소 조회`);
+        const rows = normalizeItsCctvResponse(json).filter(row => row.cctvurl || row.url);
+        if (!rows.length) throw new Error('ITS에서 영상 주소를 받지 못했습니다.');
+        const best = rows.sort((a, b) => itsCandidateScore(b, item) - itsCandidateScore(a, item))[0];
+        if (!best) throw new Error('일치하는 CCTV를 찾지 못했습니다.');
+        window.__itsCctvLastError = '';
+        return mapItsCctvItem(best, item.area || '조치원');
+    }
+
+    async function saveFreshItsCctv(oldItem, freshItem) {
+        if (!freshItem || !freshItem.url) return;
+        const key = cctvItemDbKey(oldItem);
+        const live = {
+            url: freshItem.url,
+            cctvformat: freshItem.cctvformat || freshItem.format || '',
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+        cctvLiveV2[key] = live;
+        cctvData = sanitizeCctvData((cctvData || []).map(item => {
+            if (cctvItemDbKey(item) !== key) return item;
+            return { ...item, ...freshItem, id: item.id || freshItem.id, station: item.station || freshItem.station, area: item.area || freshItem.area };
+        }));
+        try { localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData)); } catch (e) {}
+        // 최신 ITS 주소만 별도 경로에 저장하여 전체 CCTV 목록 재전송을 방지합니다.
+        await db.ref(`${CCTV_LIVE_DB_PATH_V2}/${key}`).set(live);
+    }
+
+    const ITS_FAST_STREAM_CACHE_PREFIX = 'sejongPoliceItsFastStream:v1:';
+    const ITS_FAST_STREAM_CACHE_TTL = 20 * 60 * 1000;
+
+    function getItsFastStreamCacheKey(item = {}) {
+        return `${ITS_FAST_STREAM_CACHE_PREFIX}${String(item.id || item.cctvid || item.name || '').trim()}|${String(item.coordx || item.x || '')}|${String(item.coordy || item.y || '')}`;
+    }
+
+    function readItsFastStreamCache(item = {}) {
+        try {
+            const raw = localStorage.getItem(getItsFastStreamCacheKey(item));
+            const cached = raw ? JSON.parse(raw) : null;
+            if (!cached || !cached.url || !cached.savedAt || (Date.now() - Number(cached.savedAt) > ITS_FAST_STREAM_CACHE_TTL)) return null;
+            return cached;
+        } catch (e) {
+            return null;
+        }
+    }
+
+    function writeItsFastStreamCache(item = {}, fresh = {}) {
+        if (!fresh || !fresh.url) return;
+        try {
+            localStorage.setItem(getItsFastStreamCacheKey(item), JSON.stringify({
+                url: fresh.url,
+                format: fresh.cctvformat || fresh.format || '',
+                savedAt: Date.now()
+            }));
+        } catch (e) {
+            // 저장공간 제한 등 캐시 실패는 재생에 영향을 주지 않습니다.
+        }
+    }
+
+    const itsFreshRequestPool = new Map();
+    const ITS_WARMUP_CACHE_FRESH_MS = 7 * 60 * 1000;
+
+    function fetchFreshItsCctvShared(item = {}) {
+        const key = getItsFastStreamCacheKey(item);
+        if (itsFreshRequestPool.has(key)) return itsFreshRequestPool.get(key);
+        const promise = fetchFreshItsCctv(item).finally(() => itsFreshRequestPool.delete(key));
+        itsFreshRequestPool.set(key, promise);
+        return promise;
+    }
+
+    function prewarmItsCctvStream(item = {}) {
+        // 자동 사전조회 금지: 카드 표시·손가락 터치만으로 ITS API를 호출하지 않습니다.
+        return Promise.resolve(readItsFastStreamCache(item) || null);
+    }
+
+    function warmVisibleItsCctvStreams(items = []) {
+        // 목록 렌더링 시 자동 API 조회를 하지 않습니다.
+        return;
+    }
+
+    function delay(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms));
+    }
+
+    async function handleCctvCardClick(item = {}) {
+        if (item.source !== 'ITS') {
+            openCctvUrl(item.url, item.name || 'CCTV 재생', item.source || '', item.cctvformat || item.format || '');
+            return;
+        }
+
+        const requestToken = `${item.id || item.name || ''}|${Date.now()}`;
+        window.__itsCctvRequestToken = requestToken;
+        window.__itsCctvActiveToken = requestToken;
+        window.__itsCctvPlaybackReadyToken = '';
+        window.__itsCctvForceRefreshUsed = false;
+        window.__itsCctvForceRefresh = null; // 영상 실패 시 자동 API 재조회 금지
+        currentCctvTitle = item.name || 'CCTV 재생';
+        currentCctvFormat = item.cctvformat || item.format || '';
+
+        const retryButton = document.getElementById('cctv-retry-button');
+        if (retryButton) retryButton.textContent = '최신 주소 조회';
+
+        const fetchAndPlayFresh = async () => {
+            if (window.__itsCctvRequestToken !== requestToken) return;
+            setCctvLoading(true, '최신 ITS 영상주소를 1회 조회하고 있습니다.');
+            setCctvPlaybackGuide('호출 한도 보호를 위해 이 버튼을 눌렀을 때만 ITS API를 1회 호출합니다.');
+            try {
+                const fresh = await fetchFreshItsCctvShared(item);
+                if (!fresh || !fresh.url) throw new Error('최신 영상 주소를 받지 못했습니다.');
+                if (window.__itsCctvRequestToken !== requestToken) return;
+                writeItsFastStreamCache(item, fresh);
+                await saveFreshItsCctv(item, fresh);
+                playCctvInModal(fresh.url, item.name || fresh.name || 'CCTV 재생', fresh.cctvformat || fresh.format || '');
+            } catch (error) {
+                console.warn('ITS 최신 영상주소 확인 실패', error);
+                if (window.__itsCctvRequestToken === requestToken) {
+                    setCctvLoading(false);
+                    setCctvPlaybackGuide(`최신 ITS 주소 조회 실패: ${error?.message || '잠시 후 다시 시도하세요.'}`);
+                }
+            }
+        };
+        window.__itsCctvRetry = fetchAndPlayFresh;
+
+        // 저장된 주소가 있으면 먼저 바로 재생합니다. 카드 클릭 자체는 API를 호출하지 않습니다.
+        if (item.url) {
+            playCctvInModal(item.url, item.name || 'CCTV 재생', item.cctvformat || item.format || '');
+            setCctvPlaybackGuide('저장된 ITS 영상주소로 재생 중입니다. 영상이 보이지 않을 때만 하단 최신 주소 조회를 눌러 1회 갱신하세요.');
+            return;
+        }
+
+        // 저장된 주소가 없는 경우에도 자동으로 조회하지 않고 사용자가 버튼을 눌러 선택합니다.
+        openItsLoadingModal(item.name || 'CCTV 재생');
+        setCctvLoading(false);
+        setCctvPlaybackGuide('저장된 ITS 영상주소가 없습니다. 하단 최신 주소 조회를 눌러 1회만 조회하세요.');
+    }
+
+    function renderCctvs() {
+        const container = document.getElementById('cctv-list');
+        if (!container) return;
+        const search = (document.getElementById('cctv-search')?.value || '').toLowerCase();
+        let data = getCctvMasterData();
+        const forcedStation = scopeStation();
+        if (forcedStation) data = data.filter(c => cctvMatchesStation(c, forcedStation));
+
+        if (cctvFilter === 'north') data = data.filter(c => cctvMatchesStation(c, '북부서'));
+        else if (cctvFilter === 'south') data = data.filter(c => cctvMatchesStation(c, '남부서'));
+        else if (String(cctvFilter).startsWith('area:')) {
+            const key = String(cctvFilter).replace('area:', '');
+            data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, key));
+        } else if (cctvFilter !== 'all') data = data.filter(c => areaMatches(`${c.area || ''} ${c.name || ''}`, cctvFilter));
+
+        if (cctvSectorFilter !== 'all') {
+            data = data.filter(c => getCctvSectorValue(c) === cctvSectorFilter);
+        }
+
+        if (search) {
+            data = data.filter(c => `${c.name || ''} ${c.area || ''} ${c.station || ''} ${c.source || ''} ${c.type || ''}`.toLowerCase().includes(search));
+        }
+
+        const sectorOrder = ['its','downtown','river'];
+        data = data.slice().sort((a, b) => {
+            const sa = getCctvSectorValue(a);
+            const sb = getCctvSectorValue(b);
+            const ia = sectorOrder.indexOf(sa) >= 0 ? sectorOrder.indexOf(sa) : 99;
+            const ib = sectorOrder.indexOf(sb) >= 0 ? sectorOrder.indexOf(sb) : 99;
+            if (ia !== ib) return ia - ib;
+            return `${a.area || ''} ${a.name || ''}`.localeCompare(`${b.area || ''} ${b.name || ''}`, 'ko');
+        });
+
+        // 목록 표시만으로는 ITS API를 호출하지 않습니다.
+        warmVisibleItsCctvStreams(data);
+
+        container.innerHTML = '';
+        if (!data.length) {
+            container.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--sub); font-size:12px;">조건에 맞는 CCTV가 없습니다.</div>`;
+            return;
+        }
+
+        let lastSector = '';
+        data.forEach(c => {
+            const sector = getCctvSectorValue(c);
+            if (cctvSectorFilter === 'all' && sector !== lastSector) {
+                const header = document.createElement('div');
+                header.style.gridColumn = '1 / -1';
+                header.style.marginTop = lastSector ? '10px' : '0';
+                header.style.padding = '10px 12px';
+                header.style.borderRadius = '12px';
+                header.style.background = 'var(--card-elevated)';
+                header.style.fontSize = '13px';
+                header.style.fontWeight = '900';
+                header.style.color = 'var(--text)';
+                header.innerHTML = `${getCctvSectorLabel(sector)}`;
+                container.appendChild(header);
+                lastSector = sector;
+            }
+
+            const hasUrl = !!c.url;
+            const isSejongBis = c.source === 'SEJONG_BIS' || c.source === 'DISASTER_CCTV' || c.source === 'FLOOD_CCTV';
+            const opacity = hasUrl ? '1' : '0.6';
+            const btnStyle = c.source === 'ITS'
+                ? 'background:#34C759; color:white;'
+                : (c.source === 'FLOOD_CCTV'
+                    ? 'background:#007AFF; color:white;'
+                    : (isSejongBis
+                        ? 'background:#5856D6; color:white;'
+                        : (hasUrl ? 'background:var(--kakao); color:#3b1e1e;' : 'background:#FFFFFF; border:1px solid var(--line); color:var(--sub);')));
+            const btnText = c.source === 'ITS'
+                ? '재생'
+                : (c.source === 'FLOOD_CCTV'
+                    ? '보기'
+                    : (isSejongBis
+                        ? '보기'
+                        : (hasUrl ? '재생' : '링크 대기중')));
+            const sourceLabel = c.source === 'ITS' ? 'ITS'
+                : (c.source === 'SEJONG_BIS' ? '세종교통'
+                : (c.source === 'DISASTER_CCTV' ? '재난'
+                : (c.source === 'FLOOD_CCTV' ? '하천수위'
+                : (extractCctvIdFromText(c.url || c.id || '') ? '카카오' : '직접'))));
+
+            const card = document.createElement('div');
+            card.className = 'traffic-card';
+            card.style.textDecoration = 'none';
+            card.style.opacity = opacity;
+            card.style.cursor = 'pointer';
+            // 카드 터치만으로는 ITS API를 호출하지 않습니다.
+            card.onclick = () => handleCctvCardClick(c);
+            card.innerHTML = `<div class="card-info"><span class="area-tag">${c.station || '세종청'}</span><div class="loc-name" style="margin-top:4px;">${c.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px;">${c.area || '-'} · ${getCctvSectorLabel(sector)} · ${sourceLabel}${c.cctvformat ? ' · ' + c.cctvformat : ''}</div></div><div class="status-btn" style="${btnStyle}">${btnText}</div>`;
+            container.appendChild(card);
+        });
+    }
+
+    function addCctvLocation() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const defaultStation = scopeStation() || '북부서';
+        const station = normalizeStation(prompt('관할 입력 (북부서/남부서)', defaultStation), '');
+        const area = prompt('행정구역 입력', '조치원'); if (!area) return;
+        const name = prompt('CCTV명 입력'); if (!name) return;
+        const input = prompt('카카오 CCTV 링크, cctvid 번호, 또는 ITS 영상 URL 입력'); if (!input) return;
+        const directId = extractCctvIdFromText(input);
+        const url = directId ? makeKakaoCctvUrl(directId) : input.trim();
+        const item = withStation({
+            id: directId || `manual-${Date.now()}`,
+            station,
+            area,
+            name,
+            url,
+            active: true,
+            source: directId ? '카카오' : '직접'
+        });
+        cctvData = sanitizeCctvData([...(cctvData || []), item]);
+        try { localStorage.setItem('cctvDataBackup', JSON.stringify(cctvData)); } catch (e) {}
+        upsertCctvCatalogEntry(item).catch(error => alert(`CCTV 저장에 실패했습니다.
+${error?.message || '네트워크를 확인하세요.'}`));
+        cctvFilter = 'all';
+        document.getElementById('cctv-search').value = '';
+        renderCctvFilterButtons();
+        renderCctvSectorButtons();
+        renderCctvs();
+    }
+
+    function resetData() {
+        if (!isAdmin) return;
+        if (confirm('도로통제 데이터를 초기화하시겠습니까?')) {
+            replaceTrafficItems(defaultData.map(item => withStation(item)))
+                .catch(error => alert(`도로통제 초기화에 실패했습니다.\n${error?.message || '네트워크를 확인하세요.'}`));
+        }
+    }
+
+    // --- 현위치 기반 대피소 가까운순 정렬 ---
+
+    // 두 위경도 사이의 직선거리 계산 공식, 단위 km
+    function getDistance(lat1, lon1, lat2, lon2) {
+        const R = 6371;
+        const dLat = (lat2 - lat1) * Math.PI / 180;
+        const dLon = (lon2 - lon1) * Math.PI / 180;
+        const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                  Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+                  Math.sin(dLon / 2) * Math.sin(dLon / 2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+        return R * c;
+    }
+
+
+
+    // 대피소 거리·길찾기 고속화
+    // 기존 주소→좌표 변환 방식은 항목이 많을수록 매우 느려져서 제거했습니다.
+    // 이제 위·경도 입력값만 사용하므로 남부서·북부서 모두 즉시 가까운순 정렬됩니다.
+    const SHELTER_GEOCODE_CACHE_KEY = 'sejongShelterGeocodeCacheV5_disabled';
+    try {
+        localStorage.removeItem('sejongShelterGeocodeCacheV4');
+        localStorage.removeItem('sejongShelterGeocodeCacheV3');
+        localStorage.removeItem('sejongShelterGeocodeCacheV2');
+    } catch (e) {}
+
+    function shelterCacheKey(s = {}) {
+        return String(s.id || `${s.name || ''}|${s.addr || ''}|${s.area || ''}`).trim();
+    }
+
+    function isSejongCoord(lat, lng) {
+        const y = Number(lat);
+        const x = Number(lng);
+        return Number.isFinite(y) && Number.isFinite(x) && y >= 36.35 && y <= 36.80 && x >= 127.10 && x <= 127.45;
+    }
+
+    function getKnownShelterCoord(s = {}) {
+        const fixed = normalizeShelterCoordValue(s);
+        const lat = Number(fixed.lat);
+        const lng = Number(fixed.lng);
+        if (isSejongCoord(lat, lng)) return { lat, lng, source: 'data', label: fixed.coordSource || '등록좌표' };
+        return null;
+    }
+
+    async function geocodeShelterAddress(s = {}) {
+        // 성능 문제 방지를 위해 외부 주소검색 API 호출 금지
+        return null;
+    }
+
+    async function getShelterCoordForDistance(s) {
+        return getKnownShelterCoord(s);
+    }
+
+    function wait(ms) {
+        return Promise.resolve();
+    }
+
+    // 현위치를 받아 전체 대피소를 가까운 순으로 표시
+    async function sortByDistance(btn) {
+        document.querySelectorAll('#sec-shelter .filter-btn').forEach(b => b.classList.remove('active'));
+        if (btn) btn.classList.add('active');
+
+        const container = document.getElementById('shelter-list');
+        container.innerHTML = `
+            <div style="grid-column:1/-1; text-align:center; padding:30px; color:var(--sub); font-size:12px; line-height:1.6;">
+                <i class="fas fa-location-crosshairs"></i> 현위치 확인 중...<br>
+                <span style="font-size:11px;">등록 위·경도 기준으로 바로 거리순 정렬합니다.</span>
+            </div>`;
+
+        if (!navigator.geolocation) {
+            container.innerHTML = `
+                <div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px;">
+                    이 브라우저에서는 위치 기능을 지원하지 않습니다.
+                </div>`;
+            return;
+        }
+
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                const myLat = position.coords.latitude;
+                const myLng = position.coords.longitude;
+
+                let sourceData = getAllShelterData();
+                const forcedStation = scopeStation();
+                if (forcedStation) sourceData = sourceData.filter(s => (s.station || '북부서') === forcedStation);
+                if (shelterFilter === '북부서' || shelterFilter === '남부서') {
+                    sourceData = sourceData.filter(s => (s.station || '북부서') === shelterFilter);
+                } else if (String(shelterFilter).startsWith('area:')) {
+                    const key = String(shelterFilter).replace('area:', '');
+                    sourceData = sourceData.filter(s => areaMatches(`${s.area || ''} ${s.name || ''} ${s.addr || ''}`, key));
+                }
+                const search = (document.getElementById('shelter-search')?.value || '').toLowerCase();
+                if (search) sourceData = sourceData.filter(s => `${s.name || ''} ${s.addr || ''} ${s.area || ''}`.toLowerCase().includes(search));
+
+                const resolved = [];
+                const unresolved = [];
+                sourceData.forEach(s => {
+                    const coord = getKnownShelterCoord(s);
+                    if (coord && hasValidCoord(coord.lat, coord.lng)) {
+                        resolved.push({
+                            ...s,
+                            lat: coord.lat,
+                            lng: coord.lng,
+                            distance: getDistance(myLat, myLng, coord.lat, coord.lng),
+                            distanceSource: coord.source,
+                            distanceSourceLabel: coord.label || '등록좌표'
+                        });
+                    } else {
+                        unresolved.push(s);
+                    }
+                });
+
+                const sortedData = resolved.sort((a, b) => a.distance - b.distance);
+                renderShelterCards(sortedData, true);
+
+                container.insertAdjacentHTML('afterbegin', `
+                    <div style="grid-column:1/-1; background:var(--card-elevated); border-radius:14px; padding:10px; text-align:center; color:var(--blue); font-size:12px; font-weight:700; margin-bottom:4px; line-height:1.5;">
+                        현위치 기준 가까운 대피소 순으로 표시 중<br>
+                        <span style="font-size:11px; color:var(--sub); font-weight:600;">등록좌표 ${sortedData.length}개 즉시 적용${unresolved.length ? ` · 좌표 없는 항목 ${unresolved.length}개 제외` : ''}</span>
+                    </div>`);
+            },
+            (error) => {
+                let msg = '위치 정보를 가져올 수 없습니다.';
+                if (error.code === 1) msg = '위치 권한이 거부되었습니다. 브라우저 주소창의 위치 권한을 허용해주세요.';
+                if (error.code === 2) msg = '현재 위치를 확인할 수 없습니다. GPS 또는 위치 서비스를 켜주세요.';
+                if (error.code === 3) msg = '위치 확인 시간이 초과되었습니다. 다시 눌러주세요.';
+
+                container.innerHTML = `
+                    <div style="grid-column:1/-1; text-align:center; padding:20px; color:var(--orange); font-size:12px; line-height:1.6;">
+                        ${msg}<br>
+                        <button class="shelter-btn" style="margin-top:10px; max-width:160px; margin-left:auto; margin-right:auto;" onclick="filterShelter('전체', document.querySelector('#sec-shelter .filter-btn'))">전체 대피소 보기</button>
+                    </div>`;
+            },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 120000 }
+        );
+    }
+
+</script>
+
+
+<div id="manpower-modal" class="manpower-modal-overlay" role="dialog" aria-modal="true" aria-labelledby="manpower-modal-title" onclick="handleManpowerModalOverlay(event)">
+    <div class="manpower-modal-card">
+        <div class="manpower-modal-head">
+            <div id="manpower-modal-title" class="manpower-modal-title">경력 인원 설정</div>
+            <button type="button" class="manpower-modal-close" onclick="closeManpowerEditor()" aria-label="닫기"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="manpower-modal-body">
+            <label class="manpower-editor-label" for="manpower-count-select">인원</label>
+            <select id="manpower-count-select" class="manpower-editor-select"></select>
+        </div>
+        <div class="manpower-modal-actions">
+            <button type="button" class="manpower-cancel-btn" onclick="closeManpowerEditor()">취소</button>
+            <button type="button" class="manpower-save-btn" onclick="saveManpowerEditor()">저장</button>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
