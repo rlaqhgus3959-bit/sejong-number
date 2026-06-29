@@ -5315,7 +5315,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             while ((areaBlock = areaBlockRe.exec(text)) !== null) {
                 const block = areaBlock[1] || '';
                 const areaLineRe = new RegExp(
-                    '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([^\\n\\r□]+)',
+                    '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:\\(\\s*\\d+\\s*\\)\\s*)?(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
                     'g'
                 );
                 let areaLine;
@@ -5327,7 +5327,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             // 일반 목록·현재현황의 "호우주의보 : 지역 / 폭염주의보 : 지역" 형식
             const segmentRe = new RegExp(
-                '(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
+                '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:\\(\\s*\\d+\\s*\\)\\s*)?(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
                 'g'
             );
             let match;
@@ -5350,6 +5350,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 // 이어질 수 있습니다.
                 let rows = splitSpecialWarningSegments(detailText);
                 if (!rows.length) rows = splitSpecialWarningSegments(itemTextValue);
+                // true이면 통보문을 특보별로 성공적으로 분리한 상태입니다.
+                // 이 경우 원문 전체의 '해제/발표' 단어를 다른 특보에 전파하면 안 됩니다.
+                const parsedWarningSegments = rows.length > 0;
 
                 const originalText = detailText || itemTextValue;
 
@@ -5370,8 +5373,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 // 상세 통보문에는 지역만 있고, 목록 제목에는 “발표/해제”가 있는 경우가 있습니다.
                 // 두 정보를 합쳐야 해제 통보를 놓치지 않고 현재 상태를 정확히 판정할 수 있습니다.
                 const sourceText = typeof item === 'string' ? String(item) : itemTextValue;
-                const itemReleased = isReleasedSpecial(item);
-                const itemAnnounced = /(특보\s*)?발표/.test(sourceText);
+                /*
+                 * 중요: 하나의 통보문에는 “호우주의보 해제”와 “폭염주의보 발표”가
+                 * 함께 있을 수 있습니다. 이전 코드는 원문 전체에 ‘해제’가 한 번만
+                 * 있어도 모든 특보 행을 해제로 처리해 세종 폭염주의보가 상단에서
+                 * 사라졌습니다. 분리 성공한 행은 해당 행의 상태(row.isReleased)만
+                 * 사용하고, 분리가 전혀 되지 않은 단일 항목일 때만 원문 상태를 보조합니다.
+                 */
+                const itemReleased = !parsedWarningSegments && isReleasedSpecial(item);
+                const itemAnnounced = !parsedWarningSegments && /(특보\s*)?발표/.test(sourceText);
 
                 rows.forEach(row => {
                     if (onlySejong && !isSejongSpecialRegion(row.region)) return;
@@ -5725,7 +5735,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV6';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV7';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5879,18 +5889,43 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
             statusActiveRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'active');
 
-            const historyFallbackActiveRows = historyRows
+            /*
+             * 현재현황(getPwnStatus)은 세종 항목을 간헐적으로 누락할 수 있으므로,
+             * 통보문/목록에서는 “같은 특보·같은 세종 구역”의 가장 마지막 통보만 남겨
+             * 현재 상태를 재구성합니다. 마지막 통보가 해제가 아니고 발효시각이 지났다면
+             * 상단도 반드시 ‘발효 중’으로 표시합니다.
+             */
+            function historyStateKey(row) {
+                const name = row.alertName || '';
+                const region = cleanText(row.region || '').replace(/\s+/g, '');
+                return `${name}|${region}`;
+            }
+
+            const latestHistoryByWarning = new Map();
+            historyRows.forEach(row => {
+                if (!row.alertName) return;
+                const key = historyStateKey(row);
+                const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
+                const previous = latestHistoryByWarning.get(key);
+                const previousTime = previous ? (previous.publishedAt?.getTime() || previous.effectiveAt?.getTime() || 0) : -1;
+                // 같은 시각에는 해제 통보를 우선하여 잘못된 재표시를 막습니다.
+                if (!previous || rowTime > previousTime || (rowTime === previousTime && isReleasedSpecial(row.item) && !isReleasedSpecial(previous.item))) {
+                    latestHistoryByWarning.set(key, row);
+                }
+            });
+
+            const historyFallbackActiveRows = Array.from(latestHistoryByWarning.values())
                 .filter(row => {
                     if (isReleasedSpecial(row.item)) return false;
-                    // API 회차에 “발표” 단어가 빠져도, 세종 대상 특보명과 발효/발표시각이 있으면
-                    // 발효 중 후보로 판단합니다. 단, 뒤이은 해제 통보가 있으면 즉시 제외합니다.
                     const startedAt = row.effectiveAt || row.publishedAt;
                     if (!startedAt || startedAt.getTime() > now) return false;
-                    if (now - startedAt.getTime() > 48 * 60 * 60 * 1000) return false;
-                    return !hasLaterRelease(row);
+                    // 특보는 해제 통보가 올 때까지 유지될 수 있으므로 최근 7일 범위에서만 보조 판정합니다.
+                    if (now - startedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return false;
+                    return true;
                 });
 
-            const activeRows = uniqueRows(statusActiveRows.length ? statusActiveRows : historyFallbackActiveRows)
+            // 현재현황과 통보문 보조판정을 합쳐, 한쪽 API가 누락돼도 상단 특보가 사라지지 않게 합니다.
+            const activeRows = uniqueRows([...statusActiveRows, ...historyFallbackActiveRows])
                 .sort((a, b) => (b.effectiveAt?.getTime() || b.publishedAt?.getTime() || 0) - (a.effectiveAt?.getTime() || a.publishedAt?.getTime() || 0));
             const pendingStatusRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'pending');
             const pendingHistoryRows = getPendingSpecials(sejongHistoryItems)
