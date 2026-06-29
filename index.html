@@ -5771,7 +5771,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV8';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV9';
+
+        // V9: 원본 특보 통보문 전체의 '해제' 단어로 세종 폭염주의보를 버리던 선필터 제거.
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -6107,9 +6109,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 .map(item => attachSpecialDetail(item, detailIndex))
                 .sort((a, b) => String(b.tmFc || b.tmEf || '').localeCompare(String(a.tmFc || a.tmEf || '')));
 
+            /*
+             * 중요: 여기서 원본 currentItems 전체에 대해 해제 여부를 먼저 검사하면 안 됩니다.
+             * 기상청 현재특보 자료는 한 건 안에 "호우주의보 해제"와 "폭염주의보 : 세종특별자치시"를
+             * 함께 담을 수 있습니다. 원본 전체에 '해제'가 한 번만 있어도 먼저 버리면,
+             * 세종 폭염주의보까지 사라져 상단에 '세종 특보 없음'이 표시됩니다.
+             * 반드시 특보별로 나눈 다음, 해당 특보 행의 해제 여부만 판정합니다.
+             */
             const activeStatusItems = currentItems
-                .map(item => attachSpecialDetail(item, detailIndex))
-                .filter(item => !isReleasedSpecial(item));
+                .map(item => attachSpecialDetail(item, detailIndex));
 
             // 통보문에 여러 특보가 섞여 있을 수 있으므로 반드시
             // "특보명 : 대상지역" 단위로 쪼갠 뒤 세종 대상 특보만 전달합니다.
