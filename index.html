@@ -5156,6 +5156,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
 
         function isReleasedSpecial(item) {
+            // 여러 특보가 한 통보문에 함께 들어 있는 경우에는, 아래에서 분리한
+            // 개별 특보의 상태만 판정합니다.
+            if (item && typeof item === 'object' && item.__normalizedSpecial) {
+                return item.__isReleased === true;
+            }
             const t = typeof item === 'string'
                 ? String(item)
                 : `${item?.title || ''} ${item?.__detailText || ''} ${itemText(item)}`;
@@ -5242,6 +5247,121 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return clone;
         }
 
+        /*
+         * 기상청 특보현황 API는 한 행(또는 한 통보문)에 여러 특보를 함께 담아
+         * 보내는 경우가 있습니다.
+         * 예: "호우주의보 : 충남 ... / 폭염주의보 : 세종(세종남부)"
+         * 기존처럼 문장에 "세종"이 있는지만 확인하면 첫 번째 특보인 호우주의보가
+         * 세종 특보로 잘못 표시됩니다. 아래 함수는 "특보명 : 대상지역" 단위로
+         * 분리한 뒤, 세종 대상 구간만 남깁니다.
+         */
+        const SPECIAL_ALERT_NAME_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
+
+        function isSejongSpecialRegion(value) {
+            const region = cleanText(value);
+            return /(?:세종특별자치시|세종시|세종(?:\s*\(\s*세종(?:북부|남부)\s*\))?)(?=$|[\s,·/()])/.test(region);
+        }
+
+        function getExplicitSpecialRegion(item) {
+            if (!item || typeof item === 'string') return '';
+            if (item.__detailRegion) return cleanSpecialRegion(item.__detailRegion);
+
+            const regionKeys = ['region', 'area', 'areaName', 'regName', 'regUp', 'regUpKo', 'target', 'stnKo', 'wrnArea', 'loc', 'location'];
+            for (const key of regionKeys) {
+                if (item[key]) {
+                    const region = cleanSpecialRegion(item[key]);
+                    if (region) return region;
+                }
+            }
+            return '';
+        }
+
+        function splitSpecialWarningSegments(rawText) {
+            const text = String(rawText || '').replace(/\r/g, '\n');
+            if (!text) return [];
+
+            // "호우주의보 : 지역 / 폭염주의보 : 지역" 형태를 각각 분리합니다.
+            // 발표·해제·취소 문구가 특보명 뒤에 붙는 형식도 함께 처리합니다.
+            const segmentRe = new RegExp(
+                '(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
+                'g'
+            );
+
+            const rows = [];
+            let match;
+            while ((match = segmentRe.exec(text)) !== null) {
+                const alertName = cleanText(match[1]);
+                const stateWord = cleanText(match[2]);
+                const region = cleanSpecialRegion(match[3]);
+                if (!alertName || !region) continue;
+                rows.push({
+                    alertName,
+                    region,
+                    isReleased: /해제|취소/.test(stateWord),
+                    isAnnouncement: /발표/.test(stateWord)
+                });
+            }
+            return rows;
+        }
+
+        function normalizeSpecialItemsByWarning(items, onlySejong = true) {
+            const result = [];
+            const dedupe = new Set();
+
+            (items || []).forEach(item => {
+                const detailText = typeof item === 'object' && item ? String(item.__detailText || '') : '';
+                const itemTextValue = typeof item === 'string' ? String(item) : String(itemText(item) || '');
+
+                // 상세 통보문이 있으면 그것만 먼저 해석합니다. 상세문과 Object.values를
+                // 붙이면 같은 특보를 두 번 분리하거나 지역 문자열 끝에 다른 필드값이
+                // 이어질 수 있습니다.
+                let rows = splitSpecialWarningSegments(detailText);
+                if (!rows.length) rows = splitSpecialWarningSegments(itemTextValue);
+
+                const originalText = detailText || itemTextValue;
+
+                // API가 이미 특보 1건씩 주는 형식은 지역 필드와 특보명을 그대로 사용합니다.
+                if (!rows.length) {
+                    const alertName = findAlertName(typeof item === 'string' ? item : (item.title || itemTextValue));
+                    const region = getExplicitSpecialRegion(item) || extractSpecialRegionFromText(originalText);
+                    if (alertName && region) {
+                        rows = [{
+                            alertName,
+                            region,
+                            isReleased: isReleasedSpecial(item),
+                            isAnnouncement: /(특보\s*)?발표/.test(originalText)
+                        }];
+                    }
+                }
+
+                rows.forEach(row => {
+                    if (onlySejong && !isSejongSpecialRegion(row.region)) return;
+
+                    const publishedKey = typeof item === 'object' && item
+                        ? String(item.tmFc || item.tmSeq || item.time || item.tm || '')
+                        : '';
+                    const effectiveKey = typeof item === 'object' && item
+                        ? String(item.tmEf || item.tmSt || item.effTime || item.effectTime || '')
+                        : '';
+                    const key = [row.alertName, row.region, row.isReleased ? 'released' : 'active', publishedKey, effectiveKey].join('|');
+                    if (dedupe.has(key)) return;
+                    dedupe.add(key);
+
+                    const clone = typeof item === 'object' && item ? { ...item } : {};
+                    clone.title = row.alertName;
+                    clone.__alertName = row.alertName;
+                    clone.__detailRegion = row.region;
+                    clone.__isAnnouncement = row.isAnnouncement === true;
+                    clone.__detailText = `${row.alertName}${row.isReleased ? ' 해제' : (clone.__isAnnouncement ? ' 발표' : '')} : ${row.region}`;
+                    clone.__normalizedSpecial = true;
+                    clone.__isReleased = row.isReleased;
+                    result.push(clone);
+                });
+            });
+
+            return result;
+        }
+
         function getSpecialScopeLabel() {
             return scopeStation() || '세종';
         }
@@ -5264,9 +5384,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         function filterSpecialListByScope(items) {
             if (!Array.isArray(items)) return [];
             return items.filter(item => {
-                const text = typeof item === 'string'
-                    ? item
-                    : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`;
+                // 정규화된 항목은 원본 통보문 전체가 아니라 해당 특보의 대상지역만
+                // 기준으로 관할을 판정합니다.
+                const text = item && typeof item === 'object' && item.__normalizedSpecial
+                    ? specialRecordText(item)
+                    : (typeof item === 'string'
+                        ? item
+                        : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`);
                 return specialTextMatchesScope(text);
             });
         }
@@ -5274,6 +5398,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         // 최근 목록은 세종특별자치시 관련 발효(발표)·해제 통보만 별도로 표시합니다.
         // 상단 관할(세종청/북부서/남부서)과 무관하게 세종 전역 통보를 공통으로 보여줍니다.
         function specialRecordText(item) {
+            if (item && typeof item === 'object' && item.__normalizedSpecial) {
+                const stateText = item.__isReleased ? ' 해제' : (item.__isAnnouncement ? ' 발표' : '');
+                return `${item.__alertName || item.title || ''}${stateText} : ${item.__detailRegion || ''}`;
+            }
             return typeof item === 'string'
                 ? item
                 : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`;
@@ -5520,7 +5648,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV2';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV3';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5555,7 +5683,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             function makeSpecialRow(item, source = 'status') {
                 const text = specialRecordText(item);
                 const region = displaySejongHistoryRegion(item);
-                const alertName = findAlertName(text);
+                const alertName = item?.__alertName || findAlertName(text);
                 const publishedAt = getSpecialPublishedAt(item);
                 const effectiveAt = getSpecialEffectiveAt(item);
                 return { item, source, text, region, alertName, publishedAt, effectiveAt };
@@ -5757,18 +5885,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 .map(item => attachSpecialDetail(item, detailIndex))
                 .filter(item => !isReleasedSpecial(item));
 
-            const currentTexts = activeStatusItems
-                .map(item => `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`)
+            // 통보문에 여러 특보가 섞여 있을 수 있으므로 반드시
+            // "특보명 : 대상지역" 단위로 쪼갠 뒤 세종 대상 특보만 전달합니다.
+            const sejongActiveStatusItems = normalizeSpecialItemsByWarning(activeStatusItems, true)
+                .filter(item => !isReleasedSpecial(item));
+            const sejongHistoryItems = normalizeSpecialItemsByWarning(rawListItems, true);
+
+            const currentTexts = sejongActiveStatusItems
+                .map(item => specialRecordText(item))
                 .filter(Boolean);
-            const sejongTexts = currentTexts.filter(t => t.includes('세종'));
+            const sejongTexts = currentTexts;
 
             const payload = {
                 sourceName: '공공데이터포털 기상청 기상특보 조회서비스',
                 latestTime: rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime(),
                 sejongTexts,
                 allTexts: currentTexts,
-                listItems: activeStatusItems,
-                historyItems: rawListItems
+                listItems: sejongActiveStatusItems,
+                historyItems: sejongHistoryItems
             };
             saveSpecialCache(payload);
             renderSpecial(payload);
