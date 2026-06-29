@@ -5087,1180 +5087,431 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
 
     async function autoFetchSpecial(silent = false) {
-        if (isSpecialFetching && silent) return;
+        if (isSpecialFetching) return;
         isSpecialFetching = true;
+
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
-
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
+        const CACHE_KEY = 'sejongWeatherWarningOfficialV1';
+        const CACHE_MAX_MS = 20 * 60 * 1000;
+        const ALERT_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
 
-        function yyyymmdd(date) {
-            const y = date.getFullYear();
-            const m = String(date.getMonth() + 1).padStart(2, '0');
-            const d = String(date.getDate()).padStart(2, '0');
-            return `${y}${m}${d}`;
-        }
+        const esc = value => String(value ?? '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
 
-        function formatKmaTime(value) {
-            const s = String(value || '').replace(/[^0-9]/g, '');
-            if (s.length >= 12) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)} ${s.slice(8,10)}:${s.slice(10,12)}`;
-            if (s.length >= 8) return `${s.slice(0,4)}-${s.slice(4,6)}-${s.slice(6,8)}`;
-            return value || '확인불가';
-        }
+        const cleanApiText = value => String(value ?? '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<\/p\s*>/gi, '\n')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\u00a0/g, ' ')
+            .replace(/\r/g, '\n')
+            .replace(/[ \t]+\n/g, '\n')
+            .replace(/\n{3,}/g, '\n\n')
+            .trim();
 
-        function cleanText(s) {
-            return String(s || '').replace(/\u00a0/g, ' ').replace(/\s+/g, ' ').trim();
-        }
+        const itemValues = item => Object.values(item || {})
+            .filter(value => value !== null && value !== undefined)
+            .map(value => String(value))
+            .join('\n');
 
-        function normalizeItems(data) {
-            let items = data?.response?.body?.items?.item;
-            if (!items) return [];
-            if (!Array.isArray(items)) items = [items];
-            return items.filter(Boolean);
-        }
-
-        function itemText(item) {
-            return Object.values(item || {})
-                .filter(v => v !== null && v !== undefined)
-                .map(v => String(v))
-                .join(' ')
-                .replace(/\s+/g, ' ')
-                .trim();
-        }
-
-        function findAlertName(text) {
-            const m = String(text || '').match(/(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(주의보|경보)/);
-            return m ? m[0] : null;
-        }
-
-        function formatNowTime() {
-            const d = new Date();
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const h = String(d.getHours()).padStart(2, '0');
-            const min = String(d.getMinutes()).padStart(2, '0');
-            return `${y}-${m}-${day} ${h}:${min}`;
-        }
-
-        function cleanSpecialRegion(value) {
-            const text = cleanText(value)
-                .replace(/^[oO•·\-\s]+/, '')
-                .replace(/\b(?:발표시간|발효시각|특보번호|제\s*\d+[\-–]\d+호)\b.*$/i, '')
-                .replace(/[\[\]{}]/g, '')
-                .trim();
-            if (!text) return '';
-            if (/^(?:전국|전국\s*일부|해당\s*없음|없음|\*)$/.test(text)) return text;
-            return text.length > 120 ? text.slice(0, 120) + '…' : text;
-        }
-
-        function isReleasedSpecial(item) {
-            // 여러 특보가 한 통보문에 함께 들어 있는 경우에는, 아래에서 분리한
-            // 개별 특보의 상태만 판정합니다.
-            if (item && typeof item === 'object' && item.__normalizedSpecial) {
-                return item.__isReleased === true;
-            }
-            const t = typeof item === 'string'
-                ? String(item)
-                : `${item?.title || ''} ${item?.__detailText || ''} ${itemText(item)}`;
-            return /(호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|태풍|폭풍해일|지진해일)?\s*(?:주의보|경보)?\s*해제|특보\s*해제|해제\s*(?:됨|되었|완료)?|특보\s*종료|발효\s*해제|취소/.test(t);
-        }
-
-        function extractSpecialRegionFromText(rawText) {
-            const text = cleanText(rawText);
-            if (!text) return '';
-
-            // 기상특보 통보문에서 가장 흔한 형식: "호우주의보 : 세종특별자치시 ..."
-            const warningParts = [];
-            const warningRe = /(?:o\s*)?(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)?\s*(?:주의보|경보)\s*[:：]\s*([\s\S]*?)(?=\s*(?:o\s*)?(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)?\s*(?:주의보|경보)\s*[:：]|$)/g;
-            let m;
-            while ((m = warningRe.exec(text)) !== null) {
-                const region = cleanSpecialRegion(m[1]);
-                if (region) warningParts.push(region);
-            }
-            if (warningParts.length) return [...new Set(warningParts)].join(' / ');
-
-            const labeled = text.match(/(?:발효\s*지역|해당\s*지역|특보\s*구역|지역)\s*[:：]\s*([^\n\r]+?)(?=(?:\s{2,}|발표시간|발효시각|$))/i);
-            if (labeled?.[1]) return cleanSpecialRegion(labeled[1]);
-
-            // 지역명이 통보문 안에 포함된 경우, 알림 이름과 시간값을 제외한 지역 토막을 사용
-            const hit = text.match(/((?:세종특별자치시|세종시|서울특별시|부산광역시|대구광역시|인천광역시|광주광역시|대전광역시|울산광역시|제주특별자치도|강원특별자치도|전북특별자치도|경기도|강원도|충청북도|충청남도|전라남도|경상북도|경상남도)[^\n\r]*?)(?=\s*(?:발표시간|발효시각|제\s*\d+[\-–]\d+호|\d{4}[.\-]\d{2}[.\-]\d{2}|$))/);
-            return hit?.[1] ? cleanSpecialRegion(hit[1]) : '';
-        }
-
-        function extractSpecialRegion(item) {
-            if (!item || typeof item === 'string') {
-                const fromText = extractSpecialRegionFromText(String(item || ''));
-                return fromText || '지역 정보 확인중';
-            }
-            if (item.__detailRegion) return item.__detailRegion;
-            const regionKeys = ['region', 'area', 'areaName', 'regName', 'regUp', 'regUpKo', 'target', 'stnKo', 'wrnArea', 'loc', 'location'];
-            for (const k of regionKeys) {
-                if (item[k]) {
-                    const region = cleanSpecialRegion(item[k]);
-                    if (region) return region;
-                }
-            }
-            const fromDetail = extractSpecialRegionFromText(item.__detailText || '');
-            if (fromDetail) return fromDetail;
-            const fromItem = extractSpecialRegionFromText(itemText(item));
-            return fromItem || '지역 정보 확인중';
-        }
-
-        function normalizeSpecialTime(value) {
-            return String(value || '').replace(/[^0-9]/g, '').slice(0, 12);
-        }
-
-        function specialNoticeNumber(value) {
-            const m = String(value || '').match(/제\s*\d{1,2}[\-–]\d{1,3}\s*호/);
-            return m ? m[0].replace(/\s+/g, '') : '';
-        }
-
-        function buildSpecialDetailIndex(messageItems) {
-            const byTime = new Map();
-            const byNo = new Map();
-            const appendRecord = (map, key, record) => {
-                if (!key) return;
-                const previous = map.get(key);
-                if (!previous) {
-                    map.set(key, record);
-                    return;
-                }
-                // 같은 발표시각에 여러 특보 통보문이 있으면 첫 건만 쓰지 말고 전부 보존합니다.
-                const region = [previous.region, record.region].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' / ');
-                const detailText = [previous.detailText, record.detailText].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join('\n\n');
-                map.set(key, { region, detailText });
-            };
-            (messageItems || []).forEach(item => {
-                const detailText = itemText(item);
-                const region = extractSpecialRegionFromText(detailText);
-                if (!region) return;
-                const timeKey = normalizeSpecialTime(item.tmFc || item.tmEf || item.tmSeq || item.time);
-                const no = specialNoticeNumber(detailText);
-                const record = { region, detailText };
-                appendRecord(byTime, timeKey, record);
-                appendRecord(byNo, no, record);
-            });
-            return { byTime, byNo };
-        }
-
-        function attachSpecialDetail(item, detailIndex) {
-            const clone = { ...(item || {}) };
-            const timeKey = normalizeSpecialTime(clone.tmFc || clone.tmEf || clone.tmSeq || clone.time);
-            const title = clone.title || itemText(clone);
-            const byTime = timeKey ? detailIndex?.byTime?.get(timeKey) : null;
-            const byNo = specialNoticeNumber(title) ? detailIndex?.byNo?.get(specialNoticeNumber(title)) : null;
-            const hit = byNo || byTime;
-            if (hit) {
-                clone.__detailRegion = hit.region;
-                clone.__detailText = hit.detailText;
-            }
-            return clone;
-        }
-
-        /*
-         * 기상청 특보현황 API는 한 행(또는 한 통보문)에 여러 특보를 함께 담아
-         * 보내는 경우가 있습니다.
-         * 예: "호우주의보 : 충남 ... / 폭염주의보 : 세종(세종남부)"
-         * 기존처럼 문장에 "세종"이 있는지만 확인하면 첫 번째 특보인 호우주의보가
-         * 세종 특보로 잘못 표시됩니다. 아래 함수는 "특보명 : 대상지역" 단위로
-         * 분리한 뒤, 세종 대상 구간만 남깁니다.
-         */
-        const SPECIAL_ALERT_NAME_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
-
-        function isSejongSpecialRegion(value) {
-            const region = cleanText(value);
-            return /(?:세종특별자치시|세종시|세종(?:\s*\(\s*세종(?:북부|남부)\s*\))?)(?=$|[\s,·/()])/.test(region);
-        }
-
-        function getExplicitSpecialRegion(item) {
-            if (!item || typeof item === 'string') return '';
-            if (item.__detailRegion) return cleanSpecialRegion(item.__detailRegion);
-
-            const regionKeys = ['region', 'area', 'areaName', 'regName', 'regUp', 'regUpKo', 'target', 'stnKo', 'wrnArea', 'loc', 'location'];
-            for (const key of regionKeys) {
-                if (item[key]) {
-                    const region = cleanSpecialRegion(item[key]);
-                    if (region) return region;
-                }
+        const firstField = (item, keys) => {
+            for (const key of keys) {
+                if (item && item[key] !== undefined && item[key] !== null && String(item[key]).trim()) return item[key];
             }
             return '';
+        };
+
+        const normalizeItems = data => {
+            let rows = data?.response?.body?.items?.item;
+            if (!rows) return [];
+            return Array.isArray(rows) ? rows.filter(Boolean) : [rows];
+        };
+
+        const isApiOk = data => {
+            const code = String(data?.response?.header?.resultCode ?? '00');
+            return code === '00' || code === '0';
+        };
+
+        function parseKmaDate(value) {
+            if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
+            const raw = cleanApiText(value);
+            if (!raw) return null;
+            const digits = raw.replace(/\D/g, '');
+            if (digits.length >= 12) {
+                const y = Number(digits.slice(0, 4));
+                const mo = Number(digits.slice(4, 6));
+                const d = Number(digits.slice(6, 8));
+                const h = Number(digits.slice(8, 10));
+                const mi = Number(digits.slice(10, 12));
+                const parsed = new Date(y, mo - 1, d, h, mi, 0, 0);
+                return Number.isNaN(parsed.getTime()) ? null : parsed;
+            }
+            const korean = raw.match(/(20\d{2})\s*(?:년|[.\-/\s])\s*(\d{1,2})\s*(?:월|[.\-/\s])\s*(\d{1,2})\s*(?:일)?\s*(?:\([^)]*\))?\s*(\d{1,2})\s*(?:시|:)\s*(\d{1,2})?/);
+            if (!korean) return null;
+            const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
+            return Number.isNaN(parsed.getTime()) ? null : parsed;
         }
 
-        function splitSpecialWarningSegments(rawText) {
-            const text = String(rawText || '').replace(/\r/g, '\n');
-            if (!text) return [];
+        const toMillis = value => {
+            if (typeof value === 'number') return value || 0;
+            const d = parseKmaDate(value);
+            return d ? d.getTime() : 0;
+        };
 
+        const formatTime = value => {
+            const d = value instanceof Date ? value : (typeof value === 'number' ? new Date(value) : parseKmaDate(value));
+            if (!d || Number.isNaN(d.getTime())) return '기상청 미제공';
+            const y = d.getFullYear();
+            const mo = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            const h = String(d.getHours()).padStart(2, '0');
+            const mi = String(d.getMinutes()).padStart(2, '0');
+            return `${y}-${mo}-${day} ${h}:${mi}`;
+        };
+
+        const nowText = () => formatTime(new Date());
+        const findAlert = text => cleanApiText(text).match(new RegExp(`(${ALERT_PATTERN})`))?.[1] || '';
+        const isSejong = value => /세종특별자치시|세종시|세종\s*\(\s*세종(?:북부|남부)\s*\)|(?<![가-힣])세종(?![가-힣])/.test(cleanApiText(value));
+        const warningKey = row => `${row.alert || ''}|세종`;
+        const actionIsRelease = action => /해제|취소/.test(String(action || ''));
+
+        function getSection(text, labels) {
+            const source = cleanApiText(text);
+            const labelText = labels.map(label => label.replace(/\s+/g, '\\s*')).join('|');
+            const match = source.match(new RegExp(`□\\s*(?:${labelText})\\s*([\\s\\S]*?)(?=\\n?\\s*□|$)`, 'i'));
+            return match?.[1] || '';
+        }
+
+        function parseSectionLines(block) {
             const rows = [];
-            const seen = new Set();
-            const pushRow = (alertName, stateWord, region) => {
-                const cleanAlert = cleanText(alertName);
-                const cleanState = cleanText(stateWord);
-                const cleanRegion = cleanSpecialRegion(region)
-                    .replace(/^\(?\s*\d+\s*\)?\s*/, '')
-                    .trim();
-                if (!cleanAlert || !cleanRegion) return;
-                const key = [cleanAlert, cleanState, cleanRegion].join('|');
-                if (seen.has(key)) return;
-                seen.add(key);
-                rows.push({
-                    alertName: cleanAlert,
-                    region: cleanRegion,
-                    isReleased: /해제|취소/.test(cleanState),
-                    isAnnouncement: /발표/.test(cleanState)
-                });
-            };
-
-            /*
-             * 기상청 통보문 표준형식
-             *   □ 발효시각
-             *   (1) 폭염주의보 발표 : 2026년 06월 29일 11시 00분
-             *   □ 해당구역
-             *   (1) 폭염주의보 발표 : 세종특별자치시
-             *
-             * 기존 정규식은 첫 줄의 '11시 00분'을 지역으로 오인할 수 있었습니다.
-             * 먼저 '해당구역' 블록만 떼어 대상 지역을 확정합니다.
-             */
-            const areaBlockRe = /□\s*(?:해당\s*구역|특보\s*구역|발효\s*구역|대상\s*구역|대상\s*지역)\s*([\s\S]*?)(?=□\s*(?:참고사항|유의\s*사항|특보\s*내용|기상\s*개황|$)|$)/gi;
-            let areaBlock;
-            while ((areaBlock = areaBlockRe.exec(text)) !== null) {
-                const block = areaBlock[1] || '';
-                const areaLineRe = new RegExp(
-                    '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:\\(\\s*\\d+\\s*\\)\\s*)?(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
-                    'g'
-                );
-                let areaLine;
-                while ((areaLine = areaLineRe.exec(block)) !== null) {
-                    pushRow(areaLine[1], areaLine[2], areaLine[3]);
-                }
-            }
-            if (rows.length) return rows;
-
-            // 일반 목록·현재현황의 "호우주의보 : 지역 / 폭염주의보 : 지역" 형식
-            const segmentRe = new RegExp(
-                '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:\\(\\s*\\d+\\s*\\)\\s*)?(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
-                'g'
-            );
+            const re = new RegExp(`(?:^|\\n)\\s*(?:\\(\\s*(\\d+)\\s*\\)\\s*)?(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([^\\n]+)`, 'gim');
             let match;
-            while ((match = segmentRe.exec(text)) !== null) {
-                pushRow(match[1], match[2], match[3]);
+            while ((match = re.exec(block)) !== null) {
+                rows.push({
+                    no: String(match[1] || ''),
+                    alert: match[2],
+                    action: match[3] || '발표',
+                    value: cleanApiText(match[4])
+                });
             }
             return rows;
         }
 
-        function normalizeSpecialItemsByWarning(items, onlySejong = true) {
-            const result = [];
-            const dedupe = new Set();
+        function noticeIssuedAt(item, source) {
+            const fromField = firstField(item, ['tmFc', 'tm', 'tmSeq', 'time', 't3', 'announceTime', 'pubTime']);
+            const parsedField = parseKmaDate(fromField);
+            if (parsedField) return parsedField;
 
+            const title = cleanApiText(firstField(item, ['title', 't1', 'name']));
+            const parsedTitle = parseKmaDate(title);
+            if (parsedTitle) return parsedTitle;
+
+            const declared = source.match(/(?:발표시각|발표시간|발표일시)\s*[:：]?\s*([^\n□]+)/i)?.[1] || '';
+            return parseKmaDate(declared);
+        }
+
+        function parseOfficialNotice(item) {
+            const rawContent = firstField(item, ['t4', 'contents', 'content', 'msg', 'message', 'wrnMsg', 'body']);
+            const source = cleanApiText(`${firstField(item, ['title', 't1', 'name'])}\n${rawContent || itemValues(item)}`);
+            const issuedAt = noticeIssuedAt(item, source);
+            const timeBlock = getSection(source, ['발효시각', '발효시간', '발효일시']);
+            const areaBlock = getSection(source, ['해당구역', '발효구역', '대상구역', '대상지역', '특보구역']);
+            const timeRows = parseSectionLines(timeBlock);
+            const areaRows = parseSectionLines(areaBlock);
+            const events = [];
+
+            areaRows.forEach(areaRow => {
+                if (!isSejong(areaRow.value)) return;
+                const exact = timeRows.find(timeRow =>
+                    timeRow.alert === areaRow.alert && timeRow.action === areaRow.action &&
+                    (timeRow.no === areaRow.no || !timeRow.no || !areaRow.no)
+                );
+                const sameAlert = timeRows.find(timeRow => timeRow.alert === areaRow.alert && timeRow.action === areaRow.action);
+                const effectiveAt = parseKmaDate((exact || sameAlert)?.value || '');
+                events.push({
+                    alert: areaRow.alert,
+                    action: areaRow.action || '발표',
+                    region: '세종특별자치시',
+                    issuedAt: issuedAt ? issuedAt.getTime() : (effectiveAt ? effectiveAt.getTime() : 0),
+                    effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
+                    raw: source
+                });
+            });
+
+            // API가 줄바꿈을 제거한 단순 형식으로 줄 때의 보조 파서입니다.
+            if (!events.length) {
+                const segmentRe = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=(?:${ALERT_PATTERN})\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)`, 'g');
+                let segment;
+                while ((segment = segmentRe.exec(source)) !== null) {
+                    if (!isSejong(segment[3])) continue;
+                    const action = segment[2] || '발표';
+                    const effective = parseKmaDate(segment[3]);
+                    events.push({
+                        alert: segment[1],
+                        action,
+                        region: '세종특별자치시',
+                        issuedAt: issuedAt ? issuedAt.getTime() : (effective ? effective.getTime() : 0),
+                        effectiveAt: effective ? effective.getTime() : 0,
+                        raw: source
+                    });
+                }
+            }
+            return events;
+        }
+
+        function parseCurrentStatus(items) {
+            const rows = [];
             (items || []).forEach(item => {
-                const detailText = typeof item === 'object' && item ? String(item.__detailText || '') : '';
-                const itemTextValue = typeof item === 'string' ? String(item) : String(itemText(item) || '');
+                const source = cleanApiText(itemValues(item));
+                const marker = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]`, 'g');
+                const markers = [];
+                let hit;
+                while ((hit = marker.exec(source)) !== null) markers.push({ index: hit.index, end: marker.lastIndex, alert: hit[1], action: hit[2] || '발표' });
 
-                // 상세 통보문이 있으면 그것만 먼저 해석합니다. 상세문과 Object.values를
-                // 붙이면 같은 특보를 두 번 분리하거나 지역 문자열 끝에 다른 필드값이
-                // 이어질 수 있습니다.
-                let rows = splitSpecialWarningSegments(detailText);
-                if (!rows.length) rows = splitSpecialWarningSegments(itemTextValue);
-                // true이면 통보문을 특보별로 성공적으로 분리한 상태입니다.
-                // 이 경우 원문 전체의 '해제/발표' 단어를 다른 특보에 전파하면 안 됩니다.
-                const parsedWarningSegments = rows.length > 0;
-
-                const originalText = detailText || itemTextValue;
-
-                // API가 이미 특보 1건씩 주는 형식은 지역 필드와 특보명을 그대로 사용합니다.
-                if (!rows.length) {
-                    const alertName = findAlertName(typeof item === 'string' ? item : (item.title || itemTextValue));
-                    const region = getExplicitSpecialRegion(item) || extractSpecialRegionFromText(originalText);
-                    if (alertName && region) {
-                        rows = [{
-                            alertName,
-                            region,
-                            isReleased: isReleasedSpecial(item),
-                            isAnnouncement: /(특보\s*)?발표/.test(originalText)
-                        }];
-                    }
+                if (markers.length) {
+                    markers.forEach((row, index) => {
+                        const regionText = source.slice(row.end, index + 1 < markers.length ? markers[index + 1].index : undefined)
+                            .split(/(?:발효시각|발효시간|발표시각|발표시간|특보번호)/i)[0];
+                        if (!isSejong(regionText) || actionIsRelease(row.action)) return;
+                        const effectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime'])) || parseKmaDate(regionText);
+                        rows.push({
+                            alert: row.alert,
+                            action: '발표',
+                            region: '세종특별자치시',
+                            issuedAt: toMillis(firstField(item, ['tmFc', 'tm', 'tmSeq', 'time'])) || Date.now(),
+                            effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
+                            raw: source,
+                            fromStatus: true
+                        });
+                    });
+                    return;
                 }
 
-                // 상세 통보문에는 지역만 있고, 목록 제목에는 “발표/해제”가 있는 경우가 있습니다.
-                // 두 정보를 합쳐야 해제 통보를 놓치지 않고 현재 상태를 정확히 판정할 수 있습니다.
-                const sourceText = typeof item === 'string' ? String(item) : itemTextValue;
-                /*
-                 * 중요: 하나의 통보문에는 “호우주의보 해제”와 “폭염주의보 발표”가
-                 * 함께 있을 수 있습니다. 이전 코드는 원문 전체에 ‘해제’가 한 번만
-                 * 있어도 모든 특보 행을 해제로 처리해 세종 폭염주의보가 상단에서
-                 * 사라졌습니다. 분리 성공한 행은 해당 행의 상태(row.isReleased)만
-                 * 사용하고, 분리가 전혀 되지 않은 단일 항목일 때만 원문 상태를 보조합니다.
-                 */
-                const itemReleased = !parsedWarningSegments && isReleasedSpecial(item);
-                const itemAnnounced = !parsedWarningSegments && /(특보\s*)?발표/.test(sourceText);
-
-                rows.forEach(row => {
-                    if (onlySejong && !isSejongSpecialRegion(row.region)) return;
-
-                    const isReleased = row.isReleased || itemReleased;
-                    const isAnnouncement = row.isAnnouncement || itemAnnounced;
-                    const publishedKey = typeof item === 'object' && item
-                        ? String(item.tmFc || item.tmSeq || item.time || item.tm || '')
-                        : '';
-                    const effectiveKey = typeof item === 'object' && item
-                        ? String(item.tmEf || item.tmSt || item.effTime || item.effectTime || '')
-                        : '';
-                    const key = [row.alertName, row.region, isReleased ? 'released' : 'active', publishedKey, effectiveKey].join('|');
-                    if (dedupe.has(key)) return;
-                    dedupe.add(key);
-
-                    const clone = typeof item === 'object' && item ? { ...item } : {};
-                    // 화면 판정용으로는 특보명·대상지역만 남기되, 원본 통보문은 반드시 보존합니다.
-                    // 원본에는 ‘발효시각 11:00’처럼 API 필드에 없는 발효시간이 들어올 수 있습니다.
-                    clone.__sourceDetailText = originalText;
-                    clone.title = row.alertName;
-                    clone.__alertName = row.alertName;
-                    clone.__detailRegion = row.region;
-                    clone.__isAnnouncement = isAnnouncement;
-                    clone.__detailText = `${row.alertName}${isReleased ? ' 해제' : (clone.__isAnnouncement ? ' 발표' : '')} : ${row.region}`;
-                    clone.__normalizedSpecial = true;
-                    clone.__isReleased = isReleased;
-                    result.push(clone);
+                const alert = findAlert(source);
+                const region = firstField(item, ['region', 'area', 'areaName', 'regName', 'target', 'wrnArea', 'loc', 'location']) || source;
+                if (!alert || !isSejong(region) || /해제|취소/.test(source)) return;
+                const effectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime']));
+                rows.push({
+                    alert,
+                    action: '발표',
+                    region: '세종특별자치시',
+                    issuedAt: toMillis(firstField(item, ['tmFc', 'tm', 'tmSeq', 'time'])) || Date.now(),
+                    effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
+                    raw: source,
+                    fromStatus: true
                 });
             });
-
-            return result;
+            return rows;
         }
 
-        function getSpecialScopeLabel() {
-            return scopeStation() || '세종';
-        }
-
-        function specialTextMatchesScope(text) {
-            if (globalScope === 'all') return true;
-            const station = scopeStation();
-            if (!station) return true;
-            const names = station === '북부서' ? NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES) : SOUTH_FULL_NAMES;
-            const t = String(text || '');
-            // 기상청 권역 표기(세종(세종남부)·세종(세종북부))는 관할별로 정확히 구분합니다.
-            if (/세종\s*\(\s*세종남부\s*\)|세종남부/.test(t)) return station === '남부서';
-            if (/세종\s*\(\s*세종북부\s*\)|세종북부/.test(t)) return station === '북부서';
-            if (names.some(n => t.includes(n) || t.includes(n.replace(/(읍|면|동)$/, '')))) return true;
-            // 세종시 전역으로 발효된 특보는 북부서·남부서 모두에 해당
-            if (t.includes('세종') && !NORTH_FULL_NAMES.concat(NORTH_SHORT_NAMES, SOUTH_FULL_NAMES).some(n => t.includes(n))) return true;
-            return false;
-        }
-
-        function filterSpecialListByScope(items) {
-            if (!Array.isArray(items)) return [];
-            return items.filter(item => {
-                // 정규화된 항목은 원본 통보문 전체가 아니라 해당 특보의 대상지역만
-                // 기준으로 관할을 판정합니다.
-                const text = item && typeof item === 'object' && item.__normalizedSpecial
-                    ? specialRecordText(item)
-                    : (typeof item === 'string'
-                        ? item
-                        : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`);
-                return specialTextMatchesScope(text);
-            });
-        }
-
-        // 최근 목록은 세종특별자치시 관련 발효(발표)·해제 통보만 별도로 표시합니다.
-        // 상단 관할(세종청/북부서/남부서)과 무관하게 세종 전역 통보를 공통으로 보여줍니다.
-        function specialRecordText(item) {
-            if (item && typeof item === 'object' && item.__normalizedSpecial) {
-                const stateText = item.__isReleased ? ' 해제' : (item.__isAnnouncement ? ' 발표' : '');
-                return `${item.__alertName || item.title || ''}${stateText} : ${item.__detailRegion || ''}`;
-            }
-            return typeof item === 'string'
-                ? item
-                : `${itemText(item)} ${item.__detailRegion || ''} ${item.__detailText || ''}`;
-        }
-
-        function isSejongHistorySpecial(item) {
-            const text = specialRecordText(item);
-            const region = extractSpecialRegion(item);
-            // 목록 API는 어떤 회차에는 “발표” 문구 없이 특보명·대상지역·시간만 주므로,
-            // 세종 대상 특보로 이미 정규화된 항목은 시간값 또는 상태값만 있어도 이력으로 인정합니다.
-            const isSejong = isSejongSpecialRegion(region) || /(?:세종특별자치시|세종시|세종)/.test(text);
-            if (!isSejong) return false;
-            if (item && typeof item === 'object' && item.__normalizedSpecial) return true;
-            return /(발표|발효|해제)/.test(text) || !!findAlertName(text);
-        }
-
-        function displaySejongHistoryRegion(item) {
-            const region = extractSpecialRegion(item);
-            if (!region || region === '지역 정보 확인중' || region === '지역 정보 없음') {
-                return '세종특별자치시';
-            }
-            return region;
-        }
-
-
-        // 발표는 됐지만 아직 발효 전인 특보를 상단 상태에 함께 표시합니다.
-        // getPwnStatus는 "현재 발효 중" 자료만 주므로, 발표 통보문(getWthrWrnList / getWthrWrnMsg)의 발효시각을 별도로 확인합니다.
-        function parseSpecialDateTime(value) {
-            if (value instanceof Date && !Number.isNaN(value.getTime())) return value;
-            const raw = String(value || '').trim();
-            if (!raw) return null;
-
-            const digits = raw.replace(/[^0-9]/g, '');
-            if (digits.length >= 12) {
-                const y = Number(digits.slice(0, 4));
-                const m = Number(digits.slice(4, 6));
-                const d = Number(digits.slice(6, 8));
-                const h = Number(digits.slice(8, 10));
-                const min = Number(digits.slice(10, 12));
-                const parsed = new Date(y, m - 1, d, h, min, 0, 0);
-                return Number.isNaN(parsed.getTime()) ? null : parsed;
-            }
-            if (digits.length >= 10) {
-                const y = Number(digits.slice(0, 4));
-                const m = Number(digits.slice(4, 6));
-                const d = Number(digits.slice(6, 8));
-                const h = Number(digits.slice(8, 10));
-                const parsed = new Date(y, m - 1, d, h, 0, 0, 0);
-                return Number.isNaN(parsed.getTime()) ? null : parsed;
-            }
-            return null;
-        }
-
-        function formatSpecialDateTime(value) {
-            const d = parseSpecialDateTime(value);
-            if (!d) return '';
-            const y = d.getFullYear();
-            const m = String(d.getMonth() + 1).padStart(2, '0');
-            const day = String(d.getDate()).padStart(2, '0');
-            const h = String(d.getHours()).padStart(2, '0');
-            const min = String(d.getMinutes()).padStart(2, '0');
-            return `${y}-${m}-${day} ${h}:${min}`;
-        }
-
-        function extractPublishedAtFromText(rawText) {
-            const text = cleanText(rawText);
-            if (!text) return null;
-
-            // 통보문에 API 시간 필드가 비어 있는 경우에도 "발표시각" 원문을 읽습니다.
-            const korean = text.match(/발표(?:시각|시간|일시)?[\s\S]{0,100}?(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
-            if (korean) {
-                const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
-                if (!Number.isNaN(parsed.getTime())) return parsed;
-            }
-
-            const numeric = text.match(/발표(?:시각|시간|일시)?[\s\S]{0,100}?(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})(?:일)?(?:\s*\([^)]*\))?[.\sT]+(\d{1,2})[:시](\d{1,2})?/i);
-            if (numeric) {
-                const parsed = new Date(Number(numeric[1]), Number(numeric[2]) - 1, Number(numeric[3]), Number(numeric[4]), Number(numeric[5] || 0), 0, 0);
-                if (!Number.isNaN(parsed.getTime())) return parsed;
-            }
-            return null;
-        }
-
-        function getSpecialPublishedAt(item) {
-            if (!item || typeof item === 'string') {
-                return extractPublishedAtFromText(String(item || ''));
-            }
-            const fromField = parseSpecialDateTime(item.tmFc || item.tmSeq || item.time || item.tm);
-            if (fromField) return fromField;
-            const rawText = `${item.__sourceDetailText || ''} ${item.__detailText || ''} ${item.__rawDetailText || ''} ${itemText(item)}`;
-            return extractPublishedAtFromText(rawText);
-        }
-
-        function extractEffectiveAtFromText(rawText) {
-            const text = cleanText(rawText);
-            if (!text) return null;
-
-            // 예: 발효시각 : 2026년 06월 29일 11시 00분 / 발효시간: 2026.06.29. 11:00
-            const korean = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
-            if (korean) {
-                const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
-                if (!Number.isNaN(parsed.getTime())) return parsed;
-            }
-
-            const numeric = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})(?:일)?[.\sT]+(\d{1,2})[:시](\d{1,2})?/i);
-            if (numeric) {
-                const parsed = new Date(Number(numeric[1]), Number(numeric[2]) - 1, Number(numeric[3]), Number(numeric[4]), Number(numeric[5] || 0), 0, 0);
-                if (!Number.isNaN(parsed.getTime())) return parsed;
-            }
-            return null;
-        }
-
-        function extractEffectiveTimeOnlyFromText(rawText, publishedAt) {
-            const text = cleanText(rawText);
-            if (!text) return null;
-
-            // 일부 통보문은 날짜 없이 “발효시각: 11:00” 또는 “발효: 11시”로만 제공합니다.
-            // 이 경우 발표일을 기준으로 발효일을 구성하고, 발표시각보다 지나치게 이르면 다음 날로 보정합니다.
-            const hit = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{1,2})\s*(?:시|:)(?:\s*(\d{1,2})\s*(?:분)?)?/i);
-            if (!hit) return null;
-
-            const hour = Number(hit[1]);
-            const minute = Number(hit[2] || 0);
-            if (hour > 23 || minute > 59) return null;
-
-            const base = publishedAt instanceof Date && !Number.isNaN(publishedAt.getTime())
-                ? new Date(publishedAt.getTime())
-                : new Date();
-            const parsed = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, minute, 0, 0);
-            // 특보 발표 후 자정을 넘겨 발효되는 경우를 보정합니다.
-            if (publishedAt && parsed.getTime() < publishedAt.getTime() - 60 * 60 * 1000) parsed.setDate(parsed.getDate() + 1);
-            return parsed;
-        }
-
-        function getSpecialEffectiveAt(item) {
-            if (!item || typeof item === 'string') {
-                const rawText = String(item || '');
-                return extractEffectiveAtFromText(rawText) || extractEffectiveTimeOnlyFromText(rawText, null);
-            }
-
-            const publishedAt = getSpecialPublishedAt(item);
-            const fieldNames = [
-                'tmEf', 'tmSt', 'tmStart', 'tmBeg', 'tmBegin', 'tmValid',
-                'effTime', 'effectTime', 'startTime', 'beginTime', 'wrnStartTime'
-            ];
-            for (const key of fieldNames) {
-                const parsed = parseSpecialDateTime(item[key]);
-                if (parsed && (!publishedAt || parsed.getTime() >= publishedAt.getTime() - 60 * 1000)) return parsed;
-            }
-
-            // 특보를 “특보명 : 대상지역” 단위로 분리해도 원본 통보문의 발효시각은 잃지 않도록 합니다.
-            const rawText = `${item.__sourceDetailText || ''} ${item.__detailText || ''} ${item.__rawDetailText || ''} ${itemText(item)}`;
-            return extractEffectiveAtFromText(rawText)
-                || extractEffectiveTimeOnlyFromText(rawText, publishedAt);
-        }
-
-        function isAnnouncementSpecial(item) {
-            const text = specialRecordText(item);
-            return !isReleasedSpecial(item) && /(특보\s*)?발표/.test(text) && !!findAlertName(text);
-        }
-
-        function getPendingSpecials(historyItems) {
+        function latestStateFromNotices(events, useShortWindow) {
             const now = Date.now();
-            const scopedHistory = filterSpecialListByScope(historyItems || []);
-            return scopedHistory
-                .filter(isSejongHistorySpecial)
-                .filter(isAnnouncementSpecial)
-                .map(item => {
-                    const alertName = findAlertName(specialRecordText(item));
-                    const effectiveAt = getSpecialEffectiveAt(item);
-                    const publishedAt = getSpecialPublishedAt(item);
-                    return { item, alertName, effectiveAt, publishedAt };
-                })
-                .filter(row => {
-                    // 발효시각이 확인되면 발효 30분 후까지는 상태 동기화 대기 표시를 유지합니다.
-                    if (row.effectiveAt) return row.effectiveAt.getTime() >= now - 30 * 60 * 1000;
-                    // 세부 발효시각이 누락된 통보문은 최근 2시간 발표 건만 보조적으로 표시합니다.
-                    return row.publishedAt && row.publishedAt.getTime() >= now - 2 * 60 * 60 * 1000;
-                })
-                .filter(row => {
-                    const announcementTime = row.publishedAt?.getTime() || 0;
-                    // 같은 특보가 이미 해제된 뒤의 과거 발표문은 발효 예정으로 표시하지 않습니다.
-                    return !scopedHistory.some(other => {
-                        if (!isReleasedSpecial(other)) return false;
-                        if (findAlertName(specialRecordText(other)) !== row.alertName) return false;
-                        const releasedAt = getSpecialPublishedAt(other)?.getTime() || 0;
-                        return releasedAt >= announcementTime;
-                    });
-                })
-                .sort((a, b) => {
-                    const aTime = a.effectiveAt?.getTime() || a.publishedAt?.getTime() || 0;
-                    const bTime = b.effectiveAt?.getTime() || b.publishedAt?.getTime() || 0;
-                    return bTime - aTime;
-                });
+            const byWarning = new Map();
+            (events || []).forEach(event => {
+                const key = warningKey(event);
+                const eventTime = event.issuedAt || event.effectiveAt || 0;
+                const previous = byWarning.get(key);
+                const previousTime = previous ? (previous.issuedAt || previous.effectiveAt || 0) : -1;
+                // 같은 발표시각에는 해제 통보를 우선합니다.
+                if (!previous || eventTime > previousTime || (eventTime === previousTime && actionIsRelease(event.action) && !actionIsRelease(previous.action))) {
+                    byWarning.set(key, event);
+                }
+            });
+
+            const active = [];
+            const pending = [];
+            Array.from(byWarning.values()).forEach(event => {
+                if (actionIsRelease(event.action)) return;
+                const eventTime = event.issuedAt || event.effectiveAt || 0;
+                const windowMs = useShortWindow ? 36 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000;
+                if (eventTime && now - eventTime > windowMs) return;
+                if (event.effectiveAt && event.effectiveAt > now) pending.push(event);
+                else active.push(event);
+            });
+            return { active, pending, latest: Array.from(byWarning.values()) };
+        }
+
+        function normalizeUnique(rows) {
+            const used = new Set();
+            return (rows || []).filter(row => {
+                const key = `${row.alert}|${row.region}|${row.effectiveAt || ''}|${row.issuedAt || ''}`;
+                if (used.has(key)) return false;
+                used.add(key);
+                return true;
+            });
+        }
+
+        function sortCurrent(rows) {
+            return normalizeUnique(rows).sort((a, b) => (b.effectiveAt || b.issuedAt || 0) - (a.effectiveAt || a.issuedAt || 0));
+        }
+
+        function saveCache(payload) {
+            try { localStorage.setItem(CACHE_KEY, JSON.stringify({ savedAt: Date.now(), payload })); } catch (_) {}
+        }
+
+        function loadCache() {
+            try {
+                const saved = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null');
+                if (!saved?.savedAt || !saved?.payload || Date.now() - saved.savedAt > CACHE_MAX_MS) return null;
+                return saved.payload;
+            } catch (_) { return null; }
+        }
+
+        function render(state, stale = false) {
+            const active = sortCurrent(state.active || []);
+            const pending = sortCurrent(state.pending || []);
+            const events = (state.events || []).slice().sort((a, b) => (b.issuedAt || b.effectiveAt || 0) - (a.issuedAt || a.effectiveAt || 0));
+            const primary = active[0] || pending[0] || null;
+            const source = state.source || '공공데이터포털 기상청 기상특보 조회서비스';
+
+            if (active.length) {
+                headerStatusEl.textContent = `세종: ${active[0].alert} 발효 중`;
+                headerStatusEl.className = 'sejong-summary warn';
+            } else if (pending.length) {
+                headerStatusEl.textContent = `세종: ${pending[0].alert} 발효 예정`;
+                headerStatusEl.className = 'sejong-summary pending';
+            } else if (state.confirmedNone) {
+                headerStatusEl.textContent = '세종: 특보 없음';
+                headerStatusEl.className = 'sejong-summary safe';
+            } else {
+                headerStatusEl.textContent = '세종: 수신 지연';
+                headerStatusEl.className = 'sejong-summary warn';
+            }
+
+            let main = '';
+            if (active.length) {
+                const row = active[0];
+                main = `<div class="weather-main-box warn"><i class="fas fa-triangle-exclamation" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 중</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+            } else if (pending.length) {
+                const row = pending[0];
+                main = `<div class="weather-main-box pending"><i class="fas fa-hourglass-half" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 예정</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+            } else if (state.confirmedNone) {
+                main = '<div class="weather-main-box safe"><i class="fas fa-check-circle" style="font-size:22px;"></i><div><div class="weather-main-title">세종 특보 없음</div><div class="weather-main-sub">공공데이터포털 기상청 현재특보 조회 결과입니다.</div></div></div>';
+            } else {
+                main = '<div class="weather-main-box pending"><i class="fas fa-satellite-dish" style="font-size:22px;"></i><div><div class="weather-main-title">기상특보 수신 지연</div><div class="weather-main-sub">자료를 확인하지 못해 특보 없음으로 표시하지 않습니다.</div></div></div>';
+            }
+
+            const currentRows = active.length ? active : pending;
+            const currentHtml = currentRows.length
+                ? currentRows.slice(0, 10).map(row => `<b>${active.includes(row) ? '🚨' : '⏳'} ${esc(row.alert)} ${active.includes(row) ? '발효 중' : '발효 예정'}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`).join('<br><br>')
+                : (state.confirmedNone ? '<i class="fas fa-check-circle" style="color:var(--green)"></i> 세종 관련 현재 특보 없음' : '<i class="fas fa-satellite-dish" style="color:var(--orange)"></i> 기상특보 수신 지연');
+
+            const historyHtml = events.length
+                ? events.slice(0, 8).map(row => {
+                    const label = actionIsRelease(row.action) ? '해제' : (row.effectiveAt && row.effectiveAt > Date.now() ? '발효 예정' : '발표');
+                    return `📌 <b>${esc(row.alert)} ${esc(label)}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`;
+                }).join('<br><br>')
+                : '<span style="color:var(--sub);">최근 세종 기상특보 통보문 없음</span>';
+
+            const activeTime = primary ? formatTime(primary.effectiveAt) : '해당 없음';
+            const cacheNote = stale ? ' · 직전 정상 수신값' : '';
+            contentEl.innerHTML = main
+                + `<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">${esc(nowText())}</div></div>`
+                + `<div class="info-group"><span class="info-label">현재 특보 발효시각</span><div class="info-val time">${esc(activeTime)}</div></div>`
+                + `<div class="info-group"><span class="info-label">세종 특보현황</span><div class="info-val content">${currentHtml}</div></div>`
+                + `<div class="info-group"><span class="info-label">최근 기상특보 목록</span><div class="info-val content">${historyHtml}</div></div>`
+                + `<div style="font-size:10px; color:var(--sub); margin-top:8px; text-align:right;">출처: ${esc(source)}${cacheNote}</div>`;
         }
 
         function buildUrl(path, params = {}) {
             const url = new URL(API_BASE + path);
             url.searchParams.set('serviceKey', SERVICE_KEY);
-            url.searchParams.set('pageNo', params.pageNo || '1');
-            url.searchParams.set('numOfRows', params.numOfRows || '100');
+            url.searchParams.set('pageNo', '1');
+            url.searchParams.set('numOfRows', String(params.numOfRows || 1000));
             url.searchParams.set('dataType', 'JSON');
-            Object.keys(params).forEach(k => {
-                if (!['pageNo', 'numOfRows'].includes(k) && params[k] !== undefined && params[k] !== null) {
-                    url.searchParams.set(k, params[k]);
-                }
+            Object.entries(params).forEach(([key, value]) => {
+                if (key !== 'numOfRows' && value !== undefined && value !== null) url.searchParams.set(key, String(value));
             });
             return url.toString();
         }
 
-        async function fetchTextWithFallback(urls, timeoutMs = 4500) {
-            return new Promise((resolve, reject) => {
-                let finished = false;
-                let pending = urls.length;
-                let lastError = null;
-                const controllers = [];
-                urls.forEach((url) => {
-                    const controller = new AbortController();
-                    controllers.push(controller);
-                    const timer = setTimeout(() => controller.abort(), timeoutMs);
-                    fetch(url, { cache: 'no-store', signal: controller.signal })
-                        .then(res => {
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            return res.text();
-                        })
-                        .then(text => {
-                            if (!text || text.trim().length < 10) throw new Error('응답 내용 없음');
-                            if (finished) return;
-                            finished = true;
-                            clearTimeout(timer);
-                            controllers.forEach(c => { if (c !== controller) c.abort(); });
-                            resolve(text);
-                        })
-                        .catch(e => {
-                            clearTimeout(timer);
-                            lastError = e;
-                            pending -= 1;
-                            if (!finished && pending === 0) reject(lastError || new Error('전체 호출 실패'));
-                        });
-                });
-            });
-        }
-
-        async function fetchJsonWithFallback(url, timeoutMs = 4200) {
-            // 프록시가 HTTP 200으로 오류 HTML을 반환하면 기존 방식은 그 응답을 먼저 잡아
-            // JSON 파싱에서 전체 수신이 멈출 수 있었습니다. 유효한 기상청 JSON만 성공 처리합니다.
-            const urls = [
+        async function fetchJson(url, timeoutMs = 4500) {
+            const candidates = [
                 url,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`,
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
                 `https://corsproxy.io/?${encodeURIComponent(url)}`
             ];
-
-            return new Promise((resolve, reject) => {
-                let finished = false;
-                let pending = urls.length;
-                let lastError = null;
-                const controllers = [];
-
-                urls.forEach((candidate) => {
-                    const controller = new AbortController();
-                    controllers.push(controller);
-                    const timer = setTimeout(() => controller.abort(), timeoutMs);
-
-                    fetch(candidate, { cache: 'no-store', signal: controller.signal })
-                        .then(res => {
-                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
-                            return res.text();
-                        })
-                        .then(text => {
-                            const trimmed = String(text || '').trim();
-                            if (!trimmed || trimmed.length < 10) throw new Error('응답 내용 없음');
-                            if (trimmed.startsWith('<')) throw new Error('프록시 HTML/XML 응답');
-
-                            let data;
-                            try {
-                                data = JSON.parse(trimmed);
-                            } catch (_) {
-                                throw new Error('JSON 형식 아님');
-                            }
-                            const header = data?.response?.header;
-                            if (header?.resultCode && header.resultCode !== '00') {
-                                throw new Error(header.resultMsg || `resultCode ${header.resultCode}`);
-                            }
-                            if (!data?.response?.body && !data?.response?.header) {
-                                throw new Error('기상청 응답 형식 아님');
-                            }
-                            if (finished) return;
-                            finished = true;
-                            clearTimeout(timer);
-                            controllers.forEach(c => { if (c !== controller) c.abort(); });
-                            resolve(data);
-                        })
-                        .catch(err => {
-                            clearTimeout(timer);
-                            lastError = err;
-                            pending -= 1;
-                            if (!finished && pending === 0) reject(lastError || new Error('기상특보 수신 실패'));
-                        });
-                });
-            });
-        }
-
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV10';
-
-        // V10: 최근 목록의 세종 발표 특보가 발효시각 파싱 실패로 상단에서 빠지는 문제 보완.
-        const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
-
-        function loadSpecialCache() {
-            try {
-                const saved = JSON.parse(localStorage.getItem(SPECIAL_CACHE_KEY) || 'null');
-                if (!saved || !saved.savedAt || !saved.payload) return null;
-                if (Date.now() - saved.savedAt > SPECIAL_CACHE_MAX_MS) return null;
-                return saved.payload;
-            } catch (_) { return null; }
-        }
-
-        function saveSpecialCache(payload) {
-            try {
-                localStorage.setItem(SPECIAL_CACHE_KEY, JSON.stringify({ savedAt: Date.now(), payload }));
-            } catch (_) {}
-        }
-
-
-        function renderSpecial({ sourceName, latestTime, sejongTexts, allTexts, listItems, historyItems }) {
-            const scopeLabel = getSpecialScopeLabel();
-            const now = Date.now();
-            const scopedAllTexts = filterSpecialListByScope(allTexts || []);
-            const scopedStatusItems = filterSpecialListByScope(listItems || [])
-                .filter(item => !isReleasedSpecial(item));
-            // 최근 목록은 세종 관련 발표·발효·해제 통보를 모두 남깁니다.
-            const sejongHistoryItems = (historyItems || [])
-                .filter(isSejongHistorySpecial)
-                .sort((a, b) => String(b.tmFc || b.tmEf || b.time || '').localeCompare(String(a.tmFc || a.tmEf || a.time || '')));
-
-            // getPwnStatus에 발효 예정 특보가 포함되어도 tmEf(발효시각)를 현재시각과 비교해
-            // 발효 중/발효 예정으로 반드시 나눕니다. 발표시간(tmFc)과 발효시간(tmEf)은 별도 표시합니다.
-            function makeSpecialRow(item, source = 'status') {
-                const text = specialRecordText(item);
-                const region = displaySejongHistoryRegion(item);
-                const alertName = item?.__alertName || findAlertName(text);
-                const publishedAt = getSpecialPublishedAt(item);
-                const effectiveAt = getSpecialEffectiveAt(item);
-                return { item, source, text, region, alertName, publishedAt, effectiveAt };
-            }
-
-            function timeText(value, type) {
-                if (value) return formatSpecialDateTime(value);
-                return type === 'published' ? '기상청 발표시각 미제공' : '기상청 발효시각 미제공';
-            }
-
-            function rowKey(row) {
-                const eff = row.effectiveAt ? row.effectiveAt.getTime() : '';
-                const pub = row.publishedAt ? row.publishedAt.getTime() : '';
-                return [row.alertName || '', row.region || '', eff, pub].join('|');
-            }
-
-            function uniqueRows(rows) {
-                const used = new Set();
-                return rows.filter(row => {
-                    const key = rowKey(row);
-                    if (used.has(key)) return false;
-                    used.add(key);
-                    return true;
-                });
-            }
-
-            function rowState(row) {
-                if (isReleasedSpecial(row.item)) return 'released';
-                // 발효시각이 명확히 현재보다 늦으면, API 현재목록에 있어도 발효 예정입니다.
-                if (row.effectiveAt && row.effectiveAt.getTime() > now) return 'pending';
-                // getPwnStatus의 미해제 자료이며 발효시각이 지났거나 시각이 없는 경우에만 발효 중으로 봅니다.
-                if (row.source === 'status') return 'active';
-                if (row.effectiveAt && row.effectiveAt.getTime() <= now) return 'elapsed';
-                return 'announced';
-            }
-
-            function badgeHtml(state) {
-                const styles = {
-                    active: 'color:var(--red);',
-                    pending: 'color:var(--orange);',
-                    elapsed: 'color:var(--orange);',
-                    released: 'color:var(--sub);',
-                    announced: 'color:var(--blue);'
-                };
-                const labels = {
-                    active: '발효 중',
-                    pending: '발효 예정',
-                    elapsed: '발효시각 경과',
-                    released: '해제',
-                    announced: '발표'
-                };
-                return '<span style="' + (styles[state] || styles.announced) + ' font-size:11px; font-weight:900;">' + (labels[state] || labels.announced) + '</span>';
-            }
-
-            function timePairHtml(row, compact = false) {
-                const size = compact ? '11px' : '12px';
-                return '<span style="color:var(--sub); font-size:' + size + '; line-height:1.55;">'
-                    + '발표시각: ' + timeText(row.publishedAt, 'published')
-                    + '<br>발효시각: ' + timeText(row.effectiveAt, 'effective')
-                    + '</span>';
-            }
-
-            const statusRows = scopedStatusItems
-                .map(item => makeSpecialRow(item, 'status'))
-                .filter(row => row.alertName);
-            let statusActiveRows = [];
-
-            /*
-             * 상단은 원래 getPwnStatus(현재 발효현황)만 사용했습니다. 다만 기상청 API가
-             * 간헐적으로 세종 항목을 누락하거나 상세지역 연결이 늦어지면, 아래 최근 목록에는
-             * “폭염주의보 발표”가 있어도 상단은 “특보 없음”이 되는 문제가 생깁니다.
-             *
-             * 현재현황이 비어 있을 때만 최근 통보문을 보조 기준으로 씁니다.
-             * 발효시각이 지난 최근 발표 건 중 같은 지역·같은 특보의 뒤이은 해제 통보가 없는
-             * 항목을 발효 중으로 간주합니다. 오래된 통보문은 잘못 되살아나는 것을 막기 위해
-             * 48시간까지만 대체 판정에 사용합니다.
-             */
-            const historyRows = sejongHistoryItems
-                .map(item => makeSpecialRow(item, 'history'))
-                .filter(row => row.alertName);
-
-            function sameWarningRegion(a, b) {
-                const aa = cleanText(a).replace(/\s+/g, '');
-                const bb = cleanText(b).replace(/\s+/g, '');
-                if (!aa || !bb) return false;
-                if (aa === bb || aa.includes(bb) || bb.includes(aa)) return true;
-                return isSejongSpecialRegion(aa) && isSejongSpecialRegion(bb);
-            }
-
-            function hasLaterRelease(row) {
-                const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
-                return historyRows.some(other => {
-                    if (!isReleasedSpecial(other.item)) return false;
-                    if (other.alertName !== row.alertName) return false;
-                    if (!sameWarningRegion(other.region, row.region)) return false;
-                    const releasedTime = other.publishedAt?.getTime() || other.effectiveAt?.getTime() || 0;
-                    return releasedTime >= rowTime;
-                });
-            }
-
-            // getPwnStatus에는 발효시각이 빠지는 경우가 많습니다. 같은 특보의
-            // 통보문(getWthrWrnMsg)·목록(getWthrWrnList)에서 시각을 보강해
-            // 세종 폭염주의보가 '특보 없음'으로 사라지지 않게 합니다.
-            const statusRowsWithMatchedTimes = statusRows.map(row => {
-                const matchedHistory = historyRows.find(candidate =>
-                    !isReleasedSpecial(candidate.item)
-                    && candidate.alertName === row.alertName
-                    && sameWarningRegion(candidate.region, row.region)
-                );
-                if (!matchedHistory) return row;
-                return {
-                    ...row,
-                    publishedAt: row.publishedAt || matchedHistory.publishedAt,
-                    effectiveAt: row.effectiveAt || matchedHistory.effectiveAt
-                };
-            });
-            statusActiveRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'active');
-
-            /*
-             * 현재현황(getPwnStatus)은 세종 항목을 간헐적으로 누락할 수 있으므로,
-             * 통보문/목록에서는 “같은 특보·같은 세종 구역”의 가장 마지막 통보만 남겨
-             * 현재 상태를 재구성합니다. 마지막 통보가 해제가 아니고 발효시각이 지났다면
-             * 상단도 반드시 ‘발효 중’으로 표시합니다.
-             */
-            function historyStateKey(row) {
-                const name = row.alertName || '';
-                const rawRegion = cleanText(row.region || '').replace(/\s+/g, '');
-                // 세종특별자치시·세종시·세종(세종북부/남부)은 같은 세종 특보 상태로 묶습니다.
-                const region = isSejongSpecialRegion(rawRegion) ? '세종' : rawRegion;
-                return `${name}|${region}`;
-            }
-
-            const latestHistoryByWarning = new Map();
-            historyRows.forEach(row => {
-                if (!row.alertName) return;
-                const key = historyStateKey(row);
-                const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
-                const previous = latestHistoryByWarning.get(key);
-                const previousTime = previous ? (previous.publishedAt?.getTime() || previous.effectiveAt?.getTime() || 0) : -1;
-                // 같은 시각에는 해제 통보를 우선하여 잘못된 재표시를 막습니다.
-                if (!previous || rowTime > previousTime || (rowTime === previousTime && isReleasedSpecial(row.item) && !isReleasedSpecial(previous.item))) {
-                    latestHistoryByWarning.set(key, row);
+            let lastError;
+            for (const candidate of candidates) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                try {
+                    const response = await fetch(candidate, { cache: 'no-store', signal: controller.signal });
+                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                    const raw = await response.text();
+                    const trimmed = String(raw || '').trim();
+                    if (!trimmed || trimmed.startsWith('<')) throw new Error('JSON 응답 없음');
+                    const data = JSON.parse(trimmed);
+                    if (!isApiOk(data)) throw new Error(data?.response?.header?.resultMsg || '기상청 API 오류');
+                    clearTimeout(timer);
+                    return data;
+                } catch (error) {
+                    lastError = error;
+                } finally {
+                    clearTimeout(timer);
                 }
-            });
-
-            const historyFallbackActiveRows = Array.from(latestHistoryByWarning.values())
-                .filter(row => {
-                    if (isReleasedSpecial(row.item)) return false;
-                    const startedAt = row.effectiveAt || row.publishedAt;
-                    if (!startedAt || startedAt.getTime() > now) return false;
-                    // 특보는 해제 통보가 올 때까지 유지될 수 있으므로 최근 7일 범위에서만 보조 판정합니다.
-                    if (now - startedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return false;
-                    return true;
-                });
-
-            /*
-             * 핵심 보완: 아래 "최근 기상특보 목록"에 세종 특보가 정상 표시된다면,
-             * 그 발표 건은 상단에도 반드시 반영합니다. getPwnStatus가 세종 행을
-             * 빼먹거나 지역명이 서로 다르게 들어와도, 같은 특보의 뒤이은 "세종 해제"
-             * 통보가 없는 한 발효시각 이후에는 상단을 "발효 중"으로 표시합니다.
-             */
-            const historyVisibleActiveRows = historyRows
-                .filter(row => {
-                    if (!row.alertName || isReleasedSpecial(row.item)) return false;
-                    const startedAt = row.effectiveAt || row.publishedAt;
-                    if (!startedAt || startedAt.getTime() > now) return false;
-                    if (now - startedAt.getTime() > 7 * 24 * 60 * 60 * 1000) return false;
-                    return !hasLaterRelease(row);
-                });
-
-            /*
-             * 최종 상단 판정: 아래 최근 목록에 세종 특보가 보이는데도 발효시각 파싱 실패·
-             * API 시각 필드 누락 때문에 상단이 ‘특보 없음’으로 떨어지는 것을 막습니다.
-             *
-             * 세종 대상의 ‘발표/발효’ 특보 행이 있고, 같은 특보·세종 대상의 더 늦은
-             * 해제 통보가 없다면 발효 상태 후보로 반드시 포함합니다. 발효시각은 화면에
-             * 표시하기 위한 정보일 뿐, 상단 표시를 막는 조건으로 사용하지 않습니다.
-             */
-            const visibleSejongWarningRows = historyRows
-                .filter(row => {
-                    if (!row.alertName || isReleasedSpecial(row.item)) return false;
-                    if (!isSejongSpecialRegion(row.region)) return false;
-                    if (hasLaterRelease(row)) return false;
-
-                    // 통보문·목록 수신 범위(최근 7일) 안의 항목만 사용합니다.
-                    // API가 발표·발효시각 필드를 비워도, 화면 목록에 표시된 현재 발표 건은
-                    // 여기서 제외하지 않아 상단 ‘특보 없음’ 오판을 막습니다.
-                    const rowTime = row.publishedAt?.getTime() || row.effectiveAt?.getTime() || 0;
-                    return !rowTime || now - rowTime <= 7 * 24 * 60 * 60 * 1000;
-                });
-
-            // 현재현황·최신 통보문 상태·최근 목록의 세종 발표건을 모두 합칩니다.
-            const activeRows = uniqueRows([
-                ...statusActiveRows,
-                ...historyFallbackActiveRows,
-                ...historyVisibleActiveRows,
-                ...visibleSejongWarningRows
-            ])
-                .sort((a, b) => (b.effectiveAt?.getTime() || b.publishedAt?.getTime() || 0) - (a.effectiveAt?.getTime() || a.publishedAt?.getTime() || 0));
-            const pendingStatusRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'pending');
-            const pendingHistoryRows = getPendingSpecials(sejongHistoryItems)
-                .map(row => ({ ...row, source: 'history', text: specialRecordText(row.item), region: displaySejongHistoryRegion(row.item) }));
-            const pendingRows = uniqueRows([...pendingStatusRows, ...pendingHistoryRows])
-                .sort((a, b) => {
-                    const aTime = a.effectiveAt?.getTime() || Number.MAX_SAFE_INTEGER;
-                    const bTime = b.effectiveAt?.getTime() || Number.MAX_SAFE_INTEGER;
-                    if (aTime !== bTime) return aTime - bTime;
-                    return (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0);
-                });
-
-            const primaryActive = activeRows[0] || null;
-            const primaryPending = primaryActive ? null : (pendingRows[0] || null);
-            const displayRow = primaryActive || primaryPending;
-            const displayState = primaryActive ? 'active' : (primaryPending ? rowState(primaryPending) : 'none');
-
-            if (primaryActive) {
-                headerStatusEl.innerText = scopeLabel + ': ' + primaryActive.alertName + ' 발효 중';
-                headerStatusEl.className = 'sejong-summary warn';
-            } else if (primaryPending) {
-                headerStatusEl.innerText = scopeLabel + ': ' + primaryPending.alertName + ' 발효 예정';
-                headerStatusEl.className = 'sejong-summary pending';
-            } else {
-                headerStatusEl.innerText = scopeLabel + ': 특보 없음';
-                headerStatusEl.className = 'sejong-summary safe';
             }
-
-            let mainHtml = '';
-            if (primaryActive) {
-                mainHtml = '<div class="weather-main-box warn">'
-                    + '<i class="fas fa-triangle-exclamation" style="font-size:22px;"></i>'
-                    + '<div><div class="weather-main-title">' + scopeLabel + ' ' + primaryActive.alertName + ' 발효 중</div>'
-                    + '<div class="weather-main-sub">지역: ' + primaryActive.region + '<br>발표시각: ' + timeText(primaryActive.publishedAt, 'published') + ' · 발효시각: ' + timeText(primaryActive.effectiveAt, 'effective') + '</div></div></div>';
-            } else if (primaryPending) {
-                mainHtml = '<div class="weather-main-box pending">'
-                    + '<i class="fas fa-hourglass-half" style="font-size:22px;"></i>'
-                    + '<div><div class="weather-main-title">' + scopeLabel + ' ' + primaryPending.alertName + ' 발효 예정</div>'
-                    + '<div class="weather-main-sub">지역: ' + primaryPending.region + '<br>발표시각: ' + timeText(primaryPending.publishedAt, 'published') + ' · 발효시각: ' + timeText(primaryPending.effectiveAt, 'effective') + '</div></div></div>';
-            } else {
-                mainHtml = '<div class="weather-main-box safe">'
-                    + '<i class="fas fa-check-circle" style="font-size:22px;"></i>'
-                    + '<div><div class="weather-main-title">' + scopeLabel + ' 특보 없음</div>'
-                    + '<div class="weather-main-sub">현재 ' + scopeLabel + ' 관련 기상특보가 없습니다.</div></div></div>';
-            }
-
-            let currentHtml = '';
-            if (activeRows.length > 0) {
-                currentHtml = activeRows.slice(0, 10).map(row => {
-                    return '🚨 <b>' + row.alertName + ' 발효 중</b><br>'
-                        + '<span style="color:var(--sub); font-size:12px;">지역: ' + row.region + '<br>'
-                        + '발표시각: ' + timeText(row.publishedAt, 'published') + '<br>'
-                        + '발효시각: ' + timeText(row.effectiveAt, 'effective') + '</span>';
-                }).join('<br><br>');
-            } else if (primaryPending) {
-                currentHtml = '<i class="fas fa-hourglass-half" style="color:var(--orange)"></i> <b>' + primaryPending.alertName + ' 발효 예정</b><br><br>'
-                    + '<span style="color:var(--sub); font-size:12px;">지역: ' + primaryPending.region + '<br>'
-                    + '발표시각: ' + timeText(primaryPending.publishedAt, 'published') + '<br>'
-                    + '발효시각: ' + timeText(primaryPending.effectiveAt, 'effective') + '<br>'
-                    + '발효시각 전에는 발효 중으로 표시하지 않습니다.</span>';
-            } else if (scopedAllTexts.length > 0) {
-                currentHtml = '<i class="fas fa-check-circle" style="color:var(--green)"></i> ' + scopeLabel + ' 관련 현재 특보 없음<br><br><span style="color:var(--sub); font-size:12px;">최근 발표·발효 정보는 아래 목록에서 확인하세요.</span>';
-            } else {
-                currentHtml = '<i class="fas fa-check-circle" style="color:var(--green)"></i> ' + scopeLabel + ' 관련 특보 없음 또는 자료 없음';
-            }
-
-            let recentHtml = '';
-            if (sejongHistoryItems.length > 0) {
-                recentHtml = sejongHistoryItems.slice(0, 8).map(item => {
-                    const row = makeSpecialRow(item, 'history');
-                    let state = rowState(row);
-                    // 같은 특보가 현재 상태 자료에서 발효 중이면 최근 목록도 발효 중으로 표시합니다.
-                    if (state === 'elapsed' && activeRows.some(active => active.alertName === row.alertName)) state = 'active';
-                    const title = row.alertName || item.title || itemText(item) || '제목 없음';
-                    return '📌 ' + title + ' ' + badgeHtml(state) + '<br>'
-                        + '<span style="color:var(--sub); font-size:12px;">지역: ' + row.region + '<br>'
-                        + '발표시각: ' + timeText(row.publishedAt, 'published') + '<br>'
-                        + '발효시각: ' + timeText(row.effectiveAt, 'effective') + '</span>';
-                }).join('<br><br>');
-            } else {
-                recentHtml = '<span style="color:var(--sub);">세종특별자치시 최근 발표·발효·해제 특보 없음</span>';
-            }
-
-            const currentEffectiveTime = displayRow ? timeText(displayRow.effectiveAt, 'effective') : '해당 없음';
-            contentEl.innerHTML = mainHtml
-                + '<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">' + formatNowTime() + '</div></div>'
-                + '<div class="info-group"><span class="info-label">최근 특보 발표시각</span><div class="info-val time">' + (latestTime || '확인불가') + '</div></div>'
-                + '<div class="info-group"><span class="info-label">현재 특보 발효시각</span><div class="info-val time">' + currentEffectiveTime + '</div></div>'
-                + '<div class="info-group"><span class="info-label">' + scopeLabel + ' 특보현황</span><div class="info-val content">' + currentHtml + '</div></div>'
-                + '<div class="info-group"><span class="info-label">최근 기상특보 목록</span><div class="info-val content">' + recentHtml + '</div>'
-                + '<div style="font-size:10px; color:var(--sub); margin-top:5px;">※ 발표시각과 발효시각을 구분해 표시합니다. 발효시각 전에는 ‘발효 예정’으로 표시됩니다.</div></div>'
-                + '<div style="font-size:10px; color:var(--sub); margin-top:8px; text-align:right;">출처: ' + sourceName + '</div>';
+            throw lastError || new Error('기상청 API 수신 실패');
         }
 
-        async function tryPublicData() {
-            const now = new Date();
-            const from = new Date();
-            from.setDate(now.getDate() - 6);
+        const cached = loadCache();
+        if (cached) render(cached, true);
+        else if (!silent) {
+            headerStatusEl.textContent = '세종: 확인중';
+            headerStatusEl.className = 'sejong-summary';
+            contentEl.innerHTML = '<div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상청 특보 수신중...</div>';
+        }
 
-            const statusUrl = buildUrl('/getPwnStatus', { numOfRows: 300 });
-            const listUrl = buildUrl('/getWthrWrnList', {
-                numOfRows: 1000,
-                fromTmFc: yyyymmdd(from),
-                toTmFc: yyyymmdd(now)
-            });
-            const msgUrl = buildUrl('/getWthrWrnMsg', {
-                numOfRows: 1000,
-                fromTmFc: yyyymmdd(from),
-                toTmFc: yyyymmdd(now)
-            });
-
-            // 현재 특보현황을 최우선으로 먼저 받아 표시합니다.
-            // 최근 이력·통보문은 실패해도 현재 특보 수신을 막지 않는 보조 데이터입니다.
-            const statusData = await fetchJsonWithFallback(statusUrl, 3600);
-            const currentItems = normalizeItems(statusData);
-
-            const [listResult, msgResult] = await Promise.allSettled([
-                fetchJsonWithFallback(listUrl, 3800),
-                fetchJsonWithFallback(msgUrl, 3800)
+        try {
+            const today = new Date();
+            const from = new Date(today);
+            from.setDate(from.getDate() - 7);
+            const ymd = date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
+            const [statusResult, messageResult] = await Promise.allSettled([
+                fetchJson(buildUrl('/getPwnStatus', { numOfRows: 500 })),
+                fetchJson(buildUrl('/getWthrWrnMsg', { numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
             ]);
 
-            const listItems = listResult.status === 'fulfilled' ? normalizeItems(listResult.value) : [];
-            const messageItems = msgResult.status === 'fulfilled' ? normalizeItems(msgResult.value) : [];
-            const detailIndex = buildSpecialDetailIndex(messageItems);
-            const rawListItems = listItems
-                .map(item => attachSpecialDetail(item, detailIndex))
-                .sort((a, b) => String(b.tmFc || b.tmEf || '').localeCompare(String(a.tmFc || a.tmEf || '')));
+            const statusSuccess = statusResult.status === 'fulfilled';
+            const messageSuccess = messageResult.status === 'fulfilled';
+            const statusRows = statusSuccess ? parseCurrentStatus(normalizeItems(statusResult.value)) : [];
+            const noticeEvents = messageSuccess
+                ? normalizeItems(messageResult.value).flatMap(parseOfficialNotice)
+                : [];
+            const noticeState = latestStateFromNotices(noticeEvents, statusSuccess);
 
-            /*
-             * 중요: 여기서 원본 currentItems 전체에 대해 해제 여부를 먼저 검사하면 안 됩니다.
-             * 기상청 현재특보 자료는 한 건 안에 "호우주의보 해제"와 "폭염주의보 : 세종특별자치시"를
-             * 함께 담을 수 있습니다. 원본 전체에 '해제'가 한 번만 있어도 먼저 버리면,
-             * 세종 폭염주의보까지 사라져 상단에 '세종 특보 없음'이 표시됩니다.
-             * 반드시 특보별로 나눈 다음, 해당 특보 행의 해제 여부만 판정합니다.
-             */
-            const activeStatusItems = currentItems
-                .map(item => attachSpecialDetail(item, detailIndex));
+            // getPwnStatus가 세종 행을 누락해도, 최근 36시간 내 세종 통보문에
+            // “폭염주의보 발표”가 있고 뒤의 세종 폭염주의보 해제가 없으면 반드시 표시합니다.
+            const active = sortCurrent([...statusRows, ...noticeState.active]);
+            const pending = active.length ? [] : sortCurrent(noticeState.pending);
+            const confirmedNone = !active.length && !pending.length && (
+                statusSuccess || (messageSuccess && noticeState.latest.some(row => actionIsRelease(row.action)))
+            );
 
-            // 통보문에 여러 특보가 섞여 있을 수 있으므로 반드시
-            // "특보명 : 대상지역" 단위로 쪼갠 뒤 세종 대상 특보만 전달합니다.
-            const sejongActiveStatusItems = normalizeSpecialItemsByWarning(activeStatusItems, true)
-                .filter(item => !isReleasedSpecial(item));
-
-            // 목록(getWthrWrnList)과 원문 통보문(getWthrWrnMsg)을 함께 이력 판정에 사용합니다.
-            // 목록이 순간적으로 비어도 통보문에 남아 있는 세종 폭염주의보가 상단에서 사라지지 않게 합니다.
-            const rawHistoryCandidates = rawListItems.concat(messageItems || []);
-            const sejongHistoryItems = normalizeSpecialItemsByWarning(rawHistoryCandidates, true);
-
-            const currentTexts = sejongActiveStatusItems
-                .map(item => specialRecordText(item))
-                .filter(Boolean);
-            const sejongTexts = currentTexts;
-
-            // getPwnStatus는 정상 응답이어도 세종 항목이 누락되는 경우가 있어,
-            // 현재 세종 특보도 없고 세종 이력/통보문도 하나도 얻지 못한 빈 응답은
-            // 정상 "특보 없음"으로 저장하지 않습니다. 이때는 Weatheri 대체 조회 또는 직전 정상값을 사용합니다.
-            const publicEvidenceCount = sejongActiveStatusItems.length + sejongHistoryItems.length;
-            // 세종 대상 특보 단서가 0건이면 getPwnStatus 단독으로 “특보 없음”을 확정하지 않습니다.
-            // 실제 해제 여부는 Weatheri 현재 특보 화면으로 한 번 더 검증합니다.
-            // 이렇게 해야 공공데이터 API의 세종 항목 누락이 기존 발효 특보를 지우지 않습니다.
-            if (publicEvidenceCount === 0) {
-                throw new Error('세종 기상특보 판정 단서 없음 - 대체 현재특보 검증 필요');
-            }
-
-            const payload = {
-                sourceName: '공공데이터포털 기상청 기상특보 조회서비스',
-                latestTime: sejongHistoryItems[0]?.tmFc ? formatKmaTime(sejongHistoryItems[0].tmFc) : (rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime()),
-                sejongTexts,
-                allTexts: currentTexts,
-                listItems: sejongActiveStatusItems,
-                historyItems: sejongHistoryItems
+            const state = {
+                source: '공공데이터포털 기상청 기상특보 조회서비스',
+                active,
+                pending,
+                events: noticeEvents,
+                confirmedNone
             };
-            // 세종 특보 단서가 있을 때만 캐시를 덮어씁니다. 빈 응답은 기존 정상 캐시를 보존합니다.
-            if (publicEvidenceCount > 0) saveSpecialCache(payload);
-            renderSpecial(payload);
-        }
-
-        async function tryWeatheri() {
-            const targetUrl = 'https://www.weatheri.co.kr/special/special01.php?_=' + Date.now();
-            const urls = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}&_=${Date.now()}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
-                `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`
-            ];
-
-            const htmlText = await fetchTextWithFallback(urls);
-            const doc = new DOMParser().parseFromString(htmlText, 'text/html');
-            const bodyText = cleanText(doc.body ? doc.body.innerText : htmlText);
-
-            const timeMatch = bodyText.match(/(?:기상특보|발효현황)\s*[:：]?\s*-?\s*(\d{4}[.\-]\d{1,2}[.\-]\d{1,2}\s+\d{1,2}:\d{2}(?::\d{2})?)/);
-            const latestTime = timeMatch ? timeMatch[1] : '확인불가';
-
-            const warningRegex = /o\s*([^o]+?(?:주의보|경보)\s*:\s*.*?)(?=\s+o\s|$)/g;
-            const warnings = [];
-            let m;
-            while ((m = warningRegex.exec(bodyText)) !== null) {
-                const line = cleanText(m[1]);
-                if (line && !warnings.includes(line)) warnings.push(line);
-            }
-
-            // 줄 단위로 들어오는 예전 형식도 같이 처리
-            bodyText.split(/\n|\r|(?=\so\s)/).forEach(line => {
-                const t = cleanText(line).replace(/^o\s*/, '');
-                if ((t.includes('주의보') || t.includes('경보')) && t.includes(':') && !warnings.includes(t)) {
-                    warnings.push(t);
-                }
-            });
-
-            // 대체 수신도 “특보명 : 대상지역” 단위로 분리합니다.
-            // 그래야 한 문장에 다른 지역 호우주의보와 세종 폭염주의보가 함께 있을 때
-            // 첫 번째 특보명이 세종 특보로 표시되지 않습니다.
-            const sejongWarningItems = normalizeSpecialItemsByWarning(warnings, true)
-                .filter(item => !isReleasedSpecial(item));
-            const sejongTexts = sejongWarningItems.map(item => specialRecordText(item)).filter(Boolean);
-            renderSpecial({
-                sourceName: 'Weatheri 기상특보 페이지 자동 대체 수신',
-                latestTime,
-                sejongTexts,
-                allTexts: sejongTexts,
-                listItems: sejongWarningItems,
-                historyItems: sejongWarningItems
-            });
-        }
-
-        const cachedSpecial = loadSpecialCache();
-        try {
-            // 직전 정상 수신값이 있으면 먼저 보여주고 뒤에서 조용히 갱신합니다.
-            if (cachedSpecial) {
-                renderSpecial(cachedSpecial);
-            } else {
-                headerStatusEl.innerText = '확인중...';
-                headerStatusEl.className = 'sejong-summary';
-                if (!silent) contentEl.innerHTML = `<div style="text-align:center; color:var(--sub); padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상특보 수신중...</div>`;
-            }
-
-            try {
-                await tryPublicData();
-            } catch (publicErr) {
-                console.warn('공공데이터 기상특보 실패, Weatheri로 대체:', publicErr);
-                await tryWeatheri();
-            }
-        } catch (e) {
-            console.error('기상특보 전체 수신 실패:', e);
-            if (cachedSpecial) {
-                // 캐시도 renderSpecial의 발표·발효시각 판정 기준으로 다시 표시합니다.
-                renderSpecial(cachedSpecial);
-            } else {
-                headerStatusEl.innerText = '수신 지연';
-                headerStatusEl.className = 'sejong-summary warn';
-                if (!silent) contentEl.innerHTML = `
-                    <div style="text-align:center; color:var(--orange); padding:10px; font-size:13px; line-height:1.5;">
-                        기상특보 수신 지연<br>
-                        <span style="color:var(--sub); font-size:11px;">공공데이터·대체 페이지 연결을 다시 시도합니다.</span>
-                    </div>`;
+            // 최소 하나의 공식 API 응답을 받았을 때만 캐시를 갱신합니다.
+            if (statusSuccess || messageSuccess) saveCache(state);
+            render(state);
+        } catch (error) {
+            console.warn('기상특보 공공데이터 수신 실패:', error);
+            if (!cached) {
+                render({
+                    source: '공공데이터포털 기상청 기상특보 조회서비스',
+                    active: [], pending: [], events: [], confirmedNone: false
+                });
             }
         } finally {
             isSpecialFetching = false;
