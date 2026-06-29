@@ -5094,7 +5094,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        const CACHE_KEY = 'sejongWeatherWarningOfficialV4';
+        const CACHE_KEY = 'sejongWeatherWarningOfficialV6';
         const CACHE_MAX_MS = 20 * 60 * 1000;
         const ALERT_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
 
@@ -5209,7 +5209,17 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const nowText = () => formatTime(new Date());
         const findAlert = text => cleanApiText(text).match(new RegExp(`(${ALERT_PATTERN})`))?.[1] || '';
         const isSejong = value => /세종특별자치시|세종시|세종\s*\(\s*세종(?:북부|남부)\s*\)|(?<![가-힣])세종(?![가-힣])/.test(cleanApiText(value));
-        const warningKey = row => `${row.alert || ''}|세종`;
+
+        // 기상청 통보문의 세종북부·세종남부는 서로 다른 특보구역입니다.
+        // 둘을 하나의 '세종'으로 합치면 뒤에 발표된 다른 구역 특보가 기존 시간까지 덮어씁니다.
+        function sejongRegionName(value) {
+            const text = cleanApiText(value);
+            const sub = text.match(/세종\s*\(\s*세종\s*(북부|남부)\s*\)|세종\s*(북부|남부)/);
+            if (sub) return `세종${sub[1] || sub[2]}`;
+            return '세종특별자치시';
+        }
+
+        const warningKey = row => `${row.alert || ''}|${row.region || '세종특별자치시'}`;
         const actionIsRelease = action => /해제|취소/.test(String(action || ''));
 
         function getSection(text, labels) {
@@ -5328,7 +5338,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 events.push({
                     alert: areaRow.alert,
                     action: areaRow.action || '발표',
-                    region: '세종특별자치시',
+                    region: sejongRegionName(areaRow.value),
                     issuedAt: issuedAt ? issuedAt.getTime() : (effectiveAt ? effectiveAt.getTime() : 0),
                     effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
                     raw: source
@@ -5352,7 +5362,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     events.push({
                         alert: segment[1],
                         action,
-                        region: '세종특별자치시',
+                        region: sejongRegionName(scopedText),
                         issuedAt: issuedAt ? issuedAt.getTime() : (effective ? effective.getTime() : 0),
                         effectiveAt: effective ? effective.getTime() : 0,
                         raw: source
@@ -5396,7 +5406,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         rows.push({
                             alert: row.alert,
                             action: '발표',
-                            region: '세종특별자치시',
+                            region: sejongRegionName(regionText),
                             issuedAt: scopedIssuedAt ? scopedIssuedAt.getTime() : 0,
                             effectiveAt: scopedEffectiveAt ? scopedEffectiveAt.getTime() : 0,
                             raw: source,
@@ -5415,7 +5425,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 rows.push({
                     alert,
                     action: '발표',
-                    region: '세종특별자치시',
+                    region: sejongRegionName(region),
                     issuedAt: singleIssuedAt ? singleIssuedAt.getTime() : 0,
                     effectiveAt: singleEffectiveAt ? singleEffectiveAt.getTime() : 0,
                     raw: source,
@@ -5535,10 +5545,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             let main = '';
             if (active.length) {
                 const row = active[0];
-                main = `<div class="weather-main-box warn"><i class="fas fa-triangle-exclamation" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 중</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+                main = `<div class="weather-main-box warn"><i class="fas fa-triangle-exclamation" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 중</div><div class="weather-main-sub">지역: ${esc(row.region || '세종특별자치시')}<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
             } else if (pending.length) {
                 const row = pending[0];
-                main = `<div class="weather-main-box pending"><i class="fas fa-hourglass-half" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 예정</div><div class="weather-main-sub">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
+                main = `<div class="weather-main-box pending"><i class="fas fa-hourglass-half" style="font-size:22px;"></i><div><div class="weather-main-title">세종 ${esc(row.alert)} 발효 예정</div><div class="weather-main-sub">지역: ${esc(row.region || '세종특별자치시')}<br>발표시각: ${esc(formatTime(row.issuedAt))} · 발효시각: ${esc(formatTime(row.effectiveAt))}</div></div></div>`;
             } else if (state.confirmedNone) {
                 main = '<div class="weather-main-box safe"><i class="fas fa-check-circle" style="font-size:22px;"></i><div><div class="weather-main-title">세종 특보 없음</div><div class="weather-main-sub">공공데이터포털 기상청 현재특보 조회 결과입니다.</div></div></div>';
             } else {
@@ -5547,13 +5557,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const currentRows = active.length ? active : pending;
             const currentHtml = currentRows.length
-                ? currentRows.slice(0, 10).map(row => `<b>${active.includes(row) ? '🚨' : '⏳'} ${esc(row.alert)} ${active.includes(row) ? '발효 중' : '발효 예정'}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`).join('<br><br>')
+                ? currentRows.slice(0, 10).map(row => `<b>${active.includes(row) ? '🚨' : '⏳'} ${esc(row.alert)} ${active.includes(row) ? '발효 중' : '발효 예정'}</b><br><span style="color:var(--sub); font-size:12px;">지역: ${esc(row.region || '세종특별자치시')}<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`).join('<br><br>')
                 : (state.confirmedNone ? '<i class="fas fa-check-circle" style="color:var(--green)"></i> 세종 관련 현재 특보 없음' : '<i class="fas fa-satellite-dish" style="color:var(--orange)"></i> 기상특보 수신 지연');
 
             const historyHtml = events.length
                 ? events.slice(0, 8).map(row => {
                     const label = actionIsRelease(row.action) ? '해제' : (row.effectiveAt && row.effectiveAt > Date.now() ? '발효 예정' : '발표');
-                    return `📌 <b>${esc(row.alert)} ${esc(label)}</b><br><span style="color:var(--sub); font-size:12px;">지역: 세종특별자치시<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`;
+                    return `📌 <b>${esc(row.alert)} ${esc(label)}</b><br><span style="color:var(--sub); font-size:12px;">지역: ${esc(row.region || '세종특별자치시')}<br>발표시각: ${esc(formatTime(row.issuedAt))}<br>발효시각: ${esc(formatTime(row.effectiveAt))}</span>`;
                 }).join('<br><br>')
                 : '<span style="color:var(--sub);">최근 세종 기상특보 통보문 없음</span>';
 
@@ -5622,13 +5632,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         try {
             const today = new Date();
             const from = new Date(today);
-            from.setDate(from.getDate() - 7);
+            // 기상특보 통보문은 최근 범위로 조회합니다. 7일 이상 범위를 요청하면
+            // 일부 응답에서 빈 목록이 오는 사례가 있어 5일로 제한합니다.
+            from.setDate(from.getDate() - 5);
             const ymd = date => `${date.getFullYear()}${String(date.getMonth() + 1).padStart(2, '0')}${String(date.getDate()).padStart(2, '0')}`;
             const [statusResult, messageResult] = await Promise.allSettled([
                 fetchJson(buildUrl('/getPwnStatus', { numOfRows: 500 })),
-                // 기상특보 통보문은 발표관서(108)를 지정해야 실제 통보문(t1~t4)이 안정적으로 반환됩니다.
-                // 여기의 통보문에만 공식 발표·발효시각이 들어 있으므로, 상태 API 갱신시각을 대신 표시하지 않습니다.
-                fetchJson(buildUrl('/getWthrWrnMsg', { stnId: 108, numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
+                // stnId=108로 제한하지 않습니다. 세종 특보는 지역 기상청 발표분일 수 있어
+                // 108로 고정하면 통보문이 비어 버릴 수 있습니다. 전체 통보문에서 세종만 선별합니다.
+                fetchJson(buildUrl('/getWthrWrnMsg', { numOfRows: 1000, fromTmFc: ymd(from), toTmFc: ymd(today) }))
             ]);
 
             const statusSuccess = statusResult.status === 'fulfilled';
@@ -5639,9 +5651,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 : [];
             const noticeState = latestStateFromNotices(noticeEvents, statusSuccess);
 
-            // getPwnStatus가 세종 행을 누락해도, 최근 36시간 내 세종 통보문에
-            // “폭염주의보 발표”가 있고 뒤의 세종 폭염주의보 해제가 없으면 반드시 표시합니다.
-            const active = sortCurrent([...statusRows, ...noticeState.active]);
+            // 통보문에 같은 특보 종류가 있으면, 구역별 공식 통보문(세종북부·세종남부)을 우선합니다.
+            // 상태 API의 포괄적인 '세종' 한 줄을 함께 넣으면 최신 구역의 시간이 기존 구역에 덮어써질 수 있습니다.
+            const officialAlerts = new Set([...noticeState.active, ...noticeState.pending].map(row => row.alert));
+            const statusFallbackRows = statusRows.filter(row => !officialAlerts.has(row.alert));
+            const active = sortCurrent([...noticeState.active, ...statusFallbackRows]);
             const pending = active.length ? [] : sortCurrent(noticeState.pending);
             const confirmedNone = !active.length && !pending.length && (
                 statusSuccess || (messageSuccess && noticeState.latest.some(row => actionIsRelease(row.action)))
