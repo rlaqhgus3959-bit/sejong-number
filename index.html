@@ -5239,7 +5239,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const title = clone.title || itemText(clone);
             const byTime = timeKey ? detailIndex?.byTime?.get(timeKey) : null;
             const byNo = specialNoticeNumber(title) ? detailIndex?.byNo?.get(specialNoticeNumber(title)) : null;
-            const hit = byTime || byNo;
+            const hit = byNo || byTime;
             if (hit) {
                 clone.__detailRegion = hit.region;
                 clone.__detailText = hit.detailText;
@@ -5280,26 +5280,59 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const text = String(rawText || '').replace(/\r/g, '\n');
             if (!text) return [];
 
-            // "호우주의보 : 지역 / 폭염주의보 : 지역" 형태를 각각 분리합니다.
-            // 발표·해제·취소 문구가 특보명 뒤에 붙는 형식도 함께 처리합니다.
+            const rows = [];
+            const seen = new Set();
+            const pushRow = (alertName, stateWord, region) => {
+                const cleanAlert = cleanText(alertName);
+                const cleanState = cleanText(stateWord);
+                const cleanRegion = cleanSpecialRegion(region)
+                    .replace(/^\(?\s*\d+\s*\)?\s*/, '')
+                    .trim();
+                if (!cleanAlert || !cleanRegion) return;
+                const key = [cleanAlert, cleanState, cleanRegion].join('|');
+                if (seen.has(key)) return;
+                seen.add(key);
+                rows.push({
+                    alertName: cleanAlert,
+                    region: cleanRegion,
+                    isReleased: /해제|취소/.test(cleanState),
+                    isAnnouncement: /발표/.test(cleanState)
+                });
+            };
+
+            /*
+             * 기상청 통보문 표준형식
+             *   □ 발효시각
+             *   (1) 폭염주의보 발표 : 2026년 06월 29일 11시 00분
+             *   □ 해당구역
+             *   (1) 폭염주의보 발표 : 세종특별자치시
+             *
+             * 기존 정규식은 첫 줄의 '11시 00분'을 지역으로 오인할 수 있었습니다.
+             * 먼저 '해당구역' 블록만 떼어 대상 지역을 확정합니다.
+             */
+            const areaBlockRe = /□\s*(?:해당\s*구역|특보\s*구역|발효\s*구역|대상\s*구역|대상\s*지역)\s*([\s\S]*?)(?=□\s*(?:참고사항|유의\s*사항|특보\s*내용|기상\s*개황|$)|$)/gi;
+            let areaBlock;
+            while ((areaBlock = areaBlockRe.exec(text)) !== null) {
+                const block = areaBlock[1] || '';
+                const areaLineRe = new RegExp(
+                    '(?:\\(\\s*\\d+\\s*\\)\\s*)?(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([^\\n\\r□]+)',
+                    'g'
+                );
+                let areaLine;
+                while ((areaLine = areaLineRe.exec(block)) !== null) {
+                    pushRow(areaLine[1], areaLine[2], areaLine[3]);
+                }
+            }
+            if (rows.length) return rows;
+
+            // 일반 목록·현재현황의 "호우주의보 : 지역 / 폭염주의보 : 지역" 형식
             const segmentRe = new RegExp(
                 '(' + SPECIAL_ALERT_NAME_PATTERN + ')\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\s*(?:[oO•·]\\s*)?' + SPECIAL_ALERT_NAME_PATTERN + '\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)',
                 'g'
             );
-
-            const rows = [];
             let match;
             while ((match = segmentRe.exec(text)) !== null) {
-                const alertName = cleanText(match[1]);
-                const stateWord = cleanText(match[2]);
-                const region = cleanSpecialRegion(match[3]);
-                if (!alertName || !region) continue;
-                rows.push({
-                    alertName,
-                    region,
-                    isReleased: /해제|취소/.test(stateWord),
-                    isAnnouncement: /발표/.test(stateWord)
-                });
+                pushRow(match[1], match[2], match[3]);
             }
             return rows;
         }
@@ -5468,7 +5501,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         function formatSpecialDateTime(value) {
             const d = parseSpecialDateTime(value);
-            if (!d) return '발효시각 확인중';
+            if (!d) return '';
             const y = d.getFullYear();
             const m = String(d.getMonth() + 1).padStart(2, '0');
             const day = String(d.getDate()).padStart(2, '0');
@@ -5487,13 +5520,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             if (!text) return null;
 
             // 예: 발효시각 : 2026년 06월 29일 11시 00분 / 발효시간: 2026.06.29. 11:00
-            const korean = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
+            const korean = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{4})\s*년\s*(\d{1,2})\s*월\s*(\d{1,2})\s*일(?:\s*\([^)]*\))?\s*(\d{1,2})\s*시(?:\s*(\d{1,2})\s*분?)?/i);
             if (korean) {
                 const parsed = new Date(Number(korean[1]), Number(korean[2]) - 1, Number(korean[3]), Number(korean[4]), Number(korean[5] || 0), 0, 0);
                 if (!Number.isNaN(parsed.getTime())) return parsed;
             }
 
-            const numeric = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})(?:일)?[.\sT]+(\d{1,2})[:시](\d{1,2})?/i);
+            const numeric = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{4})[.\-/년\s]+(\d{1,2})[.\-/월\s]+(\d{1,2})(?:일)?[.\sT]+(\d{1,2})[:시](\d{1,2})?/i);
             if (numeric) {
                 const parsed = new Date(Number(numeric[1]), Number(numeric[2]) - 1, Number(numeric[3]), Number(numeric[4]), Number(numeric[5] || 0), 0, 0);
                 if (!Number.isNaN(parsed.getTime())) return parsed;
@@ -5507,7 +5540,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             // 일부 통보문은 날짜 없이 “발효시각: 11:00” 또는 “발효: 11시”로만 제공합니다.
             // 이 경우 발표일을 기준으로 발효일을 구성하고, 발표시각보다 지나치게 이르면 다음 날로 보정합니다.
-            const hit = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{1,2})\s*(?:시|:)(?:\s*(\d{1,2})\s*(?:분)?)?/i);
+            const hit = text.match(/발효(?:시각|시간|일시)?[\s\S]{0,80}?(\d{1,2})\s*(?:시|:)(?:\s*(\d{1,2})\s*(?:분)?)?/i);
             if (!hit) return null;
 
             const hour = Number(hit[1]);
@@ -5692,7 +5725,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV5';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV6';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5735,7 +5768,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             function timeText(value, type) {
                 if (value) return formatSpecialDateTime(value);
-                return type === 'published' ? '발표시각 확인중' : '발효시각 확인중';
+                return type === 'published' ? '기상청 발표시각 미제공' : '기상청 발효시각 미제공';
             }
 
             function rowKey(row) {
@@ -5793,7 +5826,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const statusRows = scopedStatusItems
                 .map(item => makeSpecialRow(item, 'status'))
                 .filter(row => row.alertName);
-            const statusActiveRows = statusRows.filter(row => rowState(row) === 'active');
+            let statusActiveRows = [];
 
             /*
              * 상단은 원래 getPwnStatus(현재 발효현황)만 사용했습니다. 다만 기상청 API가
@@ -5828,6 +5861,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 });
             }
 
+            // getPwnStatus에는 발효시각이 빠지는 경우가 많습니다. 같은 특보의
+            // 통보문(getWthrWrnMsg)·목록(getWthrWrnList)에서 시각을 보강해
+            // 세종 폭염주의보가 '특보 없음'으로 사라지지 않게 합니다.
+            const statusRowsWithMatchedTimes = statusRows.map(row => {
+                const matchedHistory = historyRows.find(candidate =>
+                    !isReleasedSpecial(candidate.item)
+                    && candidate.alertName === row.alertName
+                    && sameWarningRegion(candidate.region, row.region)
+                );
+                if (!matchedHistory) return row;
+                return {
+                    ...row,
+                    publishedAt: row.publishedAt || matchedHistory.publishedAt,
+                    effectiveAt: row.effectiveAt || matchedHistory.effectiveAt
+                };
+            });
+            statusActiveRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'active');
+
             const historyFallbackActiveRows = historyRows
                 .filter(row => {
                     if (isReleasedSpecial(row.item)) return false;
@@ -5841,7 +5892,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const activeRows = uniqueRows(statusActiveRows.length ? statusActiveRows : historyFallbackActiveRows)
                 .sort((a, b) => (b.effectiveAt?.getTime() || b.publishedAt?.getTime() || 0) - (a.effectiveAt?.getTime() || a.publishedAt?.getTime() || 0));
-            const pendingStatusRows = statusRows.filter(row => rowState(row) === 'pending');
+            const pendingStatusRows = statusRowsWithMatchedTimes.filter(row => rowState(row) === 'pending');
             const pendingHistoryRows = getPendingSpecials(sejongHistoryItems)
                 .map(row => ({ ...row, source: 'history', text: specialRecordText(row.item), region: displaySejongHistoryRegion(row.item) }));
             const pendingRows = uniqueRows([...pendingStatusRows, ...pendingHistoryRows])
@@ -5941,14 +5992,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const statusUrl = buildUrl('/getPwnStatus', { numOfRows: 300 });
             const listUrl = buildUrl('/getWthrWrnList', {
-                numOfRows: 100,
-                stnId: '133',
+                numOfRows: 1000,
                 fromTmFc: yyyymmdd(from),
                 toTmFc: yyyymmdd(now)
             });
             const msgUrl = buildUrl('/getWthrWrnMsg', {
-                numOfRows: 300,
-                stnId: '133',
+                numOfRows: 1000,
                 fromTmFc: yyyymmdd(from),
                 toTmFc: yyyymmdd(now)
             });
@@ -6002,7 +6051,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const payload = {
                 sourceName: '공공데이터포털 기상청 기상특보 조회서비스',
-                latestTime: rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime(),
+                latestTime: sejongHistoryItems[0]?.tmFc ? formatKmaTime(sejongHistoryItems[0].tmFc) : (rawListItems[0]?.tmFc ? formatKmaTime(rawListItems[0].tmFc) : formatNowTime()),
                 sejongTexts,
                 allTexts: currentTexts,
                 listItems: sejongActiveStatusItems,
