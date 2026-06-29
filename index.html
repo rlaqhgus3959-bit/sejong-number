@@ -5094,7 +5094,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        const CACHE_KEY = 'sejongWeatherWarningOfficialV2';
+        const CACHE_KEY = 'sejongWeatherWarningOfficialV3';
         const CACHE_MAX_MS = 20 * 60 * 1000;
         const ALERT_PATTERN = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)(?:주의보|경보)';
 
@@ -5247,17 +5247,68 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return parseKmaDate(declared);
         }
 
-        // 통보문은 “발표시각”과 “발효시각”이 특보명과 다른 줄에 나오는 경우가 많습니다.
-        // 해당 항목을 별도로 찾아야 발표 10:00 / 발효 11:00이 섞이지 않습니다.
+        // 통보문은 여러 종류의 특보를 한 번에 담을 수 있습니다.
+        // 따라서 전체 통보문에서 찾은 첫 번째 시간(다른 지역·다른 특보 시간)을 세종 특보에 쓰지 않습니다.
         function findLabeledKmaDate(source, labels) {
             const text = cleanApiText(source);
             for (const label of labels) {
-                const safeLabel = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\\s+/g, '\\s*');
+                const safeLabel = String(label).replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
                 const match = text.match(new RegExp(`${safeLabel}\\s*[:：]?\\s*([^\\n□]+)`, 'i'));
                 const parsed = parseKmaDate(match?.[1] || '');
                 if (parsed) return parsed;
             }
             return null;
+        }
+
+        function alertNamesInText(text) {
+            const names = new Set();
+            const re = new RegExp(`(${ALERT_PATTERN})`, 'g');
+            let match;
+            const source = cleanApiText(text);
+            while ((match = re.exec(source)) !== null) names.add(match[1]);
+            return Array.from(names);
+        }
+
+        // 한 특보 항목(예: 폭염주의보) 안에서만 발효시각을 찾습니다.
+        // 번호가 있으면 번호까지 일치시켜 다른 특보·다른 지역 시간 혼입을 차단합니다.
+        function findEffectiveAtForAlert(timeBlock, alert, action, no) {
+            const text = cleanApiText(timeBlock);
+            if (!text || !alert) return null;
+            const rows = parseSectionLines(text);
+            const exact = rows.find(row =>
+                row.alert === alert && row.action === action &&
+                (String(row.no || '') === String(no || '') || !row.no || !no)
+            );
+            const sameAlert = rows.find(row => row.alert === alert && row.action === action);
+            const parsed = parseKmaDate((exact || sameAlert)?.value || '');
+            if (parsed) return parsed;
+
+            // 줄바꿈이 사라진 API 응답도 특보명 뒤 구간 안에서만 시각을 찾습니다.
+            const safeAlert = String(alert).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const safeAction = String(action || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const marker = new RegExp(`${safeAlert}\\s*(?:${safeAction ? `(?:${safeAction})\\s*` : ''})?[:：]`, 'gi');
+            let hit;
+            while ((hit = marker.exec(text)) !== null) {
+                const rest = text.slice(hit.index, hit.index + 500);
+                const next = rest.search(new RegExp(`(?:\\n|□)\\s*(?:\\(\\s*\\d+\\s*\\)\\s*)?(?:${ALERT_PATTERN})\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]`, 'i'));
+                const scoped = next > 0 ? rest.slice(0, next) : rest;
+                const date = parseKmaDate(scoped);
+                if (date) return date;
+            }
+            return null;
+        }
+
+        // 공통 발효시각은 해당 통보문에 특보 종류가 하나일 때만 사용합니다.
+        // 둘 이상이면 어느 특보의 시각인지 알 수 없으므로 '미제공' 처리하는 편이 정확합니다.
+        function findSafeCommonEffectiveAt(timeBlock, areaRows) {
+            const timeAlerts = alertNamesInText(timeBlock);
+            const areaAlerts = Array.from(new Set((areaRows || []).map(row => row.alert).filter(Boolean)));
+            if (timeAlerts.length > 1 || areaAlerts.length > 1) return null;
+            return parseKmaDate(timeBlock) || findLabeledKmaDate(timeBlock, ['발효시각', '발효시간', '발효일시']);
+        }
+
+        function findSingleWarningLabeledDate(source, labels) {
+            return alertNamesInText(source).length <= 1 ? findLabeledKmaDate(source, labels) : null;
         }
 
         function parseOfficialNotice(item) {
@@ -5266,21 +5317,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const issuedAt = noticeIssuedAt(item, source);
             const timeBlock = getSection(source, ['발효시각', '발효시간', '발효일시']);
             const areaBlock = getSection(source, ['해당구역', '발효구역', '대상구역', '대상지역', '특보구역']);
-            const timeRows = parseSectionLines(timeBlock);
             const areaRows = parseSectionLines(areaBlock);
-            // 예: “□ 발효시각 : 2026년 06월 29일 11:00”처럼 공통 발효시각만 있는 통보문 처리
-            const commonEffectiveAt = parseKmaDate(timeBlock)
-                || findLabeledKmaDate(source, ['발효시각', '발효시간', '발효일시']);
+            const safeCommonEffectiveAt = findSafeCommonEffectiveAt(timeBlock, areaRows);
             const events = [];
 
             areaRows.forEach(areaRow => {
                 if (!isSejong(areaRow.value)) return;
-                const exact = timeRows.find(timeRow =>
-                    timeRow.alert === areaRow.alert && timeRow.action === areaRow.action &&
-                    (timeRow.no === areaRow.no || !timeRow.no || !areaRow.no)
-                );
-                const sameAlert = timeRows.find(timeRow => timeRow.alert === areaRow.alert && timeRow.action === areaRow.action);
-                const effectiveAt = parseKmaDate((exact || sameAlert)?.value || '') || commonEffectiveAt;
+                const effectiveAt = findEffectiveAtForAlert(timeBlock, areaRow.alert, areaRow.action || '발표', areaRow.no)
+                    || safeCommonEffectiveAt;
                 events.push({
                     alert: areaRow.alert,
                     action: areaRow.action || '발표',
@@ -5291,23 +5335,20 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 });
             });
 
-            // API가 줄바꿈을 제거한 단순 형식으로 줄 때의 보조 파서입니다.
+            // API가 줄바꿈을 제거한 단순 형식일 때의 보조 파서입니다.
             if (!events.length) {
-                // non-greedy + 더 안전한 경계 (□ 또는 다음 특보)
                 const segmentRe = new RegExp(
                     `(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]\\s*([\\s\\S]*?)(?=\\n?□|\\n?\\s*(?:${ALERT_PATTERN})\\s*(?:(?:발표|해제|취소|변경)\\s*)?[:：]|$)`,
                     'gi'
                 );
                 let segment;
                 while ((segment = segmentRe.exec(source)) !== null) {
-                    const timeText = segment[3] || '';
-                    if (!isSejong(timeText)) continue;
-
+                    const scopedText = segment[3] || '';
+                    if (!isSejong(scopedText)) continue;
                     const action = segment[2] || '발표';
-                    const effective = findLabeledKmaDate(timeText, ['발효시각', '발효시간', '발효일시'])
-                        || commonEffectiveAt
-                        || parseKmaDate(timeText);
-
+                    // 같은 특보 구간에서 확인된 시간만 쓰고, 전체 통보문의 첫 시간을 넘겨받지 않습니다.
+                    const effective = findLabeledKmaDate(scopedText, ['발효시각', '발효시간', '발효일시'])
+                        || parseKmaDate(scopedText);
                     events.push({
                         alert: segment[1],
                         action,
@@ -5325,12 +5366,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const rows = [];
             (items || []).forEach(item => {
                 const source = cleanApiText(itemValues(item));
-                // 항목 필드가 없거나 명칭이 달라도 통보문 안의 ‘발표시각/발효시각’을 우선 사용합니다.
-                const explicitIssuedAt = parseKmaDate(firstField(item, ['tmFc', 'announceTime', 'pubTime']))
-                    || findLabeledKmaDate(source, ['발표시각', '발표시간', '발표일시'])
+                const fieldIssuedAt = parseKmaDate(firstField(item, ['tmFc', 'announceTime', 'pubTime']))
                     || parseKmaDate(firstField(item, ['tm', 'tmSeq', 'time']));
-                const explicitEffectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime']))
-                    || findLabeledKmaDate(source, ['발효시각', '발효시간', '발효일시']);
+                const fieldEffectiveAt = parseKmaDate(firstField(item, ['tmEf', 'tmSt', 'effTime', 'effectTime', 'startTime']));
 
                 const marker = new RegExp(`(${ALERT_PATTERN})\\s*(?:(발표|해제|취소|변경)\\s*)?[:：]`, 'g');
                 const markers = [];
@@ -5341,18 +5379,25 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
                 if (markers.length) {
                     markers.forEach((row, index) => {
-                        const regionText = source.slice(row.end, index + 1 < markers.length ? markers[index + 1].index : undefined)
+                        const segmentEnd = index + 1 < markers.length ? markers[index + 1].index : source.length;
+                        const scopedSegment = source.slice(row.index, segmentEnd);
+                        const regionText = source.slice(row.end, segmentEnd)
                             .split(/(?:발효시각|발효시간|발효일시|발표시각|발표시간|발표일시|특보번호)/i)[0];
                         if (!isSejong(regionText) || actionIsRelease(row.action)) return;
 
-                        // 반드시 명시된 발효시각을 먼저 사용합니다. 없을 때만 특보 구역 문장 안의 시각을 보조로 사용합니다.
-                        const effectiveAt = explicitEffectiveAt || parseKmaDate(regionText);
+                        // 상태 API 한 건에 여러 특보가 있으면 전체 문서의 시간은 쓰지 않습니다.
+                        // 해당 특보 구간 또는 전용 필드의 시간만 사용합니다.
+                        const scopedIssuedAt = fieldIssuedAt
+                            || findLabeledKmaDate(scopedSegment, ['발표시각', '발표시간', '발표일시']);
+                        const scopedEffectiveAt = fieldEffectiveAt
+                            || findLabeledKmaDate(scopedSegment, ['발효시각', '발효시간', '발효일시'])
+                            || parseKmaDate(regionText);
                         rows.push({
                             alert: row.alert,
                             action: '발표',
                             region: '세종특별자치시',
-                            issuedAt: explicitIssuedAt ? explicitIssuedAt.getTime() : 0,
-                            effectiveAt: effectiveAt ? effectiveAt.getTime() : 0,
+                            issuedAt: scopedIssuedAt ? scopedIssuedAt.getTime() : 0,
+                            effectiveAt: scopedEffectiveAt ? scopedEffectiveAt.getTime() : 0,
                             raw: source,
                             fromStatus: true
                         });
@@ -5364,12 +5409,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const region = firstField(item, ['region', 'area', 'areaName', 'regName', 'target', 'wrnArea', 'loc', 'location']) || source;
                 if (!alert || !isSejong(region) || /해제|취소/.test(source)) return;
 
+                const singleIssuedAt = fieldIssuedAt || findSingleWarningLabeledDate(source, ['발표시각', '발표시간', '발표일시']);
+                const singleEffectiveAt = fieldEffectiveAt || findSingleWarningLabeledDate(source, ['발효시각', '발효시간', '발효일시']);
                 rows.push({
                     alert,
                     action: '발표',
                     region: '세종특별자치시',
-                    issuedAt: explicitIssuedAt ? explicitIssuedAt.getTime() : 0,
-                    effectiveAt: explicitEffectiveAt ? explicitEffectiveAt.getTime() : 0,
+                    issuedAt: singleIssuedAt ? singleIssuedAt.getTime() : 0,
+                    effectiveAt: singleEffectiveAt ? singleEffectiveAt.getTime() : 0,
                     raw: source,
                     fromStatus: true
                 });
@@ -5405,10 +5452,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
 
         function normalizeUnique(rows) {
-            // 현재특보와 통보문에 같은 특보가 함께 있을 때, 발효시각이 확인된 행을 하나만 사용합니다.
-            // 그래야 발표시각을 잘못 읽은 상태 행이 정확한 통보문 발효시각을 덮어쓰지 않습니다.
+            // 통보문(getWthrWrnMsg)은 특보별 공식 발효시각이 들어 있어 상태목록보다 우선합니다.
+            // 상태목록의 다른 지역 시간이 더 늦다는 이유로 세종 특보 시간을 덮어쓰지 않게 합니다.
             const bestByWarning = new Map();
-
             (rows || []).forEach(row => {
                 const key = `${row.alert || ''}|${row.region || '세종특별자치시'}`;
                 const previous = bestByWarning.get(key);
@@ -5417,19 +5463,23 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     return;
                 }
 
+                const previousOfficial = !previous.fromStatus && Number(previous.effectiveAt || previous.issuedAt || 0) > 0;
+                const currentOfficial = !row.fromStatus && Number(row.effectiveAt || row.issuedAt || 0) > 0;
+                if (currentOfficial && !previousOfficial) {
+                    bestByWarning.set(key, row);
+                    return;
+                }
+                if (previousOfficial && !currentOfficial) return;
+
                 const previousEffective = Number(previous.effectiveAt || 0);
                 const currentEffective = Number(row.effectiveAt || 0);
                 const previousIssued = Number(previous.issuedAt || 0);
                 const currentIssued = Number(row.issuedAt || 0);
-
-                const shouldReplace =
-                    currentEffective > previousEffective ||
-                    (currentEffective === previousEffective && currentIssued > previousIssued) ||
-                    (currentEffective === previousEffective && currentIssued === previousIssued && !row.fromStatus && previous.fromStatus);
-
-                if (shouldReplace) bestByWarning.set(key, row);
+                if (currentEffective > previousEffective ||
+                    (currentEffective === previousEffective && currentIssued > previousIssued)) {
+                    bestByWarning.set(key, row);
+                }
             });
-
             return Array.from(bestByWarning.values());
         }
 
