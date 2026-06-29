@@ -5356,6 +5356,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     dedupe.add(key);
 
                     const clone = typeof item === 'object' && item ? { ...item } : {};
+                    // 화면 판정용으로는 특보명·대상지역만 남기되, 원본 통보문은 반드시 보존합니다.
+                    // 원본에는 ‘발효시각 11:00’처럼 API 필드에 없는 발효시간이 들어올 수 있습니다.
+                    clone.__sourceDetailText = originalText;
                     clone.title = row.alertName;
                     clone.__alertName = row.alertName;
                     clone.__detailRegion = row.region;
@@ -5494,8 +5497,33 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return null;
         }
 
+        function extractEffectiveTimeOnlyFromText(rawText, publishedAt) {
+            const text = cleanText(rawText);
+            if (!text) return null;
+
+            // 일부 통보문은 날짜 없이 “발효시각: 11:00” 또는 “발효: 11시”로만 제공합니다.
+            // 이 경우 발표일을 기준으로 발효일을 구성하고, 발표시각보다 지나치게 이르면 다음 날로 보정합니다.
+            const hit = text.match(/발효(?:시각|시간|일시)?[^0-9]{0,24}(\d{1,2})\s*(?:시|:)(?:\s*(\d{1,2})\s*(?:분)?)?/i);
+            if (!hit) return null;
+
+            const hour = Number(hit[1]);
+            const minute = Number(hit[2] || 0);
+            if (hour > 23 || minute > 59) return null;
+
+            const base = publishedAt instanceof Date && !Number.isNaN(publishedAt.getTime())
+                ? new Date(publishedAt.getTime())
+                : new Date();
+            const parsed = new Date(base.getFullYear(), base.getMonth(), base.getDate(), hour, minute, 0, 0);
+            // 특보 발표 후 자정을 넘겨 발효되는 경우를 보정합니다.
+            if (publishedAt && parsed.getTime() < publishedAt.getTime() - 60 * 60 * 1000) parsed.setDate(parsed.getDate() + 1);
+            return parsed;
+        }
+
         function getSpecialEffectiveAt(item) {
-            if (!item || typeof item === 'string') return extractEffectiveAtFromText(String(item || ''));
+            if (!item || typeof item === 'string') {
+                const rawText = String(item || '');
+                return extractEffectiveAtFromText(rawText) || extractEffectiveTimeOnlyFromText(rawText, null);
+            }
 
             const publishedAt = getSpecialPublishedAt(item);
             const fieldNames = [
@@ -5506,7 +5534,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const parsed = parseSpecialDateTime(item[key]);
                 if (parsed && (!publishedAt || parsed.getTime() >= publishedAt.getTime() - 60 * 1000)) return parsed;
             }
-            return extractEffectiveAtFromText(`${item.__detailText || ''} ${itemText(item)}`);
+
+            // 특보를 “특보명 : 대상지역” 단위로 분리해도 원본 통보문의 발효시각은 잃지 않도록 합니다.
+            const rawText = `${item.__sourceDetailText || ''} ${item.__detailText || ''} ${item.__rawDetailText || ''} ${itemText(item)}`;
+            return extractEffectiveAtFromText(rawText)
+                || extractEffectiveTimeOnlyFromText(rawText, publishedAt);
         }
 
         function isAnnouncementSpecial(item) {
