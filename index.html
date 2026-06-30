@@ -5450,8 +5450,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const fromDetail = extractEffectiveAtFromText(item.__detailText || '');
             if (fromDetail) return fromDetail;
             const publishedAt = getSpecialPublishedAt(item);
+            // getPwnStatus의 tmEf는 개별 특보의 발효시각이 아니라
+            // “현재 특보 발효현황” 갱신시각(예: 22:00)일 수 있으므로 사용하지 않습니다.
             const fieldNames = [
-                'tmEf', 'tmSt', 'tmStart', 'tmBeg', 'tmBegin', 'tmValid',
+                'tmSt', 'tmStart', 'tmBeg', 'tmBegin', 'tmValid',
                 'effTime', 'effectTime', 'startTime', 'beginTime', 'wrnStartTime'
             ];
             for (const key of fieldNames) {
@@ -5608,7 +5610,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV8';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV9_EffectiveTime';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5640,12 +5642,35 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             // getPwnStatus에 발효 예정 특보가 포함되어도 tmEf(발효시각)를 현재시각과 비교해
             // 발효 중/발효 예정으로 반드시 나눕니다. 발표시간(tmFc)과 발효시간(tmEf)은 별도 표시합니다.
+            // 현재발효현황(getPwnStatus)의 갱신시각(tmEf)을 특보 발효시각으로 쓰지 않고,
+            // 같은 특보의 공식 발표 통보문(getWthrWrnMsg)에 적힌 발효시각을 우선 사용합니다.
+            // 예: 세종남부 폭염주의보 → 2026-06-29 11:00 (현황 갱신 22:00과 구분)
+            function getOfficialNoticeEffectiveAt(alertName) {
+                if (!alertName) return null;
+                const noticeRows = filterSpecialListByScope(sejongHistoryItems)
+                    .filter(isAnnouncementSpecial)
+                    .filter(historyItem => findItemAlertName(historyItem) === alertName)
+                    .map(historyItem => ({
+                        publishedAt: getSpecialPublishedAt(historyItem),
+                        effectiveAt: extractEffectiveAtFromText(historyItem.__detailText || specialRecordText(historyItem))
+                    }))
+                    .filter(row => row.effectiveAt)
+                    .sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
+                return noticeRows[0]?.effectiveAt || null;
+            }
+
             function makeSpecialRow(item, source = 'status') {
                 const text = specialRecordText(item);
                 const region = displaySejongHistoryRegion(item);
                 const alertName = findItemAlertName(item) || findAlertName(text);
                 const publishedAt = getSpecialPublishedAt(item);
-                const effectiveAt = getSpecialEffectiveAt(item);
+                let effectiveAt = getSpecialEffectiveAt(item);
+
+                // 이 변경은 발효시각 값만 바로잡습니다. 특보명·지역·발표시각 판정은 그대로 유지합니다.
+                if (source === 'status') {
+                    const officialEffectiveAt = getOfficialNoticeEffectiveAt(alertName);
+                    if (officialEffectiveAt) effectiveAt = officialEffectiveAt;
+                }
                 return { item, source, text, region, alertName, publishedAt, effectiveAt };
             }
 
