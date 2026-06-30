@@ -5103,13 +5103,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
          */
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        const SEJONG_STATIONS = [
-            { code: 'L1170000', label: '세종' },       // 기존 세종 코드(과거 통보문 보완)
-            { code: 'L1170100', label: '세종' },       // 현행 세종 전역
-            { code: 'L1170110', label: '세종북부' },   // 세종북부
-            { code: 'L1170120', label: '세종남부' }    // 세종남부
+        // getWthrWrnMsg의 stnId는 특보구역 코드(L117...)가 아니라
+        // 특보를 발표한 기상관서의 지점코드입니다. 세종 특보는 대전(133) 통보문에서 수신합니다.
+        // 통보문 안의 대상구역에서 세종·세종북부·세종남부만 따로 골라 표시합니다.
+        const WARNING_ISSUING_STATIONS = [
+            { code: '133', label: '대전지방기상청' }
         ];
-        const CACHE_KEY = 'sejongWarningMessageOnlyV1';
+        const CACHE_KEY = 'sejongWarningMessageOnlyV2_Station133';
         const CACHE_MAX_MS = 20 * 60 * 1000;
 
         const WARNING_RE = /(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)\s*(주의보|경보)/;
@@ -5479,6 +5479,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
+        function isSejongWarningRecord(record) {
+            // 대전 발표관서 통보문에는 충남·충북 등 다른 지역도 함께 포함될 수 있으므로,
+            // 대상구역 또는 통보문 본문에 세종이 명시된 특보만 남깁니다.
+            const text = cleanText(`${record?.area || ''} ${record?.rawText || ''}`);
+            return /세종(?:특별자치시|시)?(?:\s*\([^)]*\))?/.test(text)
+                || /세종(?:남부|북부)/.test(text);
+        }
+
         async function requestSejongWarningMessages() {
             const today = new Date();
             const from = new Date(today);
@@ -5486,7 +5494,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const to = new Date(today);
             to.setDate(to.getDate() + 1);
 
-            const results = await Promise.allSettled(SEJONG_STATIONS.map(async station => {
+            const results = await Promise.allSettled(WARNING_ISSUING_STATIONS.map(async station => {
                 const data = await fetchJsonWithFallback(buildUrl(station.code, yyyymmdd(from), yyyymmdd(to)));
                 return normalizeItems(data).map(item => normalizeMessage(item, station));
             }));
@@ -5494,9 +5502,17 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const records = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
             if (!records.length) {
                 const reasons = results.filter(result => result.status === 'rejected').map(result => result.reason?.message).filter(Boolean);
-                throw new Error(reasons[0] || '세종 기상특보 통보문이 없습니다.');
+                throw new Error(reasons[0] || '기상특보 통보문 응답이 없습니다.');
             }
-            return deDuplicate(records).filter(record => record.alertName);
+
+            const sejongRecords = deDuplicate(records)
+                .filter(record => record.alertName && isSejongWarningRecord(record));
+            if (!sejongRecords.length) {
+                // API 수신 자체는 정상이지만 세종 대상 특보가 없는 경우입니다.
+                // 빈 배열을 반환해 “세종 특보 없음”으로 표시합니다.
+                return [];
+            }
+            return sejongRecords;
         }
 
         const cached = loadCache();
