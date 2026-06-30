@@ -5103,13 +5103,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
          */
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
         const API_BASE = 'https://apis.data.go.kr/1360000/WthrWrnInfoService';
-        // getWthrWrnMsg의 stnId는 특보구역 코드(L117...)가 아니라
-        // 특보를 발표한 기상관서의 지점코드입니다. 세종 특보는 대전(133) 통보문에서 수신합니다.
-        // 통보문 안의 대상구역에서 세종·세종북부·세종남부만 따로 골라 표시합니다.
-        const WARNING_ISSUING_STATIONS = [
-            { code: '133', label: '대전지방기상청' }
+        // getWthrWrnMsg의 stnId는 기상특보 구역코드입니다.
+        // 세종은 2026-05-31부터 전역·북부·남부 코드가 분리되어 있으므로 세 코드를 각각 조회합니다.
+        // L1170000은 이전 세종 코드라 현재 조회에서는 제외하여 중복·지연을 줄입니다.
+        const SEJONG_WARNING_STATIONS = [
+            { code: 'L1170100', label: '세종' },
+            { code: 'L1170110', label: '세종북부' },
+            { code: 'L1170120', label: '세종남부' }
         ];
-        const CACHE_KEY = 'sejongWarningMessageOnlyV2_Station133';
+        const CACHE_KEY = 'sejongWarningMessageOnlyV3_L117';
         const CACHE_MAX_MS = 20 * 60 * 1000;
 
         const WARNING_RE = /(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|안개|황사|폭풍해일|지진해일)\s*(주의보|경보)/;
@@ -5425,7 +5427,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const url = new URL(`${API_BASE}/getWthrWrnMsg`);
             url.searchParams.set('serviceKey', SERVICE_KEY);
             url.searchParams.set('pageNo', '1');
-            url.searchParams.set('numOfRows', '300');
+            url.searchParams.set('numOfRows', '100');
             url.searchParams.set('dataType', 'JSON');
             url.searchParams.set('stnId', stnId);
             url.searchParams.set('fromTmFc', fromTmFc);
@@ -5433,12 +5435,45 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return url.toString();
         }
 
-        async function fetchJsonWithFallback(url, timeoutMs = 6500) {
+        function parseWarningApiPayload(text) {
+            const trimmed = String(text || '').replace(/^\uFEFF/, '').trim();
+            if (!trimmed) throw new Error('응답 내용 없음');
+
+            // 정상 JSON 응답을 우선 사용합니다.
+            if (!trimmed.startsWith('<')) {
+                const data = JSON.parse(trimmed);
+                const header = data?.response?.header;
+                if (header?.resultCode && header.resultCode !== '00') {
+                    throw new Error(header.resultMsg || header.resultCode);
+                }
+                if (!data?.response?.body) throw new Error('기상특보 응답 형식 오류');
+                return data;
+            }
+
+            // 일부 환경에서 JSON 요청에도 XML로 반환되는 경우를 함께 처리합니다.
+            const xml = new DOMParser().parseFromString(trimmed, 'text/xml');
+            if (xml.querySelector('parsererror')) throw new Error('기상특보 XML 형식 오류');
+            const getText = (selector) => xml.querySelector(selector)?.textContent?.trim() || '';
+            const resultCode = getText('response > header > resultCode') || getText('resultCode');
+            const resultMsg = getText('response > header > resultMsg') || getText('resultMsg');
+            if (resultCode && resultCode !== '00') throw new Error(resultMsg || resultCode);
+
+            const items = [...xml.querySelectorAll('response > body > items > item, body > items > item')].map(node => {
+                const item = {};
+                [...node.children].forEach(child => { item[child.tagName] = child.textContent?.trim() || ''; });
+                return item;
+            });
+            if (!xml.querySelector('response > body, body')) throw new Error('기상특보 XML 응답 형식 오류');
+            return { response: { header: { resultCode: resultCode || '00', resultMsg }, body: { items: { item: items } } } };
+        }
+
+        async function fetchJsonWithFallback(url, timeoutMs = 5000) {
+            // 직접 호출을 우선하고, 내부망에서 CORS가 차단될 때만 보조 경로를 사용합니다.
             const candidates = [
                 url,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`,
+                `https://corsproxy.io/?${encodeURIComponent(url)}`,
                 `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-                `https://corsproxy.io/?${encodeURIComponent(url)}`
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`
             ];
 
             return new Promise((resolve, reject) => {
@@ -5451,18 +5486,18 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     const controller = new AbortController();
                     controllers.push(controller);
                     const timer = setTimeout(() => controller.abort(), timeoutMs);
-                    fetch(candidate, { cache: 'no-store', signal: controller.signal })
+                    fetch(candidate, {
+                        cache: 'no-store',
+                        credentials: 'omit',
+                        headers: { 'Accept': 'application/json, text/xml, application/xml, text/plain, */*' },
+                        signal: controller.signal
+                    })
                         .then(response => {
                             if (!response.ok) throw new Error(`HTTP ${response.status}`);
                             return response.text();
                         })
                         .then(text => {
-                            const trimmed = String(text || '').trim();
-                            if (!trimmed || trimmed.startsWith('<')) throw new Error('JSON 응답 없음');
-                            const data = JSON.parse(trimmed);
-                            const header = data?.response?.header;
-                            if (header?.resultCode && header.resultCode !== '00') throw new Error(header.resultMsg || header.resultCode);
-                            if (!data?.response?.body) throw new Error('기상특보 응답 형식 오류');
+                            const data = parseWarningApiPayload(text);
                             if (done) return;
                             done = true;
                             clearTimeout(timer);
@@ -5490,29 +5525,32 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         async function requestSejongWarningMessages() {
             const today = new Date();
             const from = new Date(today);
-            from.setDate(from.getDate() - 28);
+            // 최근 특보만 작게 조회해 프록시·내부망 응답 지연을 줄입니다.
+            from.setDate(from.getDate() - 7);
             const to = new Date(today);
             to.setDate(to.getDate() + 1);
 
-            const results = await Promise.allSettled(WARNING_ISSUING_STATIONS.map(async station => {
-                const data = await fetchJsonWithFallback(buildUrl(station.code, yyyymmdd(from), yyyymmdd(to)));
-                return normalizeItems(data).map(item => normalizeMessage(item, station));
-            }));
+            const records = [];
+            const errors = [];
 
-            const records = results.flatMap(result => result.status === 'fulfilled' ? result.value : []);
-            if (!records.length) {
-                const reasons = results.filter(result => result.status === 'rejected').map(result => result.reason?.message).filter(Boolean);
-                throw new Error(reasons[0] || '기상특보 통보문 응답이 없습니다.');
+            // 세종 코드별 조회를 순차 실행합니다.
+            // 동시에 여러 프록시 요청이 몰려 수신 지연이 생기는 현상을 막기 위한 처리입니다.
+            for (const station of SEJONG_WARNING_STATIONS) {
+                try {
+                    const data = await fetchJsonWithFallback(buildUrl(station.code, yyyymmdd(from), yyyymmdd(to)));
+                    records.push(...normalizeItems(data).map(item => normalizeMessage(item, station)));
+                } catch (error) {
+                    errors.push(error);
+                    console.warn(`세종 특보 통보문 조회 실패 (${station.code}):`, error);
+                }
             }
 
-            const sejongRecords = deDuplicate(records)
-                .filter(record => record.alertName && isSejongWarningRecord(record));
-            if (!sejongRecords.length) {
-                // API 수신 자체는 정상이지만 세종 대상 특보가 없는 경우입니다.
-                // 빈 배열을 반환해 “세종 특보 없음”으로 표시합니다.
-                return [];
+            if (!records.length && errors.length === SEJONG_WARNING_STATIONS.length) {
+                throw new Error(errors.map(error => error?.message).filter(Boolean)[0] || '기상특보 통보문 응답이 없습니다.');
             }
-            return sejongRecords;
+
+            // 각 stnId가 이미 세종 전역·북부·남부이므로, 다른 지역 필터는 적용하지 않습니다.
+            return deDuplicate(records).filter(record => record.alertName);
         }
 
         const cached = loadCache();
@@ -5527,7 +5565,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const records = await requestSejongWarningMessages();
             saveCache(records);
-            render(records, '기상청 공공데이터포털 · 기상특보통보문(getWthrWrnMsg)');
+            render(records, '기상청 공공데이터포털 · 세종 특보구역 통보문(getWthrWrnMsg)');
         } catch (error) {
             console.error('세종 기상특보 통보문 수신 실패:', error);
             if (cached.length) {
