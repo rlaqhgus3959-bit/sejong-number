@@ -5443,15 +5443,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return null;
         }
 
-        function getSpecialEffectiveAt(item) {
+        function getSpecialEffectiveAt(item, useHistoryTmEf = false) {
             if (!item || typeof item === 'string') return extractEffectiveAtFromText(String(item || ''));
 
-            // 상세 통보문의 “발효 YYYY-MM-DD HH:mm”를 우선해 발표시각과 혼동하지 않습니다.
+            // 상세 통보문의 “발효 YYYY-MM-DD HH:mm”를 최우선으로 사용합니다.
             const fromDetail = extractEffectiveAtFromText(item.__detailText || '');
             if (fromDetail) return fromDetail;
             const publishedAt = getSpecialPublishedAt(item);
-            // getPwnStatus의 tmEf는 개별 특보의 발효시각이 아니라
-            // “현재 특보 발효현황” 갱신시각(예: 22:00)일 수 있으므로 사용하지 않습니다.
+
+            // getPwnStatus의 tmEf는 현재현황 갱신시각일 수 있어 상태자료에서는 사용하지 않습니다.
+            // 반면 getWthrWrnList의 tmEf는 해당 발표 통보문의 개별 발효시각이므로,
+            // 목록(최근 통보문)에서만 보조값으로 사용합니다. 이 부분만 발효시각 표시를 위한 수정입니다.
+            if (useHistoryTmEf) {
+                const historyEffectiveAt = parseSpecialDateTime(item.tmEf);
+                if (historyEffectiveAt && (!publishedAt || historyEffectiveAt.getTime() >= publishedAt.getTime() - 60 * 1000)) {
+                    return historyEffectiveAt;
+                }
+            }
+
             const fieldNames = [
                 'tmSt', 'tmStart', 'tmBeg', 'tmBegin', 'tmValid',
                 'effTime', 'effectTime', 'startTime', 'beginTime', 'wrnStartTime'
@@ -5476,7 +5485,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 .filter(isAnnouncementSpecial)
                 .map(item => {
                     const alertName = findAlertName(specialRecordText(item));
-                    const effectiveAt = getSpecialEffectiveAt(item);
+                    // historyItems는 getWthrWrnList 통보문 목록이므로 tmEf를 개별 발효시각으로 사용합니다.
+                    const effectiveAt = getSpecialEffectiveAt(item, true);
                     const publishedAt = getSpecialPublishedAt(item);
                     return { item, alertName, effectiveAt, publishedAt };
                 })
@@ -5610,7 +5620,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
         }
 
-        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV9_EffectiveTime';
+        const SPECIAL_CACHE_KEY = 'sejongSpecialLastGoodV10_EffectiveTimeTmEf';
         const SPECIAL_CACHE_MAX_MS = 30 * 60 * 1000;
 
         function loadSpecialCache() {
@@ -5652,7 +5662,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     .filter(historyItem => findItemAlertName(historyItem) === alertName)
                     .map(historyItem => ({
                         publishedAt: getSpecialPublishedAt(historyItem),
-                        effectiveAt: extractEffectiveAtFromText(historyItem.__detailText || specialRecordText(historyItem))
+                        // 통보문 본문에 발효 문구가 없으면 목록 tmEf(예: 202606291100)를 사용합니다.
+                        effectiveAt: getSpecialEffectiveAt(historyItem, true)
                     }))
                     .filter(row => row.effectiveAt)
                     .sort((a, b) => (b.publishedAt?.getTime() || 0) - (a.publishedAt?.getTime() || 0));
@@ -5664,7 +5675,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const region = displaySejongHistoryRegion(item);
                 const alertName = findItemAlertName(item) || findAlertName(text);
                 const publishedAt = getSpecialPublishedAt(item);
-                let effectiveAt = getSpecialEffectiveAt(item);
+                // 최근 통보문 목록에만 tmEf를 발효시각 보조값으로 허용합니다.
+                let effectiveAt = getSpecialEffectiveAt(item, source === 'history');
 
                 // 이 변경은 발효시각 값만 바로잡습니다. 특보명·지역·발표시각 판정은 그대로 유지합니다.
                 if (source === 'status') {
