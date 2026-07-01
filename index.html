@@ -5099,7 +5099,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
         // 133: 대전지방기상청(세종 특보 확인), 108: 기상청 본청(전국 특보 목록)
         const STATION_IDS = ["133", "108"];
-        const LOOKBACK_DAYS = 30;
+        const LOOKBACK_DAYS = 6; // 공공데이터포털 getWthrWrnMsg 조회 허용 범위: 오늘 기준 최대 6일
         const WARNING_RE = /(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*(주의보|경보)/;
 
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -5306,7 +5306,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const historyHtml = sejongHistory.length
                 ? sejongHistory.map((row) => warningCard(row, row.released ? "released" : "active")).join("")
-                : `<div style="font-size:12px;color:var(--sub);padding:8px 0;">최근 30일 세종 기상특보 통보문이 없습니다.</div>`;
+                : `<div style="font-size:12px;color:var(--sub);padding:8px 0;">최근 6일 세종 기상특보 통보문이 없습니다.</div>`;
 
             const nationwideHtml = nationwideCurrent.length
                 ? nationwideCurrent.map((row) => warningCard(row, "active")).join("")
@@ -5316,7 +5316,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 + `<div class="info-group"><span class="info-label">세종 기상특보</span><div class="info-val">${sejongHtml}</div></div>`
                 + `<div class="info-group"><span class="info-label">최근 세종 특보 통보문</span><div class="info-val">${historyHtml}</div></div>`
                 + `<div class="info-group"><span class="info-label">전국 기상특보 · 발령 중</span><div class="info-val">${nationwideHtml}</div></div>`
-                + `<div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">출처: 기상청 기상특보통보문 조회서비스(getWthrWrnMsg) · 대전지방기상청(133), 기상청 본청(108) · 최근 30일 통보문 기준</div>`;
+                + `<div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">출처: 기상청 기상특보통보문 조회서비스(getWthrWrnMsg) · 대전지방기상청(133), 기상청 본청(108) · 최근 6일 통보문 기준</div>`;
         }
 
         try {
