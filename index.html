@@ -1150,7 +1150,7 @@
         </div>
         
         <div class="header-actions" style="display:flex; gap:12px; align-items:center;">
-            <button id="noti-btn" class="admin-btn" style="color:var(--blue);" onclick="requestNotificationPermission()">
+            <button id="noti-btn" type="button" class="admin-btn" style="color:var(--blue);">
                 <i class="fas fa-bell"></i> 알림 켜기
             </button>
             <button id="admin-btn" class="admin-btn" onclick="toggleAdmin()">관리자</button>
@@ -1459,23 +1459,39 @@
     const db = firebase.database();
 
     // 알림 기능 초기화
+    // 실제 사용자가 켠/끈 상태를 따로 저장합니다.
+    // Notification.permission은 브라우저 권한일 뿐, 사용자가 앱 안에서 해제한 상태와 다를 수 있습니다.
+    const NOTIFICATION_ENABLED_KEY = 'sejongPoliceNotificationEnabled';
+    const FCM_TOKEN_KEY = 'sejongPoliceFcmToken';
+
     let messaging = null;
-    let currentFcmToken = localStorage.getItem('sejongPoliceFcmToken') || '';
+    let currentFcmToken = localStorage.getItem(FCM_TOKEN_KEY) || '';
+
+    function savedNotificationEnabled() {
+        return localStorage.getItem(NOTIFICATION_ENABLED_KEY) === 'true';
+    }
+
+    function saveNotificationEnabled(enabled) {
+        localStorage.setItem(NOTIFICATION_ENABLED_KEY, enabled ? 'true' : 'false');
+    }
 
     function setNotificationButton(enabled) {
         const btn = document.getElementById('noti-btn');
         if (!btn) return;
 
+        // 표시 상태와 클릭 동작을 항상 같은 값으로 관리
+        btn.dataset.notificationEnabled = enabled ? 'true' : 'false';
+
         if (enabled) {
             btn.innerHTML = '<i class="fas fa-bell-slash"></i> 알림 해제';
             btn.style.color = 'var(--red)';
-            btn.onclick = disableNotification;
-            btn.title = '이 기기의 재난 알림을 해제합니다.';
+            btn.title = '현재 재난 알림 수신 중입니다. 누르면 알림을 해제합니다.';
+            btn.setAttribute('aria-label', '재난 알림 해제');
         } else {
             btn.innerHTML = '<i class="fas fa-bell"></i> 알림 켜기';
             btn.style.color = 'var(--blue)';
-            btn.onclick = requestNotificationPermission;
-            btn.title = '이 기기의 재난 알림을 설정합니다.';
+            btn.title = '현재 재난 알림이 꺼져 있습니다. 누르면 알림을 켭니다.';
+            btn.setAttribute('aria-label', '재난 알림 켜기');
         }
     }
 
@@ -1488,29 +1504,63 @@
         });
     }
 
+    // 한 개의 클릭 함수만 사용합니다.
+    // 버튼 표시 상태(data-notification-enabled)에 맞춰 켜기/해제를 결정합니다.
+    async function toggleNotificationSetting() {
+        const btn = document.getElementById('noti-btn');
+        const isEnabled = btn?.dataset.notificationEnabled === 'true';
+        if (isEnabled) {
+            await disableNotification();
+        } else {
+            await requestNotificationPermission();
+        }
+    }
+
+    function bindNotificationButton() {
+        const btn = document.getElementById('noti-btn');
+        if (!btn || btn.dataset.notificationBound === 'true') return;
+
+        // 기존 HTML onclick과 충돌하지 않도록 완전히 제거
+        btn.removeAttribute('onclick');
+        btn.onclick = null;
+        btn.addEventListener('click', toggleNotificationSetting);
+        btn.dataset.notificationBound = 'true';
+    }
+
     async function restoreNotificationState() {
         try {
+            // 사용자가 앱 안에서 알림을 해제한 경우에는,
+            // 브라우저 권한이 granted여도 토큰을 다시 DB에 등록하지 않습니다.
+            if (!savedNotificationEnabled()) {
+                setNotificationButton(false);
+                return;
+            }
+
             if (!messaging || typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+                saveNotificationEnabled(false);
                 setNotificationButton(false);
                 return;
             }
 
             const token = await getMessagingToken();
             if (!token) {
+                saveNotificationEnabled(false);
                 setNotificationButton(false);
                 return;
             }
 
             currentFcmToken = token;
-            localStorage.setItem('sejongPoliceFcmToken', token);
-            // 토큰이 갱신됐을 수 있으므로, 새로고침 때도 수신대상에 유지
-            db.ref('fcmTokens/' + token).set(true);
+            localStorage.setItem(FCM_TOKEN_KEY, token);
+            await db.ref('fcmTokens/' + token).set(true);
             setNotificationButton(true);
         } catch (err) {
             console.warn('알림 상태 복원 실패:', err);
             setNotificationButton(false);
         }
     }
+
+    bindNotificationButton();
+    setNotificationButton(savedNotificationEnabled());
 
     if (typeof firebase.messaging === 'function' && firebase.messaging.isSupported()) {
         messaging = firebase.messaging();
@@ -1523,6 +1573,7 @@
                 })
                 .catch(err => {
                     console.log('알림 서비스 실패', err);
+                    // 서비스 등록이 실패해도, 사용자의 저장 상태를 임의로 반대로 바꾸지 않습니다.
                     setNotificationButton(false);
                 });
         }
@@ -1531,27 +1582,33 @@
             try {
                 const permission = await Notification.requestPermission();
                 if (permission !== 'granted') {
-                    alert('알림 권한이 거부되었습니다.');
+                    saveNotificationEnabled(false);
                     setNotificationButton(false);
+                    alert('알림 권한이 거부되었습니다.');
                     return;
                 }
 
                 const token = await getMessagingToken();
                 if (!token) {
-                    alert('알림 토큰을 받지 못했습니다. 다시 시도해 주세요.');
+                    saveNotificationEnabled(false);
                     setNotificationButton(false);
+                    alert('알림 토큰을 받지 못했습니다. 다시 시도해 주세요.');
                     return;
                 }
 
                 currentFcmToken = token;
-                localStorage.setItem('sejongPoliceFcmToken', token);
+                localStorage.setItem(FCM_TOKEN_KEY, token);
                 await db.ref('fcmTokens/' + token).set(true);
+
+                // DB 등록이 끝난 뒤에만 실제 활성 상태로 저장
+                saveNotificationEnabled(true);
                 setNotificationButton(true);
                 alert('알림 수신이 활성화되었습니다. 재난 통제 발생 시 푸시 알림을 받습니다.');
             } catch (err) {
                 console.error('알림 설정 오류:', err);
-                alert('알림 설정 중 오류가 발생했습니다.');
+                saveNotificationEnabled(false);
                 setNotificationButton(false);
+                alert('알림 설정 중 오류가 발생했습니다.');
             }
         };
 
@@ -1559,19 +1616,27 @@
             if (!confirm('이 기기의 재난 알림을 해제하시겠습니까?')) return;
 
             try {
-                const token = currentFcmToken || await getMessagingToken();
+                const token = currentFcmToken || localStorage.getItem(FCM_TOKEN_KEY) || await getMessagingToken();
+
+                // 먼저 사용자가 해제했다는 상태를 저장합니다.
+                // 이후 새로고침되어도 토큰을 다시 등록하지 않습니다.
+                saveNotificationEnabled(false);
+
                 if (token) {
                     await db.ref('fcmTokens/' + token).remove();
-                    // 토큰 삭제 실패 시에도 DB 수신대상 삭제는 유지
                     await messaging.deleteToken(token).catch(() => {});
                 }
+
                 currentFcmToken = '';
-                localStorage.removeItem('sejongPoliceFcmToken');
+                localStorage.removeItem(FCM_TOKEN_KEY);
                 setNotificationButton(false);
                 alert('알림이 해제되었습니다.');
             } catch (err) {
                 console.error('알림 해제 오류:', err);
-                alert('알림 해제 중 오류가 발생했습니다.');
+                // DB 삭제가 일부 실패해도 사용자의 앱 내 설정은 꺼진 상태를 유지합니다.
+                saveNotificationEnabled(false);
+                setNotificationButton(false);
+                alert('알림 해제 처리 중 일부 오류가 발생했습니다. 화면 설정은 해제되었습니다.');
             }
         };
 
@@ -1582,9 +1647,11 @@
         });
     } else {
         window.requestNotificationPermission = function() {
-            alert('현재 브라우저에서는 알림을 지원하지 않습니다. (아이폰의 경우 먼저 홈 화면에 추가 후 실행해 주세요.)');
+            alert('현재 브라우저에서는 알림을 지원하지 않습니다. 아이폰은 먼저 홈 화면에 추가한 뒤 실행해 주세요.');
         };
         window.disableNotification = function() {
+            saveNotificationEnabled(false);
+            setNotificationButton(false);
             alert('현재 브라우저에서는 알림 해제를 지원하지 않습니다.');
         };
         setNotificationButton(false);
