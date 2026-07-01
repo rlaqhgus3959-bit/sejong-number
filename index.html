@@ -5092,22 +5092,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         const contentEl = document.getElementById('monitor-content');
         const headerStatusEl = document.getElementById('sejong-status');
-        const STATUS_PATH = 'weatherAlertCurrentV3';
-        const CACHE_KEY = 'sejongWeatherCurrentV3';
-        const CACHE_MAX_MS = 5 * 60 * 1000;
-        const RTDB_MAX_MS = 8 * 60 * 1000;
-        const KMA_WARNING_PAGE = 'https://www.weather.go.kr/w/wnuri-fct2021/weather/warning.do';
-        const WARNING_SOURCE = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)';
+        const STATUS_PATH = 'weatherAlertCurrentV4';
+        const CACHE_KEY = 'sejongWeatherCurrentV4';
+        const CACHE_MAX_MS = 8 * 60 * 1000;
+        const RTDB_MAX_MS = 12 * 60 * 1000;
+        const FUNCTION_REGION = 'asia-northeast3';
 
         const pad = (n) => String(n).padStart(2, '0');
         const escape = (v) => String(v ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#039;' }[c]));
-        const cleanLines = (v) => String(v ?? '')
-            .replace(/\u00a0/g, ' ')
-            .replace(/\r/g, '\n')
-            .replace(/[ \t]+/g, ' ')
-            .replace(/[ \t]*\n[ \t]*/g, '\n')
-            .replace(/\n{3,}/g, '\n\n')
-            .trim();
 
         function parseTime(value) {
             if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value;
@@ -5136,17 +5128,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const d = parseTime(value);
             return d ? `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}` : fallback;
         }
-        function nowText() { return timeText(new Date(), '확인중'); }
         function warningName(value) {
-            const m = String(value ?? '').match(new RegExp(`(${WARNING_SOURCE})`, 'i'));
-            return m ? m[1].replace(/\s+/g, '') : '';
+            const m = String(value ?? '').match(/(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*(주의보|경보)/i);
+            return m ? `${m[1]}${m[2]}` : '';
         }
         function cleanArea(value) {
-            return String(value ?? '')
-                .replace(/\s+<.*$/g, '')
-                .replace(/\s+(?:참고사항|유의사항|특보\s*상세내역|예비특보).*$/i, '')
-                .replace(/[，,]\s*$/, '')
-                .trim();
+            return String(value ?? '').replace(/\s+/g, ' ').replace(/[，,]\s*$/, '').trim();
         }
         function isSejongArea(area) {
             return /세종특별자치시|세종시|세종\s*(?:\(|,|$)/.test(String(area ?? ''));
@@ -5163,72 +5150,24 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
         function scopeLabel() { return scopeStation() || '세종'; }
 
-        // 기상청 공식 “특보 발효현황” 페이지의 현재 특보만 읽습니다.
-        // 과거 발표 통보문은 현재 특보 판정에 절대 사용하지 않으므로, 해제된 특보가 되살아나지 않습니다.
-        function htmlToText(html) {
-            const doc = new DOMParser().parseFromString(String(html || ''), 'text/html');
-            doc.querySelectorAll('script,style,noscript').forEach(el => el.remove());
-            return cleanLines(doc.body?.innerText || doc.body?.textContent || '');
-        }
-        function findLabeledTime(text, label) {
-            const re = new RegExp(`${label}[^0-9]{0,24}(20\\d{2})\\s*년\\s*(\\d{1,2})\\s*월\\s*(\\d{1,2})\\s*일(?:\\s*\\([^)]*\\))?\\s*(\\d{1,2})\\s*시(?:\\s*(\\d{1,2})\\s*분?)?`, 'i');
-            const m = String(text || '').match(re);
-            return m ? `${m[1]}${pad(m[2])}${pad(m[3])}${pad(m[4])}${pad(m[5] || 0)}` : '';
-        }
-        function currentWarningBlock(pageText) {
-            const text = cleanLines(pageText);
-            const start = text.search(/특보\s*내용/);
-            if (start < 0) throw new Error('기상청 특보 내용 영역을 찾지 못했습니다.');
-            let block = text.slice(start).replace(/^.*?특보\s*내용/, '');
-            const end = block.search(/(?:^|\n)\s*(?:참고\s*사항|특보\s*상세내역|예비특보)\b/im);
-            if (end >= 0) block = block.slice(0, end);
-            return block.trim();
-        }
-        function parseOfficialCurrentPage(html) {
-            const text = htmlToText(html);
-            const block = currentWarningBlock(text);
-            const start = text.indexOf(block);
-            const timeArea = text.slice(Math.max(0, start - 1100), start + 200);
-            const publishedAt = findLabeledTime(timeArea, '발표시각') || findLabeledTime(text, '발표시각');
-            const effectiveAt = findLabeledTime(timeArea, '발효시각') || findLabeledTime(text, '발효시각');
-            const rows = [];
-            const lineRe = new RegExp(`(?:^|\\n)\\s*(?:o|○)\\s*(${WARNING_SOURCE})\\s*[:：]\\s*([^\\n]+)`, 'gim');
-            let m;
-            while ((m = lineRe.exec(block)) !== null) {
-                const name = warningName(m[1]);
-                const area = cleanArea(m[2]);
-                if (name && isSejongArea(area)) rows.push({ name, area, publishedAt, effectiveAt });
-            }
-            // 모바일/프록시가 줄바꿈을 제거한 경우를 위한 보조 파서
-            if (!rows.length) {
-                const flat = block.replace(/\n+/g, ' ');
-                const flatRe = new RegExp(`(?:^|\\s)(?:o|○)\\s*(${WARNING_SOURCE})\\s*[:：]\\s*([\\s\\S]*?)(?=\\s+(?:o|○)\\s*${WARNING_SOURCE}\\s*[:：]|$)`, 'gi');
-                while ((m = flatRe.exec(flat)) !== null) {
-                    const name = warningName(m[1]);
-                    const area = cleanArea(m[2]);
-                    if (name && isSejongArea(area)) rows.push({ name, area, publishedAt, effectiveAt });
-                }
-            }
-            const unique = new Map();
-            rows.forEach(row => unique.set(`${row.name}|${row.area}`, row));
-            return {
-                status: 'ok',
-                fetchedAt: Date.now(),
-                source: '기상청 공식 특보 발효현황',
-                records: [...unique.values()]
-            };
-        }
         function normalizeState(value, maxAgeMs) {
             if (!value || value.status !== 'ok' || !Array.isArray(value.records)) return null;
             const fetchedAt = Number(value.fetchedAt || 0);
             if (!fetchedAt || Date.now() - fetchedAt > maxAgeMs) return null;
             const records = value.records.map(row => ({
-                name: warningName(row?.name) || '',
-                area: cleanArea(row?.area || ''),
+                name: warningName(row?.name),
+                area: cleanArea(row?.area),
                 publishedAt: timeDigits(row?.publishedAt),
                 effectiveAt: timeDigits(row?.effectiveAt)
             })).filter(row => row.name && isSejongArea(row.area));
-            return { status:'ok', fetchedAt, source: value.source || '기상청 특보 발효현황', records };
+            const lastEvents = Array.isArray(value.lastEvents) ? value.lastEvents.map(row => ({
+                name: warningName(row?.name),
+                area: cleanArea(row?.area),
+                released: !!row?.released,
+                publishedAt: timeDigits(row?.publishedAt),
+                effectiveAt: timeDigits(row?.effectiveAt)
+            })).filter(row => row.name && isSejongArea(row.area)) : [];
+            return { status:'ok', fetchedAt, source: value.source || '기상청 기상특보통보문(getWthrWrnMsg)', records, lastEvents };
         }
         function saveCache(state) {
             try { localStorage.setItem(CACHE_KEY, JSON.stringify(state)); } catch (_) {}
@@ -5240,7 +5179,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         function render(state, sourceNote = '') {
             const label = scopeLabel();
             const rows = (state.records || []).filter(scopeMatches);
-            const updateTime = timeText(state.fetchedAt, nowText());
+            const lastEvent = (state.lastEvents || []).filter(scopeMatches)[0];
+            const updateTime = timeText(state.fetchedAt, '확인중');
+
             if (rows.length) {
                 const primary = rows[0];
                 headerStatusEl.innerText = `${label}: ${primary.name} 발효 중`;
@@ -5248,42 +5189,19 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 const lines = rows.map(row => `📌 <b>${escape(row.name)}</b> <span style="color:var(--red);font-size:11px;font-weight:900;">발효 중</span><br>`
                     + `<span style="color:var(--sub);font-size:12px;">지역: ${escape(row.area)}<br>발표: ${escape(timeText(row.publishedAt))}<br>발효: ${escape(timeText(row.effectiveAt))}</span>`).join('<br><br>');
                 contentEl.innerHTML = `<div class="weather-main-box warn"><i class="fas fa-triangle-exclamation" style="font-size:22px;"></i><div><div class="weather-main-title">${escape(label)} ${escape(primary.name)} 발효 중</div><div class="weather-main-sub">특보: ${escape(primary.name)}<br>지역: ${escape(primary.area)}<br>발표: ${escape(timeText(primary.publishedAt))}<br>발효: ${escape(timeText(primary.effectiveAt))}</div></div></div>`
-                    + `<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">${escape(nowText())}</div></div>`
                     + `<div class="info-group"><span class="info-label">${escape(label)} 현재 기상특보</span><div class="info-val content">${lines}</div></div>`
                     + `<div style="font-size:10px;color:var(--sub);margin-top:8px;text-align:right;">기준 ${escape(updateTime)} · ${escape(sourceNote || state.source)}</div>`;
-            } else {
-                headerStatusEl.innerText = `${label}: 특보 없음`;
-                headerStatusEl.className = 'sejong-summary safe';
-                contentEl.innerHTML = `<div class="weather-main-box safe"><i class="fas fa-check-circle" style="font-size:22px;"></i><div><div class="weather-main-title">${escape(label)} 특보 없음</div><div class="weather-main-sub">현재 ${escape(label)} 관련 기상특보가 없습니다.</div></div></div>`
-                    + `<div class="info-group"><span class="info-label">현재시간</span><div class="info-val time">${escape(nowText())}</div></div>`
-                    + `<div class="info-group"><span class="info-label">${escape(label)} 현재 기상특보</span><div class="info-val content"><i class="fas fa-check-circle" style="color:var(--green)"></i> 현재 발효 중인 ${escape(label)} 기상특보 없음</div></div>`
-                    + `<div style="font-size:10px;color:var(--sub);margin-top:8px;text-align:right;">기준 ${escape(updateTime)} · ${escape(sourceNote || state.source)}</div>`;
+                return;
             }
-        }
-        async function fetchText(url, timeoutMs) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), timeoutMs);
-            try {
-                const response = await fetch(url, { cache:'no-store', signal:controller.signal });
-                if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                const text = await response.text();
-                if (!text || text.length < 500) throw new Error('응답 내용이 비어 있습니다.');
-                return text;
-            } finally { clearTimeout(timer); }
-        }
-        async function fetchOfficialPage() {
-            const urls = [
-                KMA_WARNING_PAGE,
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(KMA_WARNING_PAGE)}&_=${Date.now()}`,
-                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(KMA_WARNING_PAGE)}`,
-                `https://corsproxy.io/?${encodeURIComponent(KMA_WARNING_PAGE)}`
-            ];
-            let lastError;
-            for (const url of urls) {
-                try { return await fetchText(url, 7000); }
-                catch (error) { lastError = error; }
-            }
-            throw lastError || new Error('기상청 특보현황 수신 실패');
+
+            headerStatusEl.innerText = `${label}: 특보 없음`;
+            headerStatusEl.className = 'sejong-summary safe';
+            const releaseNote = lastEvent?.released
+                ? `<br><span style="font-size:11px;color:var(--sub);">최근 해제: ${escape(lastEvent.name)} · ${escape(timeText(lastEvent.publishedAt, '시각 확인중'))}</span>`
+                : '';
+            contentEl.innerHTML = `<div class="weather-main-box safe"><i class="fas fa-check-circle" style="font-size:22px;"></i><div><div class="weather-main-title">${escape(label)} 특보 없음</div><div class="weather-main-sub">현재 ${escape(label)} 관련 기상특보가 없습니다.${releaseNote}</div></div></div>`
+                + `<div class="info-group"><span class="info-label">${escape(label)} 현재 기상특보</span><div class="info-val content"><i class="fas fa-check-circle" style="color:var(--green)"></i> 현재 발효 중인 ${escape(label)} 기상특보 없음${releaseNote}</div></div>`
+                + `<div style="font-size:10px;color:var(--sub);margin-top:8px;text-align:right;">기준 ${escape(updateTime)} · ${escape(sourceNote || state.source)}</div>`;
         }
         async function readRealtimeState() {
             try {
@@ -5294,42 +5212,53 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
         function bindRealtimeState() {
             try {
-                if (window.__sejongWeatherStatusBound || !window.firebase || !firebase.database || !firebase.apps?.length) return;
-                window.__sejongWeatherStatusBound = true;
+                if (window.__sejongWeatherStatusV4Bound || !window.firebase || !firebase.database || !firebase.apps?.length) return;
+                window.__sejongWeatherStatusV4Bound = true;
                 firebase.database().ref(STATUS_PATH).on('value', snap => {
                     const state = normalizeState(snap.val(), RTDB_MAX_MS);
                     if (state) { saveCache(state); render(state, 'Firebase 실시간 기상특보 상태'); }
                 });
             } catch (_) {}
         }
+        async function requestFunctionState() {
+            const projectId = (typeof firebaseConfig !== 'undefined' && firebaseConfig.projectId) ? firebaseConfig.projectId : 'shut-down-80255';
+            const url = `https://${FUNCTION_REGION}-${projectId}.cloudfunctions.net/getWeatherAlertNow?_=${Date.now()}`;
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 16000);
+            try {
+                const response = await fetch(url, { cache:'no-store', signal:controller.signal });
+                if (!response.ok) throw new Error(`Function HTTP ${response.status}`);
+                const json = await response.json();
+                return normalizeState(json, RTDB_MAX_MS);
+            } finally { clearTimeout(timer); }
+        }
 
         const cached = loadCache();
         try {
             bindRealtimeState();
             const realtime = await readRealtimeState();
-            // Firebase Cloud Function이 정상 갱신한 현재 상태가 있으면 그것을 최우선 사용합니다.
             if (realtime) {
                 saveCache(realtime);
-                render(realtime, 'Firebase · 기상청 공식 특보 발효현황');
+                render(realtime, 'Firebase · 기상청 기상특보통보문(getWthrWrnMsg)');
                 return;
             }
             if (cached) render(cached, '최근 정상 수신값 · 갱신 중');
             else if (!silent) {
                 headerStatusEl.innerText = '확인중...';
                 headerStatusEl.className = 'sejong-summary';
-                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상청 현재 특보 확인 중...</div>';
+                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 기상특보 통보문 확인 중...</div>';
             }
-            const state = parseOfficialCurrentPage(await fetchOfficialPage());
-            // 정상 응답에서 “세종 특보 없음”도 반드시 저장해, 해제 특보가 캐시에서 되살아나지 않게 합니다.
+            const state = await requestFunctionState();
+            if (!state) throw new Error('Firebase Functions에서 현재 특보 상태를 받지 못했습니다.');
             saveCache(state);
-            render(state, '기상청 공식 특보 발효현황');
+            render(state, 'Firebase Functions · 기상청 기상특보통보문(getWthrWrnMsg, stnId=133)');
         } catch (error) {
             console.error('세종 기상특보 수신 실패:', error);
             if (cached) render(cached, '최근 정상 수신값 · 연결 지연');
             else {
-                headerStatusEl.innerText = '수신 지연';
+                headerStatusEl.innerText = '연결 확인';
                 headerStatusEl.className = 'sejong-summary warn';
-                if (!silent) contentEl.innerHTML = '<div style="text-align:center;color:var(--orange);padding:10px;font-size:13px;line-height:1.5;">기상청 현재 특보 수신 지연<br><span style="color:var(--sub);font-size:11px;">직전 특보를 임의로 표시하지 않습니다.</span></div>';
+                if (!silent) contentEl.innerHTML = '<div style="text-align:center;color:var(--orange);padding:10px;font-size:13px;line-height:1.5;">기상특보 서버 연결 확인 필요<br><span style="color:var(--sub);font-size:11px;">Functions 배포 상태 또는 Functions 로그를 확인하세요.</span></div>';
             }
         } finally {
             isSpecialFetching = false;
