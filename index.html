@@ -5153,9 +5153,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
 
-    // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종 전용 ---
-    // 전국특보·기상청 웹페이지·Firebase Functions를 사용하지 않습니다.
-    // t2에 세종이 있는 행만 조회하고, 최신 t1이 '해제'면 세종 특보 없음으로 표시합니다.
+
+    // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종권 전용 ---
+    // 세종·세종북부·세종남부를 각각 분리하여 표시합니다.
+    // 한 통보문 안에 "호우 해제 · 폭염 발표"가 함께 있어도,
+    // 특보명 + 지역 단위로 분리 판정하여 세종남부 폭염주의보가 해제로 사라지지 않게 합니다.
     async function autoFetchSpecial(silent = false) {
         if (isSpecialFetching && silent) return;
         isSpecialFetching = true;
@@ -5167,7 +5169,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
         const STATION_ID = "133";
         const LOOKBACK_DAYS = 6; // API 조회 가능 범위: 오늘 기준 최대 6일
-        const WARNING_RE = /(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*(주의보|경보)/;
+        const WARNING_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)";
+        const WARNING_RE = new RegExp(`(${WARNING_SOURCE})`);
 
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
             "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -5195,32 +5198,111 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return value || "확인불가";
         }
 
-        function parseKoreanTime(text) {
-            const match = String(text || "").match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시(?:\s*(\d{1,2})분)?/);
+        function parseKoreanTime(value) {
+            const match = String(value || "").match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시(?:\s*(\d{1,2})분)?/);
             if (!match) return "";
             return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")} ${String(match[4]).padStart(2, "0")}:${String(match[5] || "0").padStart(2, "0")}`;
         }
 
-        function warningName(...texts) {
-            const match = texts.filter(Boolean).join(" ").match(WARNING_RE);
-            return match ? `${match[1]}${match[2]}` : "기상특보";
+        function warningName(value) {
+            const match = String(value || "").match(WARNING_RE);
+            return match ? match[1].replace(/\s+/g, "") : "";
         }
 
-        function hasSejong(text) {
-            return /세종(?:특별자치시)?(?:\s*\(|\b)/.test(String(text || ""));
+        function warningNames(value) {
+            const found = [];
+            const seen = new Set();
+            const regex = new RegExp(WARNING_SOURCE, "g");
+            for (const match of String(value || "").matchAll(regex)) {
+                const name = match[0].replace(/\s+/g, "");
+                if (name && !seen.has(name)) {
+                    seen.add(name);
+                    found.push(name);
+                }
+            }
+            return found;
         }
 
-        function isReleased(...texts) {
-            return /해제/.test(texts.filter(Boolean).join(" "));
-        }
-
-        // 세종(세종남부), 세종특별자치시(세종남부)를 하나의 특보 구역으로 맞춥니다.
-        function sejongScope(text) {
-            const normalized = String(text || "")
-                .replace(/세종특별자치시/g, "세종")
+        // 세종특별자치시 / 세종시 / 세종(세종북부) / 세종(세종남부) 등을
+        // 화면 표기용으로 세종 · 세종북부 · 세종남부 3개 구역으로 정규화합니다.
+        function normalizeSejongScope(value) {
+            const compact = String(value || "")
+                .replace(/세종특별자치시|세종시/g, "세종")
                 .replace(/\s+/g, "");
-            const match = normalized.match(/세종(?:\([^)]*\))?/);
-            return match ? match[0] : "세종";
+
+            if (/세종\(세종북부\)|세종북부/.test(compact)) return "세종북부";
+            if (/세종\(세종남부\)|세종남부/.test(compact)) return "세종남부";
+            if (/세종(?=$|[(),·/])/.test(compact)) return "세종";
+            return "";
+        }
+
+        function extractSejongScopes(value) {
+            const compact = String(value || "")
+                .replace(/세종특별자치시|세종시/g, "세종")
+                .replace(/\s+/g, "");
+            const matches = compact.match(/세종\(세종(?:북부|남부)\)|세종(?:북부|남부)|세종(?=$|[(),·/])/g) || [];
+            const scopes = [];
+            const seen = new Set();
+
+            matches.forEach((match) => {
+                const scope = normalizeSejongScope(match);
+                if (scope && !seen.has(scope)) {
+                    seen.add(scope);
+                    scopes.push(scope);
+                }
+            });
+            return scopes;
+        }
+
+        function hasSejong(value) {
+            return extractSejongScopes(value).length > 0;
+        }
+
+        function stateOf(value) {
+            const source = String(value || "");
+            if (/해제|취소/.test(source)) return "released";
+            if (/발표/.test(source)) return "announced";
+            return "";
+        }
+
+        // 예: "호우경보·호우주의보 해제 · 폭염주의보 발표"
+        //      → 호우경보/호우주의보=해제, 폭염주의보=발표으로 각각 분리합니다.
+        function buildWarningStateMap(value) {
+            const map = new Map();
+            const grouped = new RegExp(
+                `((?:${WARNING_SOURCE})(?:\\s*(?:[·ㆍ,/]|및)\\s*(?:${WARNING_SOURCE}))*)\\s*(해제|취소|발표)`,
+                "g"
+            );
+
+            for (const match of String(value || "").matchAll(grouped)) {
+                const state = /해제|취소/.test(match[2]) ? "released" : "announced";
+                warningNames(match[1]).forEach((name) => map.set(name, state));
+            }
+            return map;
+        }
+
+        // 특보명 단위로 문장을 자릅니다.
+        // 한 통보문에 여러 특보가 있어도 바로 다음 특보명 전까지만 같은 특보의 지역으로 봅니다.
+        function splitWarningSegments(value) {
+            const source = String(value || "");
+            const found = [...source.matchAll(new RegExp(WARNING_SOURCE, "g"))];
+            return found.map((match, index) => ({
+                name: match[0].replace(/\s+/g, ""),
+                text: source.slice(match.index, index + 1 < found.length ? found[index + 1].index : source.length)
+            }));
+        }
+
+        function uniqueRows(rows) {
+            const result = [];
+            const seen = new Set();
+            rows.forEach((row) => {
+                const key = `${row.name}|${row.scope}|${row.released}|${row.noticeAt}`;
+                if (!seen.has(key)) {
+                    seen.add(key);
+                    result.push(row);
+                }
+            });
+            return result;
         }
 
         function readItem(item) {
@@ -5230,24 +5312,71 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const t4 = textOf(item, "t4");
             const t5 = textOf(item, "t5");
             const tmFc = textOf(item, "tmFc");
+            const allText = [t1, t2, t3, t4].filter(Boolean).join("\n");
+            const stateMap = buildWarningStateMap(allText);
+            const noticeAt = formatTime(tmFc || t5);
+            const sortKey = Number((tmFc || t5 || "0").replace(/\D/g, "")) || 0;
+            const rows = [];
 
-            return {
-                t1,
-                t2,
-                t3,
-                t4,
-                name: warningName(t1, t2, t3, t4),
-                scope: sejongScope(t2),
-                released: isReleased(t1, t2, t3, t4),
-                noticeAt: formatTime(tmFc || t5),
-                releaseAt: isReleased(t1, t2, t3, t4)
-                    ? (parseKoreanTime(`${t3} ${t4}`) || formatTime(tmFc || t5))
-                    : "",
-                effectiveAt: /발효/.test(`${t1} ${t2} ${t3} ${t4}`)
-                    ? (parseKoreanTime(`${t3} ${t4}`) || "")
-                    : "",
-                sortKey: Number((tmFc || t5 || "0").replace(/\D/g, "")) || 0
-            };
+            // t2~t4에서 특보명 : 지역을 각각 분리하여 세종권 구역만 추출합니다.
+            [t2, t3, t4].filter(Boolean).forEach((field) => {
+                splitWarningSegments(field).forEach((segment) => {
+                    const scopes = extractSejongScopes(segment.text);
+                    if (!scopes.length) return;
+
+                    // 개별 문장에 해제/발표 문구가 없으면 t1의 특보별 상태를 사용합니다.
+                    const state = stateOf(segment.text) || stateMap.get(segment.name) || "";
+                    const released = state === "released";
+                    const effectiveAt = !released && /발효/.test(segment.text)
+                        ? (parseKoreanTime(segment.text) || "")
+                        : "";
+                    const releaseAt = released
+                        ? (parseKoreanTime(segment.text) || parseKoreanTime(allText) || noticeAt)
+                        : "";
+
+                    scopes.forEach((scope) => rows.push({
+                        t1, t2, t3, t4,
+                        name: segment.name,
+                        scope,
+                        released,
+                        noticeAt,
+                        releaseAt,
+                        effectiveAt,
+                        sortKey
+                    }));
+                });
+            });
+
+            // 일부 응답은 t2에 지역만 있고 특보명은 t1에만 있는 형태입니다.
+            // 이 경우 특보가 1개일 때에만 안전하게 t1의 특보명과 세종권 지역을 결합합니다.
+            if (!rows.length) {
+                const names = warningNames(allText);
+                const scopes = extractSejongScopes(allText);
+                if (names.length === 1 && scopes.length) {
+                    const name = names[0];
+                    const state = stateMap.get(name) || stateOf(allText) || "";
+                    const released = state === "released";
+                    const effectiveAt = !released && /발효/.test(allText)
+                        ? (parseKoreanTime(allText) || "")
+                        : "";
+                    const releaseAt = released
+                        ? (parseKoreanTime(allText) || noticeAt)
+                        : "";
+
+                    scopes.forEach((scope) => rows.push({
+                        t1, t2, t3, t4,
+                        name,
+                        scope,
+                        released,
+                        noticeAt,
+                        releaseAt,
+                        effectiveAt,
+                        sortKey
+                    }));
+                }
+            }
+
+            return uniqueRows(rows);
         }
 
         function requestUrl() {
@@ -5264,8 +5393,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         }
 
         function renderSejong(rows) {
-            // 특보 종류 + 세종 구역별로 최신 통보문 하나만 유지합니다.
-            // 최신 통보문이 해제면 발령 상태로 표시하지 않습니다.
+            // 특보 종류 + 세종권 구역(세종/세종북부/세종남부)별 최신 통보문 하나만 유지합니다.
+            // 같은 시각이라면 해제 통보문을 우선하여 과거 특보가 남지 않게 합니다.
             const latestByWarning = new Map();
             [...rows]
                 .sort((a, b) => a.sortKey - b.sortKey || Number(a.released) - Number(b.released))
@@ -5287,15 +5416,16 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const latestNotice = latestRows[0];
 
             if (activeRows.length) {
-                headerStatusEl.textContent = `세종 특보 ${activeRows.length}건`;
+                headerStatusEl.textContent = `세종권 특보 ${activeRows.length}건`;
                 headerStatusEl.className = "sejong-summary warn";
+
                 const cards = activeRows.map((row) => `
                     <div style="padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card-elevated);margin-top:8px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
                             <b style="font-size:16px;">${escapeHtml(row.name)}</b>
                             <span style="font-size:11px;font-weight:800;color:var(--red);">발령 중</span>
                         </div>
-                        <div style="font-size:13px;font-weight:700;margin-top:7px;">${escapeHtml(row.scope)}</div>
+                        <div style="font-size:13px;font-weight:800;margin-top:7px;">구역: ${escapeHtml(row.scope)}</div>
                         ${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">발효 ${escapeHtml(row.effectiveAt)}</div>` : ""}
                         <div style="font-size:11px;color:var(--sub);margin-top:4px;">통보 ${escapeHtml(row.noticeAt)}</div>
                     </div>
@@ -5305,12 +5435,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     <div class="weather-main-box warn">
                         <i class="fas fa-triangle-exclamation" style="font-size:22px;"></i>
                         <div>
-                            <div class="weather-main-title">세종 기상특보 발령 중</div>
-                            <div class="weather-main-sub">${escapeHtml(activeRows.map((row) => row.name).join(" · "))}</div>
+                            <div class="weather-main-title">세종권 기상특보 발령 중</div>
+                            <div class="weather-main-sub">${escapeHtml(activeRows.map((row) => `${row.scope} ${row.name}`).join(" · "))}</div>
                         </div>
                     </div>
                     <div class="info-group">
-                        <span class="info-label">세종 기상특보</span>
+                        <span class="info-label">세종권 기상특보 (세종 · 세종북부 · 세종남부)</span>
                         <div class="info-val">${cards}</div>
                     </div>
                     <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
@@ -5319,18 +5449,18 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 return;
             }
 
-            headerStatusEl.textContent = "세종 특보 없음";
+            headerStatusEl.textContent = "세종권 특보 없음";
             headerStatusEl.className = "sejong-summary safe";
 
             const releaseText = latestNotice?.released
-                ? `최근 해제: ${escapeHtml(latestNotice.name)} · ${escapeHtml(latestNotice.scope)} · ${escapeHtml(latestNotice.releaseAt || latestNotice.noticeAt)}`
-                : "대전지방기상청(133) 통보문 기준";
+                ? `최근 해제: ${escapeHtml(latestNotice.scope)} ${escapeHtml(latestNotice.name)} · ${escapeHtml(latestNotice.releaseAt || latestNotice.noticeAt)}`
+                : "대전지방기상청(133) 통보문 기준 · 세종 · 세종북부 · 세종남부";
 
             contentEl.innerHTML = `
                 <div class="weather-main-box safe">
                     <i class="fas fa-circle-check" style="font-size:22px;"></i>
                     <div>
-                        <div class="weather-main-title">현재 세종 특보 없음</div>
+                        <div class="weather-main-title">현재 세종권 특보 없음</div>
                         <div class="weather-main-sub">${releaseText}</div>
                     </div>
                 </div>
@@ -5343,7 +5473,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             if (!silent) {
                 headerStatusEl.textContent = "확인중...";
                 headerStatusEl.className = "sejong-summary";
-                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종 기상특보 확인 중...</div>';
+                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보 확인 중...</div>';
             }
 
             const controller = new AbortController();
@@ -5372,23 +5502,21 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             }
 
             const sejongRows = [...xml.getElementsByTagName("item")]
-                .map(readItem)
-                .filter((row) => hasSejong(row.t2));
+                .flatMap(readItem);
 
             renderSejong(sejongRows);
         } catch (error) {
-            console.error("세종 기상특보 XML 조회 실패:", error);
+            console.error("세종권 기상특보 XML 조회 실패:", error);
             headerStatusEl.textContent = "조회 실패";
             headerStatusEl.className = "sejong-summary warn";
             contentEl.innerHTML = `<div style="text-align:center;color:var(--orange);padding:10px;font-size:13px;line-height:1.55;">
-                세종 기상특보 XML 조회 실패<br>
+                세종권 기상특보 XML 조회 실패<br>
                 <span style="color:var(--sub);font-size:11px;">${escapeHtml(error?.message || "공공데이터포털 응답을 확인하세요.")}</span>
             </div>`;
         } finally {
             isSpecialFetching = false;
         }
     }
-
     function getAllShelterData() {
         const rows = applyShelterOverrides();
         managedShelterData = rows;
