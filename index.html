@@ -7,6 +7,7 @@
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 재난관리 플랫폼</title>
+    <!-- 수동 기상특보 관리 + 세종권 외 기상특보 알림 차단 적용본 -->
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -1136,6 +1137,137 @@
         .weather-main-box.pending { color: var(--orange); }
         .weather-main-box.pending .weather-main-sub { color: #A55B00; }
 
+    
+
+        /* 관리자 수동 기상특보 관리 */
+        .weather-manual-panel {
+            margin-top: 14px;
+            padding: 12px;
+            border: 1px dashed rgba(0,113,227,0.42);
+            border-radius: 15px;
+            background: rgba(0,113,227,0.055);
+        }
+        .weather-manual-panel-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+            margin-bottom: 9px;
+        }
+        .weather-manual-panel-title {
+            font-size: 12px;
+            font-weight: 900;
+            color: var(--blue);
+        }
+        .weather-manual-action {
+            border: none;
+            border-radius: 10px;
+            padding: 8px 10px;
+            background: var(--blue);
+            color: #fff;
+            font: inherit;
+            font-size: 11px;
+            font-weight: 850;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+        .weather-manual-action.secondary {
+            background: #fff;
+            color: var(--blue);
+            border: 1px solid rgba(0,113,227,.24);
+        }
+        .weather-manual-action.danger {
+            background: #fff1f0;
+            color: var(--red);
+            border: 1px solid rgba(255,59,48,.22);
+        }
+        .weather-manual-item {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:8px;
+            margin-top:7px;
+            padding:9px 10px;
+            border:1px solid rgba(60,60,67,.12);
+            border-radius:11px;
+            background:#fff;
+        }
+        .weather-manual-item-copy { min-width:0; flex:1; }
+        .weather-manual-item-name { font-size:12px; font-weight:900; color:var(--text); }
+        .weather-manual-item-meta { margin-top:3px; font-size:10px; color:var(--sub); line-height:1.35; }
+        .weather-manual-item-actions { display:flex; gap:5px; flex:0 0 auto; }
+        .weather-manual-mini-btn {
+            border:none;
+            border-radius:8px;
+            min-width:34px;
+            height:30px;
+            background:#F2F2F7;
+            color:var(--blue);
+            font-size:11px;
+            font-weight:850;
+            cursor:pointer;
+        }
+        .weather-manual-mini-btn.delete { color:var(--red); }
+        #weather-manual-modal {
+            display:none;
+            position:fixed;
+            inset:0;
+            z-index:100000;
+            align-items:flex-end;
+            justify-content:center;
+            padding:16px;
+            box-sizing:border-box;
+            background:rgba(0,0,0,.50);
+            backdrop-filter:blur(5px);
+            -webkit-backdrop-filter:blur(5px);
+        }
+        .weather-manual-modal-card {
+            width:min(100%, 460px);
+            max-height:min(90vh, 720px);
+            overflow:auto;
+            border-radius:22px;
+            background:#fff;
+            box-shadow:0 20px 50px rgba(0,0,0,.28);
+        }
+        .weather-manual-modal-head {
+            display:flex;
+            align-items:center;
+            justify-content:space-between;
+            gap:12px;
+            padding:18px 18px 12px;
+        }
+        .weather-manual-modal-title { font-size:17px; font-weight:950; color:var(--text); letter-spacing:-.4px; }
+        .weather-manual-modal-close {
+            width:32px; height:32px; border:0; border-radius:50%;
+            background:#ECECEC; color:#555; font-size:16px; cursor:pointer;
+        }
+        .weather-manual-modal-body { padding:0 18px 18px; }
+        .weather-manual-field-label { display:block; margin:12px 0 6px; color:var(--sub); font-size:12px; font-weight:850; }
+        .weather-manual-field,
+        .weather-manual-field-select {
+            width:100%; min-height:44px; padding:0 12px; box-sizing:border-box;
+            border:1px solid var(--line); border-radius:12px; background:#fff; color:var(--text);
+            font:inherit; font-size:14px; font-weight:700;
+        }
+        .weather-manual-textarea { min-height:72px; padding:10px 12px; resize:vertical; line-height:1.45; }
+        .weather-manual-help { margin-top:8px; font-size:11px; color:var(--sub); line-height:1.5; }
+        .weather-manual-modal-actions {
+            display:grid;
+            grid-template-columns:1fr 1fr;
+            gap:8px;
+            padding:0 18px 18px;
+        }
+        .weather-manual-modal-actions button {
+            min-height:46px; border:0; border-radius:13px; cursor:pointer;
+            font:inherit; font-size:14px; font-weight:900;
+        }
+        .weather-manual-cancel-btn { background:#ECECF0; color:var(--text); }
+        .weather-manual-save-btn { background:var(--blue); color:#fff; }
+        @media (max-width:380px) {
+            .weather-manual-panel-head { align-items:flex-start; flex-direction:column; }
+            .weather-manual-action { width:100%; }
+        }
+
     </style>
 </head>
 <body>
@@ -1444,6 +1576,64 @@
     </div>
 </div>
 
+
+
+<div id="weather-manual-modal" role="dialog" aria-modal="true" aria-labelledby="weather-manual-modal-title">
+    <div class="weather-manual-modal-card">
+        <div class="weather-manual-modal-head">
+            <div id="weather-manual-modal-title" class="weather-manual-modal-title">기상특보 수동 설정</div>
+            <button class="weather-manual-modal-close" type="button" onclick="closeManualWarningModal()" aria-label="닫기"><i class="fas fa-xmark"></i></button>
+        </div>
+        <div class="weather-manual-modal-body">
+            <label class="weather-manual-field-label" for="manual-warning-scope">구역</label>
+            <select id="manual-warning-scope" class="weather-manual-field-select">
+                <option value="세종">세종</option>
+                <option value="세종북부">세종북부</option>
+                <option value="세종남부">세종남부</option>
+            </select>
+
+            <label class="weather-manual-field-label" for="manual-warning-name">특보</label>
+            <select id="manual-warning-name" class="weather-manual-field-select">
+                <option value="폭염주의보">폭염주의보</option>
+                <option value="폭염경보">폭염경보</option>
+                <option value="호우주의보">호우주의보</option>
+                <option value="호우경보">호우경보</option>
+                <option value="강풍주의보">강풍주의보</option>
+                <option value="강풍경보">강풍경보</option>
+                <option value="대설주의보">대설주의보</option>
+                <option value="대설경보">대설경보</option>
+                <option value="한파주의보">한파주의보</option>
+                <option value="한파경보">한파경보</option>
+                <option value="건조주의보">건조주의보</option>
+                <option value="건조경보">건조경보</option>
+                <option value="황사주의보">황사주의보</option>
+                <option value="황사경보">황사경보</option>
+                <option value="태풍주의보">태풍주의보</option>
+                <option value="태풍경보">태풍경보</option>
+            </select>
+
+            <label class="weather-manual-field-label" for="manual-warning-state">상태</label>
+            <select id="manual-warning-state" class="weather-manual-field-select">
+                <option value="active">발령 중</option>
+                <option value="pending">발표 · 발효 전</option>
+                <option value="released">해제 처리</option>
+            </select>
+
+            <label class="weather-manual-field-label" for="manual-warning-effective-at">발효시각 <span style="font-weight:650;">(선택)</span></label>
+            <input id="manual-warning-effective-at" class="weather-manual-field" type="datetime-local">
+
+            <label class="weather-manual-field-label" for="manual-warning-note">메모 <span style="font-weight:650;">(선택)</span></label>
+            <textarea id="manual-warning-note" class="weather-manual-field weather-manual-textarea" maxlength="160" placeholder="예: 기상청 통보문 확인 후 수동 반영"></textarea>
+            <div class="weather-manual-help">수동 설정은 같은 구역·특보명의 자동 수신값보다 우선합니다. 수동 설정을 삭제하면 자동 수신으로 즉시 돌아갑니다.</div>
+        </div>
+        <div class="weather-manual-modal-actions">
+            <button class="weather-manual-cancel-btn" type="button" onclick="closeManualWarningModal()">취소</button>
+            <button class="weather-manual-save-btn" type="button" onclick="saveManualWarning()">저장</button>
+        </div>
+    </div>
+</div>
+
+
 <script>
     const firebaseConfig = {
         apiKey: "AIzaSyDJw2-fkhyX8ioYlKrv5ixNiCPi2kirY8k",
@@ -1463,6 +1653,41 @@
     // Notification.permission은 브라우저 권한일 뿐, 사용자가 앱 안에서 해제한 상태와 다를 수 있습니다.
     const NOTIFICATION_ENABLED_KEY = 'sejongPoliceNotificationEnabled';
     const FCM_TOKEN_KEY = 'sejongPoliceFcmToken';
+
+    // 기상특보 알림 필터
+    // 세종·세종북부·세종남부가 명확히 포함된 기상특보 알림만 표시합니다.
+    // 대전·충남·충북 등 세종권 외 지역의 해제/발표 통보문은 앱 화면 알림에서 차단합니다.
+    const SEJONG_WEATHER_SCOPE_RE = /(세종\s*\(\s*세종\s*\)|세종\s*\(\s*세종북부\s*\)|세종\s*\(\s*세종남부\s*\)|세종특별자치시|세종북부|세종남부|\b세종\b)/;
+    const WEATHER_NOTIFICATION_RE = /(기상특보|특보|주의보|경보|호우|대설|강풍|풍랑|한파|폭염|건조|태풍|황사|폭풍해일|지진해일|안개|열대야)/;
+
+    function normalizeNotificationText(value) {
+        return String(value || '')
+            .replace(/<[^>]*>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    function shouldDisplayIncomingNotification(payload = {}) {
+        const notification = payload.notification || {};
+        const data = payload.data || {};
+        const title = normalizeNotificationText(notification.title || data.title || '');
+        const body = normalizeNotificationText(notification.body || data.body || '');
+        const areaText = normalizeNotificationText([
+            data.scope, data.region, data.area, data.target, data.warningArea, data.warningRegion,
+            data.stn, data.stnName, data.office, body
+        ].filter(Boolean).join(' '));
+        const allText = normalizeNotificationText([title, body, JSON.stringify(data || {})].join(' '));
+
+        // 기상특보가 아닌 도로통제·대피소 등 알림은 기존처럼 표시합니다.
+        if (!WEATHER_NOTIFICATION_RE.test(allText)) return true;
+
+        // 기상특보 알림은 반드시 세종권 문구가 있어야만 표시합니다.
+        if (SEJONG_WEATHER_SCOPE_RE.test(areaText)) return true;
+
+        console.warn('세종권 외 기상특보 알림 차단:', { title, body, data });
+        return false;
+    }
 
     let messaging = null;
     let currentFcmToken = localStorage.getItem(FCM_TOKEN_KEY) || '';
@@ -1566,8 +1791,9 @@
         messaging = firebase.messaging();
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./firebase-messaging-sw.js')
-                .then(() => {
+            navigator.serviceWorker.register('./firebase-messaging-sw.js?v=sejong-weather-filter-20260708')
+                .then((registration) => {
+                    registration.update().catch(() => {});
                     console.log('알림 서비스 준비 완료');
                     restoreNotificationState();
                 })
@@ -1641,9 +1867,10 @@
         };
 
         messaging.onMessage((payload) => {
+            if (!shouldDisplayIncomingNotification(payload)) return;
             const notification = payload.notification || {};
             const data = payload.data || {};
-            alert(`[🚨 재난상황실 알림]\n${notification.title || data.title}\n${notification.body || data.body}`);
+            alert(`[🚨 재난상황실 알림]\n${notification.title || data.title || '알림'}\n${notification.body || data.body || ''}`);
         });
     } else {
         window.requestNotificationPermission = function() {
@@ -5156,9 +5383,192 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
 
 
-    // --- 기상특보 + 예비특보: getWthrWrnMsg + getWthrPwn XML / stnId=133 세종권 전용 ---
+
+
+    // --- 관리자 수동 기상특보 관리 ---
+    // Firebase에 저장되어 모든 접속 화면에 실시간 반영됩니다.
+    // 같은 "구역 + 특보명"의 수동값은 기상청 자동 수신값보다 우선합니다.
+    const MANUAL_WARNING_DB_PATH = 'weatherManualOverrides';
+    let manualWarningOverrides = {};
+    let manualWarningEditingKey = '';
+    let manualWarningRealtimeAttached = false;
+    let weatherSpecialAutoRows = [];
+    let weatherSpecialRenderCallback = null;
+    let weatherSpecialFetchState = { status: 'idle', lastSuccessAt: 0, lastError: '' };
+
+    function manualWarningKey(scope, name) {
+        return `${String(scope || '').trim()}__${String(name || '').trim()}`.replace(/[.#$\[\]/]/g, '_');
+    }
+
+    function normalizeManualWarningScope(value) {
+        const scope = String(value || '').trim();
+        return ['세종', '세종북부', '세종남부'].includes(scope) ? scope : '세종';
+    }
+
+    function normalizeManualWarningState(value) {
+        return ['active', 'pending', 'released'].includes(value) ? value : 'active';
+    }
+
+    function normalizeManualWarningRecords(value) {
+        const source = value && typeof value === 'object' ? value : {};
+        const result = {};
+        Object.entries(source).forEach(([key, raw]) => {
+            if (!raw || typeof raw !== 'object' || raw._deleted) return;
+            const scope = normalizeManualWarningScope(raw.scope);
+            const name = String(raw.name || '').trim();
+            if (!name) return;
+            result[key] = {
+                key,
+                scope,
+                name,
+                state: normalizeManualWarningState(raw.state),
+                effectiveAt: String(raw.effectiveAt || '').trim(),
+                note: String(raw.note || '').trim(),
+                createdAt: Number(raw.createdAt || 0),
+                updatedAt: Number(raw.updatedAt || raw.createdAt || 0)
+            };
+        });
+        return result;
+    }
+
+    function formatManualWarningTime(value) {
+        const time = Number(value || 0);
+        if (!time) return '수동 입력';
+        try {
+            return new Intl.DateTimeFormat('ko-KR', {
+                timeZone: 'Asia/Seoul',
+                year: 'numeric', month: '2-digit', day: '2-digit',
+                hour: '2-digit', minute: '2-digit', hour12: false
+            }).format(new Date(time)).replace(/\. /g, '-').replace('.', '').replace(/\s+/g, ' ');
+        } catch (e) {
+            return '수동 입력';
+        }
+    }
+
+    function getManualWarningRecords() {
+        return Object.values(manualWarningOverrides || {})
+            .sort((a, b) => Number(b.updatedAt || 0) - Number(a.updatedAt || 0));
+    }
+
+    function getManualWarningRows() {
+        return getManualWarningRecords().map((item) => ({
+            name: item.name,
+            scope: item.scope,
+            released: item.state === 'released',
+            pending: item.state === 'pending',
+            effectiveAt: item.effectiveAt || '',
+            releaseAt: item.state === 'released' ? (item.effectiveAt || formatManualWarningTime(item.updatedAt)) : '',
+            noticeAt: formatManualWarningTime(item.updatedAt),
+            sortKey: Number(item.updatedAt || item.createdAt || 0) || Date.now(),
+            manual: true,
+            manualKey: item.key,
+            manualState: item.state,
+            note: item.note || '',
+            source: '관리자 수동 설정'
+        }));
+    }
+
+    function refreshSpecialWarningDisplay() {
+        if (typeof weatherSpecialRenderCallback === 'function') {
+            weatherSpecialRenderCallback(weatherSpecialAutoRows || []);
+        }
+    }
+
+    function attachManualWarningRealtime() {
+        if (manualWarningRealtimeAttached) return;
+        manualWarningRealtimeAttached = true;
+        db.ref(MANUAL_WARNING_DB_PATH).on('value', (snap) => {
+            manualWarningOverrides = normalizeManualWarningRecords(snap.val());
+            refreshSpecialWarningDisplay();
+        }, (error) => {
+            console.error('수동 기상특보 실시간 동기화 실패:', error);
+        });
+    }
+
+    function toManualDateTimeInput(value) {
+        return String(value || '').replace(' ', 'T').slice(0, 16);
+    }
+
+    function fromManualDateTimeInput(value) {
+        return String(value || '').replace('T', ' ').trim();
+    }
+
+    window.openManualWarningModal = function(key = '') {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        manualWarningEditingKey = String(key || '');
+        const current = manualWarningOverrides[manualWarningEditingKey] || null;
+        const modal = document.getElementById('weather-manual-modal');
+        const title = document.getElementById('weather-manual-modal-title');
+        if (!modal) return;
+        document.getElementById('manual-warning-scope').value = current?.scope || '세종';
+        document.getElementById('manual-warning-name').value = current?.name || '폭염주의보';
+        document.getElementById('manual-warning-state').value = current?.state || 'active';
+        document.getElementById('manual-warning-effective-at').value = toManualDateTimeInput(current?.effectiveAt || '');
+        document.getElementById('manual-warning-note').value = current?.note || '';
+        if (title) title.textContent = current ? '기상특보 수동 수정' : '기상특보 수동 등록';
+        modal.style.display = 'flex';
+    };
+
+    window.closeManualWarningModal = function() {
+        const modal = document.getElementById('weather-manual-modal');
+        if (modal) modal.style.display = 'none';
+        manualWarningEditingKey = '';
+    };
+
+    window.saveManualWarning = async function() {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const scope = normalizeManualWarningScope(document.getElementById('manual-warning-scope')?.value);
+        const name = String(document.getElementById('manual-warning-name')?.value || '').trim();
+        const state = normalizeManualWarningState(document.getElementById('manual-warning-state')?.value);
+        const effectiveAt = fromManualDateTimeInput(document.getElementById('manual-warning-effective-at')?.value || '');
+        const note = String(document.getElementById('manual-warning-note')?.value || '').trim().slice(0, 160);
+        if (!name) return alert('특보를 선택하세요.');
+
+        const newKey = manualWarningKey(scope, name);
+        const oldKey = manualWarningEditingKey;
+        const old = manualWarningOverrides[oldKey] || {};
+        const payload = {
+            scope,
+            name,
+            state,
+            effectiveAt,
+            note,
+            createdAt: Number(old.createdAt || Date.now()),
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        };
+
+        try {
+            const updates = {};
+            updates[`${MANUAL_WARNING_DB_PATH}/${newKey}`] = payload;
+            if (oldKey && oldKey !== newKey) updates[`${MANUAL_WARNING_DB_PATH}/${oldKey}`] = null;
+            await db.ref().update(updates);
+            closeManualWarningModal();
+        } catch (error) {
+            console.error('수동 기상특보 저장 실패:', error);
+            alert(`수동 특보 저장에 실패했습니다.\n${error?.message || '네트워크 또는 Firebase 권한을 확인하세요.'}`);
+        }
+    };
+
+    window.deleteManualWarning = async function(key) {
+        if (!isAdmin) return alert('관리자 권한 필요');
+        const target = manualWarningOverrides[String(key || '')];
+        if (!target) return;
+        if (!confirm(`${target.scope} ${target.name} 수동 설정을 삭제하고 자동 수신으로 되돌리시겠습니까?`)) return;
+        try {
+            await db.ref(`${MANUAL_WARNING_DB_PATH}/${target.key}`).remove();
+        } catch (error) {
+            console.error('수동 기상특보 삭제 실패:', error);
+            alert(`수동 특보 삭제에 실패했습니다.\n${error?.message || '네트워크 또는 Firebase 권한을 확인하세요.'}`);
+        }
+    };
+
+    attachManualWarningRealtime();
+
+
+    // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종권 전용 ---
     // 세종·세종북부·세종남부를 각각 분리하여 표시합니다.
-    // 일반 특보는 getWthrWrnMsg, 예비특보는 전용 API(getWthrPwn)를 함께 조회합니다.
+    // 한 통보문 안에 "호우 해제 · 폭염 발표"가 함께 있어도,
+    // 특보명 + 지역 단위로 분리 판정하여 세종남부 폭염주의보가 해제로 사라지지 않게 합니다.
     async function autoFetchSpecial(silent = false) {
         if (isSpecialFetching && silent) return;
         isSpecialFetching = true;
@@ -5167,11 +5577,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
 
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
-        const API_BASE = "https://apis.data.go.kr/1360000/WthrWrnInfoService";
+        const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
         const STATION_ID = "133";
         const LOOKBACK_DAYS = 6; // API 조회 가능 범위: 오늘 기준 최대 6일
-        const WARNING_KIND_SOURCE = "태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야";
-        const WARNING_SOURCE = `(?:${WARNING_KIND_SOURCE})\\s*(?:주의보|경보|예비\\s*특보)`;
+        const WARNING_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)";
         const WARNING_RE = new RegExp(`(${WARNING_SOURCE})`);
 
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -5181,14 +5590,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         function textOf(parent, tagName) {
             const el = parent ? parent.getElementsByTagName(tagName)[0] : null;
             return (el?.textContent || "").replace(/\s+/g, " ").trim();
-        }
-
-        function childTextCombined(item) {
-            if (!item) return "";
-            return [...item.children]
-                .map((el) => `${el.tagName}: ${(el.textContent || "").trim()}`)
-                .filter((line) => line.replace(/^[^:]+:\s*/, "").trim())
-                .join("\n");
         }
 
         function kstYmd(dayOffset = 0) {
@@ -5212,11 +5613,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const match = String(value || "").match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시(?:\s*(\d{1,2})분)?/);
             if (!match) return "";
             return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")} ${String(match[4]).padStart(2, "0")}:${String(match[5] || "0").padStart(2, "0")}`;
-        }
-
-        function warningKind(value) {
-            const match = String(value || "").match(new RegExp(`(${WARNING_KIND_SOURCE})`));
-            return match ? match[1] : "";
         }
 
         function warningName(value) {
@@ -5247,7 +5643,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             if (/세종\(세종북부\)|세종북부/.test(compact)) return "세종북부";
             if (/세종\(세종남부\)|세종남부/.test(compact)) return "세종남부";
-            if (/세종/.test(compact)) return "세종";
+            if (/세종(?=$|[(),·/])/.test(compact)) return "세종";
             return "";
         }
 
@@ -5255,8 +5651,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const compact = String(value || "")
                 .replace(/세종특별자치시|세종시/g, "세종")
                 .replace(/\s+/g, "");
-            // 예비특보 문장은 "대전, 세종 o 07월..."처럼 세종 뒤에 다음 항목(o)이 바로 붙을 수 있어 o/숫자 경계도 허용합니다.
-            const matches = compact.match(/세종\(세종(?:북부|남부)\)|세종(?:북부|남부)|세종(?=$|[(),·/]|o|O|\d)/g) || [];
+            const matches = compact.match(/세종\(세종(?:북부|남부)\)|세종(?:북부|남부)|세종(?=$|[(),·/])/g) || [];
             const scopes = [];
             const seen = new Set();
 
@@ -5270,15 +5665,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return scopes;
         }
 
+        function hasSejong(value) {
+            return extractSejongScopes(value).length > 0;
+        }
+
         function stateOf(value) {
             const source = String(value || "");
             if (/해제|취소/.test(source)) return "released";
-            if (/발표|예비\s*특보/.test(source)) return "announced";
+            if (/발표/.test(source)) return "announced";
             return "";
-        }
-
-        function isPreliminaryWarning(name, text) {
-            return /예비\s*특보/.test(`${name || ""} ${text || ""}`);
         }
 
         // 예: "호우경보·호우주의보 해제 · 폭염주의보 발표"
@@ -5308,35 +5703,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             }));
         }
 
-        function extractPreliminaryTimeText(value) {
-            const source = String(value || "");
-            const match = source.match(/(\d{1,2}월\s*\d{1,2}일\s*(?:새벽|오전|아침|낮|오후|저녁|밤)?\s*(?:\([^)]*\))?)/);
-            return match ? match[1].replace(/\s+/g, " ").trim() : "";
-        }
-
-        function extractPreliminaryScopeTimes(value) {
-            const source = String(value || "").replace(/\r/g, " ").replace(/\n/g, " ");
-            const chunks = source
-                .split(/(?=\bo\s+\d{1,2}월\s*\d{1,2}일)/g)
-                .map((chunk) => chunk.trim())
-                .filter(Boolean);
-            const rows = [];
-            const targetChunks = chunks.length ? chunks : [source];
-
-            targetChunks.forEach((chunk) => {
-                const scopes = extractSejongScopes(chunk);
-                if (!scopes.length) return;
-                const expectedAt = extractPreliminaryTimeText(chunk) || extractPreliminaryTimeText(source);
-                scopes.forEach((scope) => rows.push({ scope, expectedAt }));
-            });
-            return rows;
-        }
-
         function uniqueRows(rows) {
             const result = [];
             const seen = new Set();
             rows.forEach((row) => {
-                const key = `${row.name}|${row.scope}|${row.released}|${row.preliminary}|${row.noticeAt}|${row.expectedAt || ""}`;
+                const key = `${row.name}|${row.scope}|${row.released}|${row.noticeAt}`;
                 if (!seen.has(key)) {
                     seen.add(key);
                     result.push(row);
@@ -5345,25 +5716,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return result;
         }
 
-        function baseItemText(item) {
-            const pieces = [];
-            ["title", "other", "rem", "t1", "t2", "t3", "t4", "t5", "t6", "t7", "t8", "t9", "t10", "t11", "t12", "t13", "t14", "t15", "t16", "t17", "t18", "t19", "t20"].forEach((tag) => {
-                const value = textOf(item, tag);
-                if (value) pieces.push(value);
-            });
-            const raw = childTextCombined(item);
-            if (raw) pieces.push(raw);
-            return pieces.join("\n");
-        }
-
-        function readWarningItem(item) {
+        function readItem(item) {
             const t1 = textOf(item, "t1");
             const t2 = textOf(item, "t2");
             const t3 = textOf(item, "t3");
             const t4 = textOf(item, "t4");
             const t5 = textOf(item, "t5");
             const tmFc = textOf(item, "tmFc");
-            const allText = [t1, t2, t3, t4, t5].filter(Boolean).join("\n");
+            const allText = [t1, t2, t3, t4].filter(Boolean).join("\n");
             const stateMap = buildWarningStateMap(allText);
             const noticeAt = formatTime(tmFc || t5);
             const sortKey = Number((tmFc || t5 || "0").replace(/\D/g, "")) || 0;
@@ -5388,14 +5748,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     scopes.forEach((scope) => rows.push({
                         t1, t2, t3, t4,
                         name: segment.name,
-                        kind: warningKind(segment.name),
                         scope,
                         released,
-                        preliminary: false,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
-                        expectedAt: "",
                         sortKey
                     }));
                 });
@@ -5404,7 +5761,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             // 일부 응답은 t2에 지역만 있고 특보명은 t1에만 있는 형태입니다.
             // 이 경우 특보가 1개일 때에만 안전하게 t1의 특보명과 세종권 지역을 결합합니다.
             if (!rows.length) {
-                const names = warningNames(allText).filter((name) => !/예비특보/.test(name));
+                const names = warningNames(allText);
                 const scopes = extractSejongScopes(allText);
                 if (names.length === 1 && scopes.length) {
                     const name = names[0];
@@ -5420,14 +5777,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     scopes.forEach((scope) => rows.push({
                         t1, t2, t3, t4,
                         name,
-                        kind: warningKind(name),
                         scope,
                         released,
-                        preliminary: false,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
-                        expectedAt: "",
                         sortKey
                     }));
                 }
@@ -5436,60 +5790,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return uniqueRows(rows);
         }
 
-        function readPreliminaryItem(item) {
-            const tmFc = textOf(item, "tmFc") || textOf(item, "tmEf") || textOf(item, "t5");
-            const allText = baseItemText(item);
-            if (!/예비\s*특보/.test(allText)) return [];
-
-            const noticeAt = formatTime(tmFc);
-            const sortKey = Number((tmFc || "0").replace(/\D/g, "")) || 0;
-            const rows = [];
-            const segments = splitWarningSegments(allText).filter((segment) => isPreliminaryWarning(segment.name, segment.text));
-
-            segments.forEach((segment) => {
-                const scopeTimes = extractPreliminaryScopeTimes(segment.text);
-                if (!scopeTimes.length) return;
-
-                scopeTimes.forEach(({ scope, expectedAt }) => rows.push({
-                    name: segment.name.includes("예비") ? segment.name : `${warningKind(segment.name)}예비특보`,
-                    kind: warningKind(segment.name),
-                    scope,
-                    released: false,
-                    preliminary: true,
-                    noticeAt,
-                    releaseAt: "",
-                    effectiveAt: "",
-                    expectedAt,
-                    sortKey
-                }));
-            });
-
-            // 문장 분리가 실패한 경우 전체 통보문에서 세종 포함 여부만 보고 보조 추출합니다.
-            if (!rows.length) {
-                const prelimNames = warningNames(allText).filter((name) => /예비특보/.test(name));
-                const scopeTimes = extractPreliminaryScopeTimes(allText);
-                if (prelimNames.length && scopeTimes.length) {
-                    prelimNames.forEach((name) => {
-                        scopeTimes.forEach(({ scope, expectedAt }) => rows.push({
-                            name,
-                            kind: warningKind(name),
-                            scope,
-                            released: false,
-                            preliminary: true,
-                            noticeAt,
-                            releaseAt: "",
-                            effectiveAt: "",
-                            expectedAt,
-                            sortKey
-                        }));
-                    });
-                }
-            }
-
-            return uniqueRows(rows);
-        }
-
-        function requestUrl(endpointName) {
+        function requestUrl() {
             const params = new URLSearchParams({
                 serviceKey: SERVICE_KEY,
                 pageNo: "1",
@@ -5499,48 +5800,30 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 fromTmFc: kstYmd(-LOOKBACK_DAYS),
                 toTmFc: kstYmd(0)
             });
-            return `${API_BASE}/${endpointName}?${params.toString()}`;
+            return `${API_URL}?${params.toString()}`;
         }
 
-        async function fetchXml(endpointName) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 12000);
-            let response;
-            try {
-                response = await fetch(requestUrl(endpointName), {
-                    method: "GET",
-                    mode: "cors",
-                    cache: "no-store",
-                    signal: controller.signal
-                });
-            } finally {
-                clearTimeout(timer);
-            }
+        function renderSejong(rows) {
+            weatherSpecialAutoRows = Array.isArray(rows) ? rows : [];
+            weatherSpecialRenderCallback = renderSejong;
 
-            if (!response.ok) throw new Error(`${endpointName} HTTP ${response.status}`);
+            const manualRows = getManualWarningRows();
+            const manualKeys = new Set(manualRows.map((row) => `${row.name}|${row.scope}`));
+            // 수동값은 동일한 구역·특보명의 자동값만 대체합니다.
+            const mergedRows = weatherSpecialAutoRows
+                .filter((row) => !manualKeys.has(`${row.name}|${row.scope}`))
+                .concat(manualRows);
 
-            const xmlText = await response.text();
-            const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-            if (xml.querySelector("parsererror")) throw new Error(`${endpointName} XML 해석 실패`);
-
-            const resultCode = textOf(xml, "resultCode");
-            if (resultCode && resultCode !== "00") {
-                throw new Error(`${endpointName} 공공데이터포털 오류(${resultCode}): ${textOf(xml, "resultMsg") || "응답 확인 필요"}`);
-            }
-            return xml;
-        }
-
-        function renderSejong(rows, apiErrors = []) {
-            // 특보 종류 + 세종권 구역(세종/세종북부/세종남부)별 최신 통보문 하나만 유지합니다.
-            // 같은 시각이라면 해제 통보문을 우선하여 과거 특보가 남지 않게 합니다.
+            // 특보 종류 + 세종권 구역(세종/세종북부/세종남부)별 최신 상태를 하나만 유지합니다.
             const latestByWarning = new Map();
-            [...rows]
+            [...mergedRows]
                 .sort((a, b) => a.sortKey - b.sortKey || Number(a.released) - Number(b.released))
                 .forEach((row) => {
                     const key = `${row.name}|${row.scope}`;
                     const previous = latestByWarning.get(key);
                     if (
                         !previous ||
+                        row.manual ||
                         row.sortKey > previous.sortKey ||
                         (row.sortKey === previous.sortKey && row.released && !previous.released)
                     ) {
@@ -5549,79 +5832,116 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 });
 
             const latestRows = [...latestByWarning.values()]
-                .sort((a, b) => b.sortKey - a.sortKey || Number(b.released) - Number(a.released));
-            let activeRows = latestRows.filter((row) => !row.released);
-
-            // 같은 구역·같은 기상현상에 실제 주의보/경보가 발령 중이면, 그보다 오래된 예비특보는 숨깁니다.
-            const actualActiveKeys = new Set(activeRows
-                .filter((row) => !row.preliminary)
-                .map((row) => `${row.kind}|${row.scope}`));
-            activeRows = activeRows.filter((row) => !row.preliminary || !actualActiveKeys.has(`${row.kind}|${row.scope}`));
-
+                .sort((a, b) => Number(b.manual) - Number(a.manual) || b.sortKey - a.sortKey || Number(b.released) - Number(a.released));
+            const activeRows = latestRows.filter((row) => !row.released && !row.pending);
+            const pendingRows = latestRows.filter((row) => !row.released && row.pending);
+            const shownRows = [...activeRows, ...pendingRows];
             const latestNotice = latestRows[0];
-            const errorNote = apiErrors.length
-                ? `<div style="font-size:10px;color:var(--orange);line-height:1.45;margin-top:8px;">일부 조회 확인 필요: ${escapeHtml(apiErrors.join(" / "))}</div>`
-                : "";
+            const manualStateText = { active: '발령 중', pending: '발표 · 발효 전', released: '해제 처리' };
+            const sourceText = weatherSpecialFetchState.status === 'success'
+                ? `자동 수신 정상 · ${formatManualWarningTime(weatherSpecialFetchState.lastSuccessAt)}`
+                : weatherSpecialFetchState.status === 'failed'
+                    ? `자동 수신 오류 · ${weatherSpecialFetchState.lastError || '응답 확인 필요'}`
+                    : '자동 수신 확인 중';
 
-            if (activeRows.length) {
-                const preliminaryRows = activeRows.filter((row) => row.preliminary);
-                const warningRows = activeRows.filter((row) => !row.preliminary);
-                const onlyPreliminary = preliminaryRows.length && !warningRows.length;
+            const manualPanel = (() => {
+                if (!isAdmin) return '';
+                const items = manualRows.length
+                    ? manualRows.map((row) => `
+                        <div class="weather-manual-item">
+                            <div class="weather-manual-item-copy">
+                                <div class="weather-manual-item-name">${escapeHtml(row.scope)} · ${escapeHtml(row.name)} <span style="color:var(--blue);font-size:10px;">${escapeHtml(manualStateText[row.manualState] || '수동 설정')}</span></div>
+                                <div class="weather-manual-item-meta">${row.effectiveAt ? `발효 ${escapeHtml(row.effectiveAt)} · ` : ''}수정 ${escapeHtml(row.noticeAt)}${row.note ? `<br>${escapeHtml(row.note)}` : ''}</div>
+                            </div>
+                            <div class="weather-manual-item-actions">
+                                <button class="weather-manual-mini-btn" type="button" onclick='openManualWarningModal(${JSON.stringify(row.manualKey)})'><i class="fas fa-pen"></i></button>
+                                <button class="weather-manual-mini-btn delete" type="button" onclick='deleteManualWarning(${JSON.stringify(row.manualKey)})'><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>`).join('')
+                    : '<div style="font-size:11px;color:var(--sub);padding:5px 1px;">등록된 수동 특보가 없습니다. 자동 수신값만 표시 중입니다.</div>';
+                return `
+                    <div class="weather-manual-panel">
+                        <div class="weather-manual-panel-head">
+                            <div>
+                                <div class="weather-manual-panel-title"><i class="fas fa-user-pen"></i> 관리자 수동 특보 관리</div>
+                                <div style="font-size:10px;color:var(--sub);margin-top:3px;">${escapeHtml(sourceText)}</div>
+                            </div>
+                            <div style="display:flex;gap:5px;">
+                                <button class="weather-manual-action secondary" type="button" onclick="autoFetchSpecial(false)"><i class="fas fa-rotate-right"></i> 자동 재조회</button>
+                                <button class="weather-manual-action" type="button" onclick="openManualWarningModal()"><i class="fas fa-plus"></i> 수동 등록</button>
+                            </div>
+                        </div>
+                        ${items}
+                    </div>`;
+            })();
 
-                if (warningRows.length && preliminaryRows.length) {
-                    headerStatusEl.textContent = `세종권 특보 ${warningRows.length}건 · 예비 ${preliminaryRows.length}건`;
-                } else if (onlyPreliminary) {
-                    headerStatusEl.textContent = `세종권 예비특보 ${preliminaryRows.length}건`;
-                } else {
-                    headerStatusEl.textContent = `세종권 특보 ${warningRows.length}건`;
-                }
-                headerStatusEl.className = onlyPreliminary ? "sejong-summary pending" : "sejong-summary warn";
+            if (shownRows.length) {
+                const headerCount = shownRows.length;
+                headerStatusEl.textContent = `${manualRows.some((row) => !row.released) ? '수동 포함 · ' : ''}세종권 특보 ${headerCount}건`;
+                headerStatusEl.className = `sejong-summary ${activeRows.length ? 'warn' : 'pending'}`;
 
-                const cards = activeRows.map((row) => {
-                    const label = row.preliminary ? "예비특보" : "발령 중";
-                    const labelColor = row.preliminary ? "#C56A00" : "var(--red)";
-                    const timeLine = row.preliminary
-                        ? `<div style="font-size:11px;color:#A55B00;margin-top:7px;">예상 ${escapeHtml(row.expectedAt || "시간 확인중")}</div><div style="font-size:11px;color:var(--sub);margin-top:4px;">발표 ${escapeHtml(row.noticeAt)}</div>`
-                        : `${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">발효 ${escapeHtml(row.effectiveAt)}</div>` : ""}<div style="font-size:11px;color:var(--sub);margin-top:4px;">통보 ${escapeHtml(row.noticeAt)}</div>`;
+                const cards = shownRows.map((row) => {
+                    const pending = !!row.pending;
+                    const statusLabel = pending ? '발표 · 발효 전' : (row.manual ? '수동 발령' : '발령 중');
+                    const statusColor = pending ? 'var(--orange)' : 'var(--red)';
                     return `
                     <div style="padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card-elevated);margin-top:8px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
                             <b style="font-size:16px;">${escapeHtml(row.name)}</b>
-                            <span style="font-size:11px;font-weight:800;color:${labelColor};">${label}</span>
+                            <span style="font-size:11px;font-weight:800;color:${statusColor};">${statusLabel}</span>
                         </div>
                         <div style="font-size:13px;font-weight:800;margin-top:7px;">구역: ${escapeHtml(row.scope)}</div>
-                        ${timeLine}
+                        ${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">${pending ? '발효 예정' : '발효'} ${escapeHtml(row.effectiveAt)}</div>` : ''}
+                        <div style="font-size:11px;color:var(--sub);margin-top:4px;">${row.manual ? '수동 수정' : '통보'} ${escapeHtml(row.noticeAt)}</div>
+                        ${row.manual ? '<div style="font-size:10px;color:var(--blue);margin-top:5px;font-weight:800;"><i class="fas fa-user-pen"></i> 관리자 수동 설정</div>' : ''}
+                        ${row.note ? `<div style="font-size:10px;color:var(--sub);margin-top:4px;">${escapeHtml(row.note)}</div>` : ''}
                     </div>`;
-                }).join("");
+                }).join('');
 
-                const mainClass = onlyPreliminary ? "pending" : "warn";
-                const mainIcon = onlyPreliminary ? "fa-clock" : "fa-triangle-exclamation";
-                const mainTitle = onlyPreliminary ? "세종권 기상 예비특보 발표" : (preliminaryRows.length ? "세종권 기상특보·예비특보 확인" : "세종권 기상특보 발령 중");
-
+                const boxClass = activeRows.length ? 'warn' : 'pending';
+                const mainTitle = activeRows.length ? '세종권 기상특보 발령 중' : '세종권 기상특보 발효 전';
                 contentEl.innerHTML = `
-                    <div class="weather-main-box ${mainClass}">
-                        <i class="fas ${mainIcon}" style="font-size:22px;"></i>
+                    <div class="weather-main-box ${boxClass}">
+                        <i class="fas ${activeRows.length ? 'fa-triangle-exclamation' : 'fa-clock'}" style="font-size:22px;"></i>
                         <div>
                             <div class="weather-main-title">${mainTitle}</div>
-                            <div class="weather-main-sub">${escapeHtml(activeRows.map((row) => `${row.scope} ${row.name}`).join(" · "))}</div>
+                            <div class="weather-main-sub">${escapeHtml(shownRows.map((row) => `${row.scope} ${row.name}`).join(' · '))}</div>
                         </div>
                     </div>
                     <div class="info-group">
-                        <span class="info-label">세종권 기상특보·예비특보 (세종 · 세종북부 · 세종남부)</span>
+                        <span class="info-label">세종권 기상특보 (세종 · 세종북부 · 세종남부)</span>
                         <div class="info-val">${cards}</div>
                     </div>
                     <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                        출처: 기상청 기상특보 조회서비스 · getWthrWrnMsg + getWthrPwn · stnId=133 · 최근 6일
-                    </div>${errorNote}`;
+                        출처: 기상청 기상특보통보문 조회서비스 · stnId=133 · 최근 6일<br>
+                        ${escapeHtml(sourceText)}
+                    </div>
+                    ${manualPanel}`;
                 return;
             }
 
-            headerStatusEl.textContent = "세종권 특보 없음";
-            headerStatusEl.className = "sejong-summary safe";
+            // 자동 수신이 실패했지만 수동 설정이 없을 때는 '특보 없음'으로 오인하지 않도록 오류를 명확히 표시합니다.
+            if (weatherSpecialFetchState.status === 'failed') {
+                headerStatusEl.textContent = '자동수신 오류';
+                headerStatusEl.className = 'sejong-summary warn';
+                contentEl.innerHTML = `
+                    <div class="weather-main-box pending">
+                        <i class="fas fa-triangle-exclamation" style="font-size:22px;"></i>
+                        <div>
+                            <div class="weather-main-title">자동 특보 수신을 확인할 수 없습니다</div>
+                            <div class="weather-main-sub">${escapeHtml(weatherSpecialFetchState.lastError || '공공데이터포털 응답 확인 필요')}</div>
+                        </div>
+                    </div>
+                    <div style="font-size:11px;color:var(--sub);line-height:1.55;">관리자 모드에서 수동 특보를 등록하면 자동 수신이 복구될 때까지 화면에 즉시 반영됩니다.</div>
+                    ${manualPanel}`;
+                return;
+            }
 
+            headerStatusEl.textContent = '세종권 특보 없음';
+            headerStatusEl.className = 'sejong-summary safe';
             const releaseText = latestNotice?.released
-                ? `최근 해제: ${escapeHtml(latestNotice.scope)} ${escapeHtml(latestNotice.name)} · ${escapeHtml(latestNotice.releaseAt || latestNotice.noticeAt)}`
-                : "대전지방기상청(133) 통보문 기준 · 세종 · 세종북부 · 세종남부";
+                ? `최근 해제: ${escapeHtml(latestNotice.scope)} ${escapeHtml(latestNotice.name)} · ${escapeHtml(latestNotice.releaseAt || latestNotice.noticeAt)}${latestNotice.manual ? ' (수동)' : ''}`
+                : '대전지방기상청(133) 통보문 기준 · 세종 · 세종북부 · 세종남부';
 
             contentEl.innerHTML = `
                 <div class="weather-main-box safe">
@@ -5632,47 +5952,57 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     </div>
                 </div>
                 <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                    출처: 기상청 기상특보 조회서비스 · getWthrWrnMsg + getWthrPwn · stnId=133 · 최근 6일
-                </div>${errorNote}`;
+                    출처: 기상청 기상특보통보문 조회서비스 · stnId=133 · 최근 6일<br>
+                    ${escapeHtml(sourceText)}
+                </div>
+                ${manualPanel}`;
         }
 
         try {
             if (!silent) {
                 headerStatusEl.textContent = "확인중...";
                 headerStatusEl.className = "sejong-summary";
-                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보·예비특보 확인 중...</div>';
+                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보 확인 중...</div>';
             }
 
-            const jobs = [
-                fetchXml("getWthrWrnMsg").then((xml) => ({ endpoint: "getWthrWrnMsg", rows: [...xml.getElementsByTagName("item")].flatMap(readWarningItem) })),
-                fetchXml("getWthrPwn").then((xml) => ({ endpoint: "getWthrPwn", rows: [...xml.getElementsByTagName("item")].flatMap(readPreliminaryItem) }))
-            ];
-
-            const results = await Promise.allSettled(jobs);
-            const sejongRows = [];
-            const apiErrors = [];
-
-            results.forEach((result) => {
-                if (result.status === "fulfilled") {
-                    sejongRows.push(...result.value.rows);
-                } else {
-                    apiErrors.push(result.reason?.message || String(result.reason));
-                }
-            });
-
-            if (!sejongRows.length && apiErrors.length === results.length) {
-                throw new Error(apiErrors.join(" / "));
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            let response;
+            try {
+                response = await fetch(requestUrl(), {
+                    method: "GET",
+                    mode: "cors",
+                    cache: "no-store",
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timer);
             }
 
-            renderSejong(sejongRows, apiErrors);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const xmlText = await response.text();
+            const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+            if (xml.querySelector("parsererror")) throw new Error("XML 해석 실패");
+
+            const resultCode = textOf(xml, "resultCode");
+            if (resultCode && resultCode !== "00") {
+                throw new Error(`공공데이터포털 오류(${resultCode}): ${textOf(xml, "resultMsg") || "응답 확인 필요"}`);
+            }
+
+            const sejongRows = [...xml.getElementsByTagName("item")]
+                .flatMap(readItem);
+
+            weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
+            renderSejong(sejongRows);
         } catch (error) {
-            console.error("세종권 기상특보·예비특보 XML 조회 실패:", error);
-            headerStatusEl.textContent = "조회 실패";
-            headerStatusEl.className = "sejong-summary warn";
-            contentEl.innerHTML = `<div style="text-align:center;color:var(--orange);padding:10px;font-size:13px;line-height:1.55;">
-                세종권 기상특보·예비특보 XML 조회 실패<br>
-                <span style="color:var(--sub);font-size:11px;">${escapeHtml(error?.message || "공공데이터포털 응답을 확인하세요.")}</span>
-            </div>`;
+            console.error("세종권 기상특보 XML 조회 실패:", error);
+            weatherSpecialFetchState = {
+                status: 'failed',
+                lastSuccessAt: Number(weatherSpecialFetchState.lastSuccessAt || 0),
+                lastError: error?.message || '공공데이터포털 응답을 확인하세요.'
+            };
+            renderSejong(weatherSpecialAutoRows || []);
         } finally {
             isSpecialFetching = false;
         }
@@ -5880,6 +6210,7 @@ ${error?.message || '네트워크를 확인하세요.'}`));
                 });
                 renderAllScopedFilterButtons();
                 render(); renderShelters(); renderCctvs(); renderManpower();
+                refreshSpecialWarningDisplay();
                 syncRealtimeSubscriptions();
             }
         } else {
@@ -5894,6 +6225,7 @@ ${error?.message || '네트워크를 확인하세요.'}`));
             });
             renderAllScopedFilterButtons();
             render(); renderShelters(); renderCctvs(); renderManpower();
+            refreshSpecialWarningDisplay();
             syncRealtimeSubscriptions();
         }
     }
