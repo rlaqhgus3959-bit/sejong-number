@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 재난관리 플랫폼</title>
-    <!-- 수동 기상특보 관리 + 예비특보 API(getWthrPwn) 추가 + 세종권 알림만 허용 적용본 -->
+    <!-- 수동 기상특보 관리 + 예비특보 API + 날씨누리 백업조회 + 세종권 알림만 허용 적용본 -->
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -5997,6 +5997,121 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             }
         }
 
+        function stripHtmlToText(html) {
+            try {
+                const doc = new DOMParser().parseFromString(String(html || ""), "text/html");
+                return (doc.body?.innerText || doc.body?.textContent || String(html || ""))
+                    .replace(/
+/g, "")
+                    .replace(/[ 	]+/g, " ")
+                    .replace(/
+{2,}/g, "
+")
+                    .trim();
+            } catch (e) {
+                return String(html || "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+            }
+        }
+
+        function parseWeatherNuriPreliminaryText(sourceText) {
+            const text = String(sourceText || "").replace(/
+/g, "");
+            const lines = text.split(/
++/).map((line) => line.replace(/\s+/g, " ").trim()).filter(Boolean);
+            const rows = [];
+            const nowSort = Date.now();
+            let currentKind = "";
+            let currentNoticeAt = "";
+
+            const pushRow = (kind, rawLine, effectiveAt, noticeAt) => {
+                const compactKind = warningKindOf(kind || rawLine) || "호우";
+                let scopes = extractSejongScopes(rawLine);
+
+                // 날씨누리 예비특보 본문은 "대전, 세종"처럼 단순 표기로 내려오는 경우가 있습니다.
+                // 이때는 세종권 전체 대표값으로 우선 표시합니다.
+                if (!scopes.length && /(^|[^가-힣])세종([^가-힣]|$)/.test(rawLine)) scopes = ["세종"];
+
+                // "세종특별자치시(세종북부,세종남부)" 표기는 북부/남부를 반드시 분리합니다.
+                const compact = rawLine.replace(/\s+/g, "");
+                if (/세종특별자치시\(세종북부,세종남부\)|세종\(세종북부,세종남부\)/.test(compact)) {
+                    scopes = ["세종북부", "세종남부"];
+                }
+
+                scopes.forEach((scope) => rows.push({
+                    t1: `${compactKind} 예비특보`,
+                    t2: rawLine,
+                    t3: "",
+                    t4: "",
+                    name: `${compactKind}예비특보`,
+                    scope,
+                    released: false,
+                    pending: true,
+                    noticeAt: noticeAt || currentNoticeAt || "날씨누리 확인",
+                    releaseAt: "",
+                    effectiveAt: effectiveAt || "발효 예정",
+                    sortKey: nowSort,
+                    sourceApi: "weather.go.kr"
+                }));
+            };
+
+            lines.forEach((line) => {
+                const noticeMatch = line.match(/발표시각\s*[:：]\s*(20\d{2}년\s*\d{1,2}월\s*\d{1,2}일.*?\d{1,2}:?\d{0,2}|20\d{2}-\d{2}-\d{2}\s*\d{2}:\d{2})/);
+                if (noticeMatch) currentNoticeAt = parseKoreanTime(noticeMatch[1]) || noticeMatch[1];
+
+                const sectionMatch = line.match(/\(?\d+\)?\s*(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*예비\s*특보/);
+                if (sectionMatch) currentKind = sectionMatch[1];
+
+                // 특보 상세내역 표 형태: "호우 예비 ... 세종특별자치시(세종북부,세종남부) 2026-07-08 16:10 2026-07-09 새벽(00~06시)"
+                const detailMatch = line.match(/(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*예비\s+(.+?)\s+(20\d{2}-\d{2}-\d{2}\s+\d{2}:\d{2})\s+(20\d{2}-\d{2}-\d{2}\s+[^
+]+)/);
+                if (detailMatch && hasSejong(detailMatch[2])) {
+                    pushRow(detailMatch[1], line, detailMatch[4], detailMatch[3]);
+                    return;
+                }
+
+                // 예비특보 본문 형태: "o 07월 09일 새벽(00시~06시) : ... 세종"
+                const bodyMatch = line.match(/(?:o\s*)?(\d{1,2}월\s*\d{1,2}일\s*[^:：]+)[:：]\s*(.+)/);
+                if (currentKind && bodyMatch && /세종/.test(bodyMatch[2])) {
+                    pushRow(currentKind, line, bodyMatch[1], currentNoticeAt);
+                }
+            });
+
+            return uniqueRows(rows);
+        }
+
+        async function fetchWeatherNuriPreliminaryRows() {
+            const pageUrl = "https://www.weather.go.kr/w/wnuri-fct2021/weather/warning.do";
+            const urls = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(pageUrl)}`,
+                `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(pageUrl)}`,
+                `https://corsproxy.io/?${encodeURIComponent(pageUrl)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(pageUrl)}`
+            ];
+            let lastError = null;
+            for (const url of urls) {
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), 10000);
+                try {
+                    const response = await fetch(url, { cache: "no-store", signal: controller.signal });
+                    if (!response.ok) throw new Error(`날씨누리 HTTP ${response.status}`);
+                    let html = await response.text();
+                    if (url.includes("api.allorigins.win/get")) {
+                        try {
+                            const wrapped = JSON.parse(html);
+                            html = wrapped.contents || html;
+                        } catch (e) {}
+                    }
+                    const rows = parseWeatherNuriPreliminaryText(stripHtmlToText(html));
+                    return rows;
+                } catch (error) {
+                    lastError = error;
+                } finally {
+                    clearTimeout(timer);
+                }
+            }
+            throw lastError || new Error("날씨누리 예비특보 백업 조회 실패");
+        }
+
         function renderSejong(rows) {
             weatherSpecialAutoRows = Array.isArray(rows) ? rows : [];
             weatherSpecialRenderCallback = renderSejong;
@@ -6112,7 +6227,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         <div class="info-val">${cards}</div>
                     </div>
                     <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                        출처: 기상청 특보통보문(getWthrWrnMsg) + 예비특보(getWthrPwn/getWthrPwnList) · stnId=133 · 최근 6일<br>
+                        출처: 기상청 특보통보문(getWthrWrnMsg) + 예비특보 API + 날씨누리 예비특보 백업조회 · stnId=133 · 최근 6일<br>
                         ${escapeHtml(sourceText)}
                     </div>
                     ${manualPanel}`;
@@ -6151,7 +6266,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     </div>
                 </div>
                 <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                    출처: 기상청 특보통보문(getWthrWrnMsg) + 예비특보(getWthrPwn/getWthrPwnList) · stnId=133 · 최근 6일<br>
+                    출처: 기상청 특보통보문(getWthrWrnMsg) + 예비특보 API + 날씨누리 예비특보 백업조회 · stnId=133 · 최근 6일<br>
                     ${escapeHtml(sourceText)}
                 </div>
                 ${manualPanel}`;
@@ -6167,7 +6282,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const results = await Promise.allSettled([
                 fetchWeatherRows(WRN_MSG_API_URL, readItem, "기상특보통보문"),
                 fetchWeatherRows(PRELIM_API_URL, readPreliminaryItem, "기상예비특보"),
-                fetchWeatherRows(PRELIM_LIST_API_URL, readPreliminaryItem, "기상예비특보목록")
+                fetchWeatherRows(PRELIM_LIST_API_URL, readPreliminaryItem, "기상예비특보목록"),
+                fetchWeatherNuriPreliminaryRows()
             ]);
 
             const fulfilled = results.filter((result) => result.status === "fulfilled");
