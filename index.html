@@ -7,7 +7,7 @@
     <meta http-equiv="Expires" content="0">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>세종경찰 재난관리 플랫폼</title>
-    <!-- 수동 기상특보 관리 + 세종권 외 기상특보 알림 차단 적용본 -->
+    <!-- 수동 기상특보 관리 + 세종권 기상특보 알림만 허용 적용본 -->
 
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
@@ -1654,11 +1654,10 @@
     const NOTIFICATION_ENABLED_KEY = 'sejongPoliceNotificationEnabled';
     const FCM_TOKEN_KEY = 'sejongPoliceFcmToken';
 
-    // 기상특보 알림 필터
-    // 세종·세종북부·세종남부가 명확히 포함된 기상특보 알림만 표시합니다.
-    // 대전·충남·충북 등 세종권 외 지역의 해제/발표 통보문은 앱 화면 알림에서 차단합니다.
-    const SEJONG_WEATHER_SCOPE_RE = /(세종\s*\(\s*세종\s*\)|세종\s*\(\s*세종북부\s*\)|세종\s*\(\s*세종남부\s*\)|세종특별자치시|세종북부|세종남부|\b세종\b)/;
+    // 기상특보 알림 필터 - 세종권 발표만 허용
+    // 강원·충남·충북 등 세종권 외 통보문, 그리고 단순 해제/취소 통보문은 HTML 알림에서 차단합니다.
     const WEATHER_NOTIFICATION_RE = /(기상특보|특보|주의보|경보|호우|대설|강풍|풍랑|한파|폭염|건조|태풍|황사|폭풍해일|지진해일|안개|열대야)/;
+    const WEATHER_WARNING_NAME_RE = /(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\s*(주의보|경보)/;
 
     function normalizeNotificationText(value) {
         return String(value || '')
@@ -1668,25 +1667,65 @@
             .trim();
     }
 
+    function compactNotificationText(value) {
+        return normalizeNotificationText(value)
+            .replace(/세종특별자치시|세종시/g, '세종')
+            .replace(/\s+/g, '');
+    }
+
+    function containsSejongWeatherArea(value) {
+        const raw = normalizeNotificationText(value);
+        const compact = compactNotificationText(value);
+
+        // 기상청 통보문에서 실제 세종권 구역으로 쓰이는 표기만 인정합니다.
+        // '세종경찰', '세종경찰 재난상황실' 같은 앱 이름은 세종권 기상특보로 보지 않습니다.
+        if (/세종\(세종\)|세종\(세종북부\)|세종\(세종남부\)|세종북부|세종남부|세종특별자치시/.test(compact)) return true;
+
+        // 단독 '세종'은 지역 목록 안의 세종일 때만 허용합니다.
+        // 예: 충남(공주), 세종, 대전 / 세종 : 폭염주의보
+        if (/(^|[\s,·ㆍ/()\[\]:：-])세종($|[\s,·ㆍ/()\[\]:：-])/.test(raw)) {
+            if (!/세종\s*(경찰|재난|플랫폼|상황실|북부경찰서|남부경찰서|청)/.test(raw)) return true;
+        }
+        return false;
+    }
+
+    function hasSejongNewWeatherAnnouncement(value) {
+        const text = normalizeNotificationText(value);
+        const warning = '(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)';
+        const action = '(?:발표|발령|발효)';
+        const sejong = '(?:세종\\s*\\(\\s*세종\\s*\\)|세종\\s*\\(\\s*세종북부\\s*\\)|세종\\s*\\(\\s*세종남부\\s*\\)|세종특별자치시|세종북부|세종남부|(?:^|[\\s,·ㆍ/()\\[\\]:：-])세종(?:$|[\\s,·ㆍ/()\\[\\]:：-]))';
+
+        return new RegExp(`${warning}.{0,80}${action}.{0,160}${sejong}`, 's').test(text)
+            || new RegExp(`${sejong}.{0,160}${warning}.{0,80}${action}`, 's').test(text)
+            || new RegExp(`${warning}.{0,120}${sejong}.{0,80}${action}`, 's').test(text);
+    }
+
     function shouldDisplayIncomingNotification(payload = {}) {
         const notification = payload.notification || {};
         const data = payload.data || {};
         const title = normalizeNotificationText(notification.title || data.title || '');
         const body = normalizeNotificationText(notification.body || data.body || '');
-        const areaText = normalizeNotificationText([
-            data.scope, data.region, data.area, data.target, data.warningArea, data.warningRegion,
-            data.stn, data.stnName, data.office, body
-        ].filter(Boolean).join(' '));
-        const allText = normalizeNotificationText([title, body, JSON.stringify(data || {})].join(' '));
+        const dataText = normalizeNotificationText(JSON.stringify(data || {}));
+        const allText = normalizeNotificationText([title, body, dataText].join(' '));
 
         // 기상특보가 아닌 도로통제·대피소 등 알림은 기존처럼 표시합니다.
         if (!WEATHER_NOTIFICATION_RE.test(allText)) return true;
 
-        // 기상특보 알림은 반드시 세종권 문구가 있어야만 표시합니다.
-        if (SEJONG_WEATHER_SCOPE_RE.test(areaText)) return true;
+        // 기상특보는 반드시 실제 통보문 내용 안에 세종·세종북부·세종남부가 있어야 표시합니다.
+        if (!containsSejongWeatherArea([body, dataText].join(' '))) {
+            console.warn('세종권 외 기상특보 알림 차단:', { title, body, data });
+            return false;
+        }
 
-        console.warn('세종권 외 기상특보 알림 차단:', { title, body, data });
-        return false;
+        // 강원·충남·충북 등 해제 통보문처럼 해제/취소만 있는 알림은 차단합니다.
+        // 단, 같은 통보문 안에 세종권 신규 발표/발령/발효가 함께 들어 있으면 표시합니다.
+        if (/(해제|취소)/.test(allText) && !hasSejongNewWeatherAnnouncement(allText)) {
+            console.warn('기상특보 해제 알림 차단:', { title, body, data });
+            return false;
+        }
+
+        // 세종권 신규 발표·발령·발효 또는 세종권 현행 특보만 표시합니다.
+        return true;
     }
 
     let messaging = null;
@@ -1791,7 +1830,7 @@
         messaging = firebase.messaging();
 
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.register('./firebase-messaging-sw.js?v=sejong-weather-filter-20260708')
+            navigator.serviceWorker.register('./firebase-messaging-sw.js?v=sejong-only-weather-20260708-2')
                 .then((registration) => {
                     registration.update().catch(() => {});
                     console.log('알림 서비스 준비 완료');
@@ -5565,10 +5604,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     attachManualWarningRealtime();
 
 
-    // --- 기상특보 + 예비특보: getWthrWrnMsg + getWthrPwn XML / stnId=133 세종권 전용 ---
+    // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종권 전용 ---
     // 세종·세종북부·세종남부를 각각 분리하여 표시합니다.
-    // 기상특보는 getWthrWrnMsg, 예비특보는 getWthrPwn을 별도로 조회합니다.
-    // 한 통보문 안에 "해제 · 발표 · 예비특보"가 함께 있어도 특보명 + 지역 단위로 분리 판정합니다.
+    // 한 통보문 안에 "호우 해제 · 폭염 발표"가 함께 있어도,
+    // 특보명 + 지역 단위로 분리 판정하여 세종남부 폭염주의보가 해제로 사라지지 않게 합니다.
     async function autoFetchSpecial(silent = false) {
         if (isSpecialFetching && silent) return;
         isSpecialFetching = true;
@@ -5577,14 +5616,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
 
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
-        const API_BASE = "https://apis.data.go.kr/1360000/WthrWrnInfoService";
+        const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
         const STATION_ID = "133";
         const LOOKBACK_DAYS = 6; // API 조회 가능 범위: 오늘 기준 최대 6일
-        const WEATHER_KIND_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)";
-        const WARNING_SOURCE = `${WEATHER_KIND_SOURCE}\\s*(?:주의보|경보)`;
-        const PRE_WARNING_SOURCE = `${WEATHER_KIND_SOURCE}\\s*예비\\s*특보`;
+        const WARNING_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)";
         const WARNING_RE = new RegExp(`(${WARNING_SOURCE})`);
-        const PRE_WARNING_RE = new RegExp(`(${PRE_WARNING_SOURCE})`);
 
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
             "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
@@ -5593,13 +5629,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         function textOf(parent, tagName) {
             const el = parent ? parent.getElementsByTagName(tagName)[0] : null;
             return (el?.textContent || "").replace(/\s+/g, " ").trim();
-        }
-
-        function itemText(item) {
-            return Array.from(item?.children || [])
-                .map((el) => `${el.tagName}: ${(el.textContent || "").replace(/\s+/g, " ").trim()}`)
-                .filter((line) => line.replace(/^[^:]+:\s*/, ""))
-                .join("\n");
         }
 
         function kstYmd(dayOffset = 0) {
@@ -5616,9 +5645,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             if (digits.length >= 12) {
                 return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)} ${digits.slice(8, 10)}:${digits.slice(10, 12)}`;
             }
-            if (digits.length === 8) {
-                return `${digits.slice(0, 4)}-${digits.slice(4, 6)}-${digits.slice(6, 8)}`;
-            }
             return value || "확인불가";
         }
 
@@ -5626,29 +5652,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const match = String(value || "").match(/(20\d{2})년\s*(\d{1,2})월\s*(\d{1,2})일\s*(\d{1,2})시(?:\s*(\d{1,2})분)?/);
             if (!match) return "";
             return `${match[1]}-${String(match[2]).padStart(2, "0")}-${String(match[3]).padStart(2, "0")} ${String(match[4]).padStart(2, "0")}:${String(match[5] || "0").padStart(2, "0")}`;
-        }
-
-        function parsePreliminaryExpectedTime(value, tmEf = "") {
-            const exact = parseKoreanTime(value);
-            if (exact) return exact;
-            const effect = formatTime(tmEf);
-            if (effect && effect !== "확인불가") return effect;
-
-            const source = String(value || "");
-            const partial = source.match(/(\d{1,2})월\s*(\d{1,2})일\s*(새벽|아침|오전|낮|오후|저녁|밤)?\s*(\d{1,2})시?(?:\s*(\d{1,2})분)?/);
-            if (partial) {
-                const year = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
-                return `${year}-${String(partial[1]).padStart(2, "0")}-${String(partial[2]).padStart(2, "0")} ${String(partial[4]).padStart(2, "0")}:${String(partial[5] || "0").padStart(2, "0")}`;
-            }
-
-            const daypart = source.match(/(\d{1,2})월\s*(\d{1,2})일\s*(새벽|아침|오전|낮|오후|저녁|밤)/);
-            if (daypart) {
-                const hourMap = { "새벽": "03", "아침": "07", "오전": "09", "낮": "12", "오후": "15", "저녁": "18", "밤": "21" };
-                const year = new Date(Date.now() + 9 * 60 * 60 * 1000).getUTCFullYear();
-                return `${year}-${String(daypart[1]).padStart(2, "0")}-${String(daypart[2]).padStart(2, "0")} ${hourMap[daypart[3]] || "00"}:00`;
-            }
-
-            return "";
         }
 
         function warningName(value) {
@@ -5667,43 +5670,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                     found.push(name);
                 }
             }
-            return found;
-        }
-
-        function preliminaryNames(value) {
-            const found = [];
-            const seen = new Set();
-            const regex = new RegExp(PRE_WARNING_SOURCE, "g");
-            for (const match of String(value || "").matchAll(regex)) {
-                const name = match[0].replace(/\s+/g, "");
-                if (name && !seen.has(name)) {
-                    seen.add(name);
-                    found.push(name);
-                }
-            }
-
-            // 공공데이터 응답이 "예비특보" 제목 + "호우" 또는 "호우주의보" 식으로 분리될 때 보완합니다.
-            if (!found.length && /예비\s*특보/.test(value)) {
-                const kinds = [];
-                const seenKind = new Set();
-                const kindRegex = new RegExp(WEATHER_KIND_SOURCE, "g");
-                for (const match of String(value || "").matchAll(kindRegex)) {
-                    const kind = match[0].replace(/\s+/g, "");
-                    if (kind && !seenKind.has(kind)) {
-                        seenKind.add(kind);
-                        kinds.push(kind);
-                    }
-                }
-                kinds.forEach((kind) => {
-                    const name = `${kind}예비특보`;
-                    if (!seen.has(name)) {
-                        seen.add(name);
-                        found.push(name);
-                    }
-                });
-            }
-
-            if (!found.length && /예비\s*특보/.test(value)) found.push("기상예비특보");
             return found;
         }
 
@@ -5780,7 +5746,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const result = [];
             const seen = new Set();
             rows.forEach((row) => {
-                const key = `${row.name}|${row.scope}|${row.released}|${row.preliminary ? "pre" : "wrn"}|${row.noticeAt}|${row.effectiveAt || ""}`;
+                const key = `${row.name}|${row.scope}|${row.released}|${row.noticeAt}`;
                 if (!seen.has(key)) {
                     seen.add(key);
                     result.push(row);
@@ -5789,7 +5755,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return result;
         }
 
-        function readWarningItem(item) {
+        function readItem(item) {
             const t1 = textOf(item, "t1");
             const t2 = textOf(item, "t2");
             const t3 = textOf(item, "t3");
@@ -5823,13 +5789,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         name: segment.name,
                         scope,
                         released,
-                        pending: false,
-                        preliminary: false,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
-                        sortKey,
-                        source: "기상특보 통보문"
+                        sortKey
                     }));
                 });
             });
@@ -5855,13 +5818,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         name,
                         scope,
                         released,
-                        pending: false,
-                        preliminary: false,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
-                        sortKey,
-                        source: "기상특보 통보문"
+                        sortKey
                     }));
                 }
             }
@@ -5869,49 +5829,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return uniqueRows(rows);
         }
 
-        function readPreliminaryItem(item) {
-            const t1 = textOf(item, "t1");
-            const t2 = textOf(item, "t2");
-            const t3 = textOf(item, "t3");
-            const t4 = textOf(item, "t4");
-            const t5 = textOf(item, "t5");
-            const other = textOf(item, "other");
-            const tmFc = textOf(item, "tmFc") || textOf(item, "time") || textOf(item, "announceTime") || t5;
-            const tmEf = textOf(item, "tmEf") || textOf(item, "effectTime");
-            const allText = [t1, t2, t3, t4, t5, other, itemText(item)].filter(Boolean).join("\n");
-
-            // getWthrPwn 응답이라도 현재 통보문에 예비특보가 없으면 빈 값일 수 있습니다.
-            if (!/예비\s*특보/.test(allText) && !PRE_WARNING_RE.test(allText)) return [];
-            const scopes = extractSejongScopes(allText);
-            if (!scopes.length) return [];
-
-            const names = preliminaryNames(allText);
-            const noticeAt = formatTime(tmFc);
-            const expectedAt = parsePreliminaryExpectedTime(allText, tmEf);
-            const sortKey = Number((tmFc || tmEf || t5 || "0").replace(/\D/g, "")) || Date.now();
-            const released = /해제|취소/.test(allText);
-
-            const rows = [];
-            names.forEach((name) => {
-                scopes.forEach((scope) => rows.push({
-                    t1, t2, t3, t4,
-                    name,
-                    scope,
-                    released,
-                    pending: !released,
-                    preliminary: true,
-                    noticeAt,
-                    releaseAt: released ? (parseKoreanTime(allText) || noticeAt) : "",
-                    effectiveAt: expectedAt,
-                    sortKey,
-                    source: "예비특보 통보문"
-                }));
-            });
-
-            return uniqueRows(rows);
-        }
-
-        function requestUrl(endpoint) {
+        function requestUrl() {
             const params = new URLSearchParams({
                 serviceKey: SERVICE_KEY,
                 pageNo: "1",
@@ -5919,43 +5837,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 dataType: "XML",
                 stnId: STATION_ID,
                 fromTmFc: kstYmd(-LOOKBACK_DAYS),
-                toTmFc: kstYmd(0),
-                _: String(Date.now())
+                toTmFc: kstYmd(0)
             });
-            return `${API_BASE}/${endpoint}?${params.toString()}`;
+            return `${API_URL}?${params.toString()}`;
         }
 
-        async function fetchXml(endpoint) {
-            const controller = new AbortController();
-            const timer = setTimeout(() => controller.abort(), 12000);
-            let response;
-            try {
-                response = await fetch(requestUrl(endpoint), {
-                    method: "GET",
-                    mode: "cors",
-                    cache: "no-store",
-                    signal: controller.signal
-                });
-            } finally {
-                clearTimeout(timer);
-            }
-
-            if (!response.ok) throw new Error(`${endpoint} HTTP ${response.status}`);
-
-            const xmlText = await response.text();
-            const xml = new DOMParser().parseFromString(xmlText, "application/xml");
-            if (xml.querySelector("parsererror")) throw new Error(`${endpoint} XML 해석 실패`);
-
-            const resultCode = textOf(xml, "resultCode");
-            if (resultCode && resultCode !== "00") {
-                throw new Error(`${endpoint} 공공데이터포털 오류(${resultCode}): ${textOf(xml, "resultMsg") || "응답 확인 필요"}`);
-            }
-            return xml;
-        }
-
-        function renderSejong(rows, apiErrors = []) {
+        function renderSejong(rows) {
             weatherSpecialAutoRows = Array.isArray(rows) ? rows : [];
-            weatherSpecialRenderCallback = (nextRows) => renderSejong(nextRows, apiErrors);
+            weatherSpecialRenderCallback = renderSejong;
 
             const manualRows = getManualWarningRows();
             const manualKeys = new Set(manualRows.map((row) => `${row.name}|${row.scope}`));
@@ -5983,9 +5872,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
             const latestRows = [...latestByWarning.values()]
                 .sort((a, b) => Number(b.manual) - Number(a.manual) || b.sortKey - a.sortKey || Number(b.released) - Number(a.released));
-            const activeRows = latestRows.filter((row) => !row.released && !row.pending && !row.preliminary);
-            const preliminaryRows = latestRows.filter((row) => !row.released && (row.pending || row.preliminary));
-            const shownRows = [...activeRows, ...preliminaryRows];
+            const activeRows = latestRows.filter((row) => !row.released && !row.pending);
+            const pendingRows = latestRows.filter((row) => !row.released && row.pending);
+            const shownRows = [...activeRows, ...pendingRows];
             const latestNotice = latestRows[0];
             const manualStateText = { active: '발령 중', pending: '발표 · 발효 전', released: '해제 처리' };
             const sourceText = weatherSpecialFetchState.status === 'success'
@@ -5993,9 +5882,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 : weatherSpecialFetchState.status === 'failed'
                     ? `자동 수신 오류 · ${weatherSpecialFetchState.lastError || '응답 확인 필요'}`
                     : '자동 수신 확인 중';
-            const errorNote = apiErrors.length
-                ? `<div style="font-size:10px;color:var(--orange);line-height:1.45;margin-top:6px;">일부 조회 실패: ${escapeHtml(apiErrors.join(" / "))}</div>`
-                : '';
 
             const manualPanel = (() => {
                 if (!isAdmin) return '';
@@ -6029,16 +5915,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             })();
 
             if (shownRows.length) {
-                const headerParts = [];
-                if (manualRows.some((row) => !row.released)) headerParts.push('수동 포함');
-                if (activeRows.length) headerParts.push(`특보 ${activeRows.length}건`);
-                if (preliminaryRows.length) headerParts.push(`예비 ${preliminaryRows.length}건`);
-                headerStatusEl.textContent = `세종권 ${headerParts.join(' · ')}`;
+                const headerCount = shownRows.length;
+                headerStatusEl.textContent = `${manualRows.some((row) => !row.released) ? '수동 포함 · ' : ''}세종권 특보 ${headerCount}건`;
                 headerStatusEl.className = `sejong-summary ${activeRows.length ? 'warn' : 'pending'}`;
 
                 const cards = shownRows.map((row) => {
-                    const pending = !!row.pending || !!row.preliminary;
-                    const statusLabel = row.preliminary ? '예비특보' : (pending ? '발표 · 발효 전' : (row.manual ? '수동 발령' : '발령 중'));
+                    const pending = !!row.pending;
+                    const statusLabel = pending ? '발표 · 발효 전' : (row.manual ? '수동 발령' : '발령 중');
                     const statusColor = pending ? 'var(--orange)' : 'var(--red)';
                     return `
                     <div style="padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card-elevated);margin-top:8px;">
@@ -6047,18 +5930,15 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                             <span style="font-size:11px;font-weight:800;color:${statusColor};">${statusLabel}</span>
                         </div>
                         <div style="font-size:13px;font-weight:800;margin-top:7px;">구역: ${escapeHtml(row.scope)}</div>
-                        ${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">${row.preliminary ? '발효 예상' : (pending ? '발효 예정' : '발효')} ${escapeHtml(row.effectiveAt)}</div>` : ''}
+                        ${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">${pending ? '발효 예정' : '발효'} ${escapeHtml(row.effectiveAt)}</div>` : ''}
                         <div style="font-size:11px;color:var(--sub);margin-top:4px;">${row.manual ? '수동 수정' : '통보'} ${escapeHtml(row.noticeAt)}</div>
-                        ${row.source ? `<div style="font-size:10px;color:var(--sub);margin-top:4px;">출처: ${escapeHtml(row.source)}</div>` : ''}
                         ${row.manual ? '<div style="font-size:10px;color:var(--blue);margin-top:5px;font-weight:800;"><i class="fas fa-user-pen"></i> 관리자 수동 설정</div>' : ''}
                         ${row.note ? `<div style="font-size:10px;color:var(--sub);margin-top:4px;">${escapeHtml(row.note)}</div>` : ''}
                     </div>`;
                 }).join('');
 
                 const boxClass = activeRows.length ? 'warn' : 'pending';
-                const mainTitle = activeRows.length
-                    ? (preliminaryRows.length ? '세종권 기상특보·예비특보 확인' : '세종권 기상특보 발령 중')
-                    : '세종권 기상 예비특보 발표';
+                const mainTitle = activeRows.length ? '세종권 기상특보 발령 중' : '세종권 기상특보 발효 전';
                 contentEl.innerHTML = `
                     <div class="weather-main-box ${boxClass}">
                         <i class="fas ${activeRows.length ? 'fa-triangle-exclamation' : 'fa-clock'}" style="font-size:22px;"></i>
@@ -6068,14 +5948,13 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         </div>
                     </div>
                     <div class="info-group">
-                        <span class="info-label">세종권 기상특보·예비특보 (세종 · 세종북부 · 세종남부)</span>
+                        <span class="info-label">세종권 기상특보 (세종 · 세종북부 · 세종남부)</span>
                         <div class="info-val">${cards}</div>
                     </div>
                     <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                        출처: 기상청 기상특보 조회서비스 · getWthrWrnMsg + getWthrPwn · stnId=133 · 최근 6일<br>
+                        출처: 기상청 기상특보통보문 조회서비스 · stnId=133 · 최근 6일<br>
                         ${escapeHtml(sourceText)}
                     </div>
-                    ${errorNote}
                     ${manualPanel}`;
                 return;
             }
@@ -6107,15 +5986,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 <div class="weather-main-box safe">
                     <i class="fas fa-circle-check" style="font-size:22px;"></i>
                     <div>
-                        <div class="weather-main-title">현재 세종권 특보·예비특보 없음</div>
+                        <div class="weather-main-title">현재 세종권 특보 없음</div>
                         <div class="weather-main-sub">${releaseText}</div>
                     </div>
                 </div>
                 <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
-                    출처: 기상청 기상특보 조회서비스 · getWthrWrnMsg + getWthrPwn · stnId=133 · 최근 6일<br>
+                    출처: 기상청 기상특보통보문 조회서비스 · stnId=133 · 최근 6일<br>
                     ${escapeHtml(sourceText)}
                 </div>
-                ${errorNote}
                 ${manualPanel}`;
         }
 
@@ -6123,44 +6001,41 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             if (!silent) {
                 headerStatusEl.textContent = "확인중...";
                 headerStatusEl.className = "sejong-summary";
-                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보·예비특보 확인 중...</div>';
+                contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보 확인 중...</div>';
             }
 
-            const jobs = [
-                fetchXml("getWthrWrnMsg").then((xml) => ({
-                    endpoint: "getWthrWrnMsg",
-                    rows: [...xml.getElementsByTagName("item")].flatMap(readWarningItem)
-                })),
-                fetchXml("getWthrPwn").then((xml) => ({
-                    endpoint: "getWthrPwn",
-                    rows: [...xml.getElementsByTagName("item")].flatMap(readPreliminaryItem)
-                }))
-            ];
-
-            const results = await Promise.allSettled(jobs);
-            const sejongRows = [];
-            const apiErrors = [];
-
-            results.forEach((result) => {
-                if (result.status === "fulfilled") {
-                    sejongRows.push(...result.value.rows);
-                } else {
-                    apiErrors.push(result.reason?.message || String(result.reason));
-                }
-            });
-
-            if (!sejongRows.length && apiErrors.length === results.length) {
-                throw new Error(apiErrors.join(" / "));
+            const controller = new AbortController();
+            const timer = setTimeout(() => controller.abort(), 12000);
+            let response;
+            try {
+                response = await fetch(requestUrl(), {
+                    method: "GET",
+                    mode: "cors",
+                    cache: "no-store",
+                    signal: controller.signal
+                });
+            } finally {
+                clearTimeout(timer);
             }
 
-            weatherSpecialFetchState = {
-                status: 'success',
-                lastSuccessAt: Date.now(),
-                lastError: apiErrors.length ? apiErrors.join(" / ") : ''
-            };
-            renderSejong(sejongRows, apiErrors);
+            if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+            const xmlText = await response.text();
+            const xml = new DOMParser().parseFromString(xmlText, "application/xml");
+            if (xml.querySelector("parsererror")) throw new Error("XML 해석 실패");
+
+            const resultCode = textOf(xml, "resultCode");
+            if (resultCode && resultCode !== "00") {
+                throw new Error(`공공데이터포털 오류(${resultCode}): ${textOf(xml, "resultMsg") || "응답 확인 필요"}`);
+            }
+
+            const sejongRows = [...xml.getElementsByTagName("item")]
+                .flatMap(readItem);
+
+            weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
+            renderSejong(sejongRows);
         } catch (error) {
-            console.error("세종권 기상특보·예비특보 XML 조회 실패:", error);
+            console.error("세종권 기상특보 XML 조회 실패:", error);
             weatherSpecialFetchState = {
                 status: 'failed',
                 lastSuccessAt: Number(weatherSpecialFetchState.lastSuccessAt || 0),
@@ -6171,7 +6046,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             isSpecialFetching = false;
         }
     }
-
     function getAllShelterData() {
         const rows = applyShelterOverrides();
         managedShelterData = rows;
