@@ -5171,7 +5171,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
         const STATION_ID = "133";
         const LOOKBACK_DAYS = 6; // API 조회 가능 범위: 오늘 기준 최대 6일
-        const WARNING_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보)";
+        const WARNING_SOURCE = "(?:태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)\\s*(?:주의보|경보|예비특보)";
         const WARNING_RE = new RegExp(`(${WARNING_SOURCE})`);
 
         const escapeHtml = (value) => String(value ?? "").replace(/[&<>"']/g, (char) => ({
@@ -5267,6 +5267,10 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return "";
         }
 
+        function isPreliminaryWarning(name, text) {
+            return /예비\s*특보/.test(`${name || ""} ${text || ""}`);
+        }
+
         // 예: "호우경보·호우주의보 해제 · 폭염주의보 발표"
         //      → 호우경보/호우주의보=해제, 폭염주의보=발표으로 각각 분리합니다.
         function buildWarningStateMap(value) {
@@ -5336,11 +5340,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         ? (parseKoreanTime(segment.text) || parseKoreanTime(allText) || noticeAt)
                         : "";
 
+                    const preliminary = isPreliminaryWarning(segment.name, segment.text);
+
                     scopes.forEach((scope) => rows.push({
                         t1, t2, t3, t4,
                         name: segment.name,
                         scope,
                         released,
+                        preliminary,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
@@ -5365,11 +5372,14 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                         ? (parseKoreanTime(allText) || noticeAt)
                         : "";
 
+                    const preliminary = isPreliminaryWarning(name, allText);
+
                     scopes.forEach((scope) => rows.push({
                         t1, t2, t3, t4,
                         name,
                         scope,
                         released,
+                        preliminary,
                         noticeAt,
                         releaseAt,
                         effectiveAt,
@@ -5418,31 +5428,49 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             const latestNotice = latestRows[0];
 
             if (activeRows.length) {
-                headerStatusEl.textContent = `세종권 특보 ${activeRows.length}건`;
-                headerStatusEl.className = "sejong-summary warn";
+                const preliminaryRows = activeRows.filter((row) => row.preliminary);
+                const warningRows = activeRows.filter((row) => !row.preliminary);
+                const onlyPreliminary = preliminaryRows.length && !warningRows.length;
 
-                const cards = activeRows.map((row) => `
+                if (warningRows.length && preliminaryRows.length) {
+                    headerStatusEl.textContent = `세종권 특보 ${warningRows.length}건 · 예비 ${preliminaryRows.length}건`;
+                } else if (onlyPreliminary) {
+                    headerStatusEl.textContent = `세종권 예비특보 ${preliminaryRows.length}건`;
+                } else {
+                    headerStatusEl.textContent = `세종권 특보 ${warningRows.length}건`;
+                }
+                headerStatusEl.className = onlyPreliminary ? "sejong-summary pending" : "sejong-summary warn";
+
+                const cards = activeRows.map((row) => {
+                    const label = row.preliminary ? "예비특보" : "발령 중";
+                    const labelColor = row.preliminary ? "#C56A00" : "var(--red)";
+                    const timeLabel = row.preliminary ? "발표" : "통보";
+                    return `
                     <div style="padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card-elevated);margin-top:8px;">
                         <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;">
                             <b style="font-size:16px;">${escapeHtml(row.name)}</b>
-                            <span style="font-size:11px;font-weight:800;color:var(--red);">발령 중</span>
+                            <span style="font-size:11px;font-weight:800;color:${labelColor};">${label}</span>
                         </div>
                         <div style="font-size:13px;font-weight:800;margin-top:7px;">구역: ${escapeHtml(row.scope)}</div>
                         ${row.effectiveAt ? `<div style="font-size:11px;color:var(--sub);margin-top:7px;">발효 ${escapeHtml(row.effectiveAt)}</div>` : ""}
-                        <div style="font-size:11px;color:var(--sub);margin-top:4px;">통보 ${escapeHtml(row.noticeAt)}</div>
-                    </div>
-                `).join("");
+                        <div style="font-size:11px;color:var(--sub);margin-top:4px;">${timeLabel} ${escapeHtml(row.noticeAt)}</div>
+                    </div>`;
+                }).join("");
+
+                const mainClass = onlyPreliminary ? "pending" : "warn";
+                const mainIcon = onlyPreliminary ? "fa-clock" : "fa-triangle-exclamation";
+                const mainTitle = onlyPreliminary ? "세종권 기상 예비특보 발표" : (preliminaryRows.length ? "세종권 기상특보·예비특보 확인" : "세종권 기상특보 발령 중");
 
                 contentEl.innerHTML = `
-                    <div class="weather-main-box warn">
-                        <i class="fas fa-triangle-exclamation" style="font-size:22px;"></i>
+                    <div class="weather-main-box ${mainClass}">
+                        <i class="fas ${mainIcon}" style="font-size:22px;"></i>
                         <div>
-                            <div class="weather-main-title">세종권 기상특보 발령 중</div>
+                            <div class="weather-main-title">${mainTitle}</div>
                             <div class="weather-main-sub">${escapeHtml(activeRows.map((row) => `${row.scope} ${row.name}`).join(" · "))}</div>
                         </div>
                     </div>
                     <div class="info-group">
-                        <span class="info-label">세종권 기상특보 (세종 · 세종북부 · 세종남부)</span>
+                        <span class="info-label">세종권 기상특보·예비특보 (세종 · 세종북부 · 세종남부)</span>
                         <div class="info-val">${cards}</div>
                     </div>
                     <div style="font-size:10px;color:var(--sub);line-height:1.55;margin-top:10px;">
