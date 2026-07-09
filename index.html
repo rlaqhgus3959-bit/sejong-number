@@ -5610,7 +5610,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종권 전용 ---
     // 세종·세종북부·세종남부를 각각 분리하여 표시합니다.
     // 한 통보문 안에 "호우 해제 · 폭염 발표"가 함께 있어도,
-    // 특보 종류 + 지역 단위로 분리 판정하여 현재 단계만 남깁니다.
+    // 특보명 + 지역 단위로 분리 판정하여 세종남부 폭염주의보가 해제로 사라지지 않게 합니다.
     async function autoFetchSpecial(silent = false) {
         if (isSpecialFetching && silent) return;
         isSpecialFetching = true;
@@ -5758,45 +5758,6 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return result;
         }
 
-        // 호우주의보 ↔ 호우경보처럼 같은 종류의 특보가 단계만 바뀐 경우,
-        // 구역별로 가장 최근 단계 1개만 표시하기 위한 기준값입니다.
-        function warningBaseName(name) {
-            const compact = String(name || '').replace(/\s+/g, '');
-            const match = compact.match(/^(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)(?:주의보|경보)$/);
-            return match ? match[1] : compact;
-        }
-
-        function warningLevel(name) {
-            const compact = String(name || '').replace(/\s+/g, '');
-            if (/경보$/.test(compact)) return 2;
-            if (/주의보$/.test(compact)) return 1;
-            return 0;
-        }
-
-        function warningScopeKey(row) {
-            return `${warningBaseName(row?.name)}|${row?.scope || ''}`;
-        }
-
-        function shouldReplaceWarningRow(current, next) {
-            if (!current) return true;
-            if (next.manual && !current.manual) return true;
-            if (!next.manual && current.manual) return false;
-
-            const nextSort = Number(next.sortKey || 0);
-            const currentSort = Number(current.sortKey || 0);
-            if (nextSort !== currentSort) return nextSort > currentSort;
-
-            // 같은 통보시각에 '주의보 해제'와 '경보 발표'가 같이 들어오면
-            // 해제 행이 경보 행을 덮지 않도록 발령 중인 행을 우선합니다.
-            if (!!next.released !== !!current.released) return !next.released;
-
-            // 같은 시각에 주의보·경보가 함께 잡히면 더 높은 단계만 표시합니다.
-            const levelDiff = warningLevel(next.name) - warningLevel(current.name);
-            if (levelDiff !== 0) return levelDiff > 0;
-
-            return String(next.noticeAt || '') > String(current.noticeAt || '');
-        }
-
         function readItem(item) {
             const t1 = textOf(item, "t1");
             const t2 = textOf(item, "t2");
@@ -5889,23 +5850,25 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             weatherSpecialRenderCallback = renderSejong;
 
             const manualRows = getManualWarningRows();
-            const manualKeys = new Set(manualRows.map((row) => warningScopeKey(row)));
-            // 수동값은 동일한 구역·특보종류(예: 세종북부 호우)의 자동값 전체를 대체합니다.
-            // 따라서 수동으로 세종북부 호우경보를 넣으면 자동 호우주의보 잔상이 함께 사라집니다.
+            const manualKeys = new Set(manualRows.map((row) => `${row.name}|${row.scope}`));
+            // 수동값은 동일한 구역·특보명의 자동값만 대체합니다.
             const mergedRows = weatherSpecialAutoRows
-                .filter((row) => !manualKeys.has(warningScopeKey(row)))
+                .filter((row) => !manualKeys.has(`${row.name}|${row.scope}`))
                 .concat(manualRows);
 
             // 특보 종류 + 세종권 구역(세종/세종북부/세종남부)별 최신 상태를 하나만 유지합니다.
-            // 기존처럼 '호우주의보'와 '호우경보'를 별개로 보지 않고, 둘 다 '호우'로 묶어
-            // 세종북부 호우경보 / 세종남부 호우주의보처럼 현재 단계만 남깁니다.
             const latestByWarning = new Map();
             [...mergedRows]
-                .sort((a, b) => Number(a.sortKey || 0) - Number(b.sortKey || 0))
+                .sort((a, b) => a.sortKey - b.sortKey || Number(a.released) - Number(b.released))
                 .forEach((row) => {
-                    const key = warningScopeKey(row);
+                    const key = `${row.name}|${row.scope}`;
                     const previous = latestByWarning.get(key);
-                    if (shouldReplaceWarningRow(previous, row)) {
+                    if (
+                        !previous ||
+                        row.manual ||
+                        row.sortKey > previous.sortKey ||
+                        (row.sortKey === previous.sortKey && row.released && !previous.released)
+                    ) {
                         latestByWarning.set(key, row);
                     }
                 });
