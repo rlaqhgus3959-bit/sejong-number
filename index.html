@@ -6285,13 +6285,31 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 statusResponseHasAmbiguousPairing = false;
                 const statusRows = [...statusXml.getElementsByTagName("item")]
                     .flatMap(readStatusItem);
-                if (statusResponseHasAmbiguousPairing) {
-                    throw new Error('특보현황 응답에서 다중 특보·다중 지역의 대응 관계를 확인할 수 없어 통보문으로 재조회합니다.');
+
+                // 정상적으로 판독된 현재 특보가 하나라도 있으면 그 결과를 우선 사용합니다.
+                // 기존에는 모호한 항목이 단 1개만 섞여 있어도 정상 판독된 행까지 모두 버리고
+                // 통보문 조회로 넘어가 실제 특보가 사라지는 문제가 있었습니다.
+                if (statusRows.length > 0) {
+                    weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
+                    weatherSpecialSourceDetail = statusResponseHasAmbiguousPairing
+                        ? '현재 발효현황 · 일부 모호한 항목 제외'
+                        : '현재 발효현황';
+                    weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
+                    renderSejong(statusRows);
+                    return;
                 }
+
+                // 현재현황에서 세종권 항목을 하나도 확정하지 못했고 모호한 조합만 발견된 경우에만
+                // 통보문 조회로 보조 판정합니다.
+                if (statusResponseHasAmbiguousPairing) {
+                    throw new Error('세종권 특보현황의 특보명·지역 대응 관계를 확정하지 못해 통보문으로 재조회합니다.');
+                }
+
+                // API가 정상 응답했고 세종권 현재 특보가 실제로 없는 경우입니다.
                 weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
                 weatherSpecialSourceDetail = '현재 발효현황';
                 weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
-                renderSejong(statusRows);
+                renderSejong([]);
                 return;
             } catch (error) {
                 // 일부 환경에서 getPwnStatus가 막히거나 응답 형식이 달라질 수 있어,
