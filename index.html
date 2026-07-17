@@ -5437,8 +5437,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     let weatherSpecialAutoRows = [];
     let weatherSpecialRenderCallback = null;
     let weatherSpecialFetchState = { status: 'idle', lastSuccessAt: 0, lastError: '' };
-    let weatherSpecialSourceLabel = '기상청 기상특보통보문 조회서비스';
-    let weatherSpecialSourceDetail = 'stnId=133 · 최근 6일';
+    let weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
+    let weatherSpecialSourceDetail = '현재 발효현황 전용';
 
     function manualWarningKey(scope, name) {
         return `${String(scope || '').trim()}__${String(name || '').trim()}`.replace(/[.#$\[\]/]/g, '_');
@@ -5609,10 +5609,9 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     attachManualWarningRealtime();
 
 
-    // --- 기상특보: getWthrWrnMsg XML / stnId=133 세종권 전용 ---
-    // 세종·세종북부·세종남부를 각각 분리하여 표시합니다.
-    // 한 통보문 안에 "호우 해제 · 폭염 발표"가 함께 있어도,
-    // 특보 종류 + 지역 단위로 분리 판정하여 현재 단계만 남깁니다.
+    // --- 기상특보: getPwnStatus 현재 발효현황 전용 ---
+    // 화면에는 현재 발효 중인 세종·세종북부·세종남부 특보만 표시합니다.
+    // 통보문(getWthrWrnMsg)은 현재 화면 상태 계산에 사용하지 않습니다.
     async function autoFetchSpecial(silent = false) {
         if (isSpecialFetching && silent) return;
         isSpecialFetching = true;
@@ -5621,7 +5620,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
         const headerStatusEl = document.getElementById('sejong-status');
 
         const SERVICE_KEY = "3346a840ceb163dad5ce4127786ff5857a891948859e0749a7e4395ecb156ad0";
-        const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg";
+        const API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getWthrWrnMsg"; // 알림 기능 확장용(현재 화면에는 미사용)
         const STATUS_API_URL = "https://apis.data.go.kr/1360000/WthrWrnInfoService/getPwnStatus";
         const STATION_ID = "133";
         const LOOKBACK_DAYS = 6; // API 조회 가능 범위: 오늘 기준 최대 6일
@@ -6178,39 +6177,38 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 contentEl.innerHTML = '<div style="text-align:center;color:var(--sub);padding:10px;"><i class="fas fa-spinner fa-spin"></i> 세종권 기상특보 확인 중...</div>';
             }
 
-            let statusError = null;
-            try {
-                const statusXml = await fetchSpecialXml(currentStatusUrl());
-                const statusRows = [...statusXml.getElementsByTagName("item")]
-                    .flatMap(readStatusItem);
-                weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
-                weatherSpecialSourceDetail = '현재 발효현황';
-                weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
-                renderSejong(statusRows);
-                return;
-            } catch (error) {
-                // 일부 환경에서 getPwnStatus가 막히거나 응답 형식이 달라질 수 있어,
-                // 실패 시 기존 통보문 조회로 보조 판정합니다.
-                statusError = error;
-                console.warn('기상특보 현황 조회 실패, 통보문 조회로 보조 확인:', error);
-            }
+            // 현재 화면은 getPwnStatus 결과만 사용합니다.
+            // 조회 직전에 기존 자동값을 비워 해제된 특보의 잔상이 남지 않게 합니다.
+            weatherSpecialAutoRows = [];
 
-            const xml = await fetchSpecialXml(requestUrl());
-            const sejongRows = [...xml.getElementsByTagName("item")]
-                .flatMap(readItem);
+            const statusXml = await fetchSpecialXml(currentStatusUrl());
+            const statusRows = [...statusXml.getElementsByTagName("item")]
+                .flatMap(readStatusItem)
+                .filter((row) => ['세종', '세종북부', '세종남부'].includes(row.scope));
 
-            weatherSpecialSourceLabel = '기상청 기상특보통보문 조회서비스';
-            weatherSpecialSourceDetail = `stnId=${STATION_ID} · 최근 ${LOOKBACK_DAYS}일`;
-            weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: statusError ? `현황조회 실패 후 통보문 기준 표시` : '' };
-            renderSejong(sejongRows);
+            weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
+            weatherSpecialSourceDetail = '현재 발효현황 전용';
+            weatherSpecialFetchState = {
+                status: 'success',
+                lastSuccessAt: Date.now(),
+                lastError: ''
+            };
+
+            // 0건도 정상 응답입니다. 이 경우 즉시 "세종권 특보 없음"으로 표시합니다.
+            renderSejong(statusRows);
         } catch (error) {
-            console.error("세종권 기상특보 XML 조회 실패:", error);
+            console.error("세종권 현재 특보현황 조회 실패:", error);
+
+            // 실패 시 과거 통보문이나 이전 자동 배열을 재사용하지 않습니다.
+            weatherSpecialAutoRows = [];
+            weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
+            weatherSpecialSourceDetail = '현재 발효현황 전용';
             weatherSpecialFetchState = {
                 status: 'failed',
                 lastSuccessAt: Number(weatherSpecialFetchState.lastSuccessAt || 0),
                 lastError: error?.message || '공공데이터포털 응답을 확인하세요.'
             };
-            renderSejong(weatherSpecialAutoRows || []);
+            renderSejong([]);
         } finally {
             isSpecialFetching = false;
         }
