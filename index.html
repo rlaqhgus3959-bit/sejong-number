@@ -5958,107 +5958,45 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
                 .join("\n");
         }
 
-        function directChildFieldMap(item) {
-            const map = {};
-            [...(item?.children || [])].forEach((el) => {
-                const key = String(el.tagName || '').trim();
-                const value = String(el.textContent || '').replace(/\s+/g, ' ').trim();
-                if (key && value) map[key] = value;
-            });
-            return map;
-        }
-
-        function pickField(fields, candidates) {
-            for (const key of candidates) {
-                if (fields[key] != null && String(fields[key]).trim()) return String(fields[key]).trim();
-                const foundKey = Object.keys(fields).find((fieldKey) => fieldKey.toLowerCase() === String(key).toLowerCase());
-                if (foundKey && String(fields[foundKey]).trim()) return String(fields[foundKey]).trim();
-            }
-            return '';
-        }
-
-        function normalizeWarningFromFields(fields, allText) {
-            const warningText = [
-                pickField(fields, ['warnVar', 'wrnVar', 'warningType', 'warnType', 'wrnType', 'kind', 'type', 'title']),
-                pickField(fields, ['warnStress', 'wrnStress', 'stress', 'level', 'warningLevel', 'warnLevel']),
-                pickField(fields, ['command', 'status', 'state', 'remark', 'contents'])
-            ].filter(Boolean).join(' ');
-
-            const directNames = warningNames(warningText);
-            if (directNames.length) return directNames;
-
-            const source = `${warningText} ${allText}`.replace(/\s+/g, ' ');
-            const phenomenonMatch = source.match(/(태풍|호우|대설|강풍|풍랑|한파|폭염|건조|황사|폭풍해일|지진해일|안개|열대야)/);
-            const levelMatch = source.match(/(주의보|경보)/);
-            if (phenomenonMatch && levelMatch) return [`${phenomenonMatch[1]}${levelMatch[1]}`];
-            return [];
-        }
-
         function readStatusItem(item) {
-            const fields = directChildFieldMap(item);
             const allText = itemAllText(item);
-
-            const tmFc = pickField(fields, [
-                'tmFc', 'annTime', 'announceTime', 'baseTime', 'tm', 'issueTime', 'publishTime'
-            ]) || textOf(item, 'tmFc') || textOf(item, 'annTime') || textOf(item, 'announceTime') || textOf(item, 'baseTime');
-
-            const noticeAt = formatTime(tmFc) || '현재';
-            const sortDigits = String(tmFc || '').replace(/\D/g, '');
+            const tmFc = textOf(item, "tmFc") || textOf(item, "annTime") || textOf(item, "announceTime") || textOf(item, "baseTime");
+            const noticeAt = formatTime(tmFc) || "현재";
+            const sortDigits = String(tmFc || "").replace(/\D/g, "");
             const sortKey = Number(sortDigits) || Date.now();
+            const rows = [];
 
-            const areaText = [
-                pickField(fields, ['areaName', 'areaNm', 'area', 'regionName', 'regionNm', 'region', 'zoneName', 'zoneNm']),
-                pickField(fields, ['warnArea', 'wrnArea', 'warningArea', 'targetArea', 'areaCodeName']),
-                pickField(fields, ['title', 'contents', 'remark'])
-            ].filter(Boolean).join(' ');
-
-            let scopes = extractSejongScopes(areaText);
-            if (!scopes.length) scopes = extractSejongScopes(allText);
-            if (!scopes.length) return [];
-
-            let names = normalizeWarningFromFields(fields, allText);
-
-            // 현황 API가 한 item 안에 여러 특보 문장을 담는 형식이면 문장별로 먼저 분리합니다.
-            const segmentedRows = [];
             splitWarningSegments(allText).forEach((segment) => {
-                const segmentScopes = extractSejongScopes(segment.text);
-                if (!segmentScopes.length) return;
-                segmentScopes.forEach((scope) => segmentedRows.push({
+                const scopes = extractSejongScopes(segment.text);
+                if (!scopes.length) return;
+                scopes.forEach((scope) => rows.push({
                     name: segment.name,
                     scope,
                     released: false,
                     pending: false,
                     noticeAt,
-                    releaseAt: '',
-                    effectiveAt: parseKoreanTime(segment.text) || '',
+                    releaseAt: "",
+                    effectiveAt: parseKoreanTime(segment.text) || "",
                     sortKey,
                     source: '기상청 특보현황'
                 }));
             });
-            if (segmentedRows.length) return uniqueRows(segmentedRows);
 
-            if (!names.length) names = warningNames(allText);
-            if (!names.length) return [];
-
-            const effectiveText = pickField(fields, [
-                'effectiveTime', 'effTime', 'tmEf', 'startTime', 'validTime', 'effectTime'
-            ]);
-            const effectiveAt = formatTime(effectiveText) || parseKoreanTime(allText) || '';
-
-            const rows = [];
-            names.forEach((name) => {
-                scopes.forEach((scope) => rows.push({
+            if (!rows.length) {
+                const names = warningNames(allText);
+                const scopes = extractSejongScopes(allText);
+                names.forEach((name) => scopes.forEach((scope) => rows.push({
                     name,
                     scope,
                     released: false,
                     pending: false,
                     noticeAt,
-                    releaseAt: '',
-                    effectiveAt,
+                    releaseAt: "",
+                    effectiveAt: parseKoreanTime(allText) || "",
                     sortKey,
                     source: '기상청 특보현황'
-                }));
-            });
+                })));
+            }
 
             return uniqueRows(rows);
         }
