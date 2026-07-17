@@ -6001,6 +6001,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             return found?.value || '';
         }
 
+        let statusResponseHasAmbiguousPairing = false;
+
         function readStatusItem(item) {
             const entries = statusFieldEntries(item);
             const allText = entries.map((entry) => entry.value).join('\n');
@@ -6065,6 +6067,16 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             });
 
             if (!names.length || !scopes.length) return [];
+
+            // getPwnStatus 한 item 안에 특보명과 지역이 각각 여러 개 있으면
+            // names × scopes 방식으로 임의 조합하지 않습니다.
+            // 예: 특보 2개 + 지역 2개를 4건으로 만드는 오표시를 막고,
+            // 아래 통보문(getWthrWrnMsg) 조회로 다시 정확히 판정합니다.
+            if (names.length > 1 && scopes.length > 1) {
+                statusResponseHasAmbiguousPairing = true;
+                console.warn('기상특보 현황의 다중 특보·다중 지역 조합을 건너뜁니다.', { names, scopes });
+                return [];
+            }
 
             // 상태 필드가 명시적으로 해제/취소/종료이거나 종료시각이 지난 행은 화면에서 제외됩니다.
             const stateEntries = entries.filter((entry) =>
@@ -6270,8 +6282,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             let statusError = null;
             try {
                 const statusXml = await fetchSpecialXml(currentStatusUrl());
+                statusResponseHasAmbiguousPairing = false;
                 const statusRows = [...statusXml.getElementsByTagName("item")]
                     .flatMap(readStatusItem);
+                if (statusResponseHasAmbiguousPairing) {
+                    throw new Error('특보현황 응답에서 다중 특보·다중 지역의 대응 관계를 확인할 수 없어 통보문으로 재조회합니다.');
+                }
                 weatherSpecialSourceLabel = '기상청 특보현황 조회서비스';
                 weatherSpecialSourceDetail = '현재 발효현황';
                 weatherSpecialFetchState = { status: 'success', lastSuccessAt: Date.now(), lastError: '' };
