@@ -1268,9 +1268,398 @@
             .weather-manual-action { width:100%; }
         }
 
+        /* 초기 진입 기관 선택 (경찰 / 시청) */
+        #role-select-modal {
+            display:none; position:fixed; inset:0; z-index:200000;
+            align-items:center; justify-content:center;
+            padding:calc(24px + env(safe-area-inset-top)) 22px calc(24px + env(safe-area-inset-bottom));
+            box-sizing:border-box; overflow:hidden;
+            background:
+                radial-gradient(1100px 620px at 12% -8%, rgba(0,122,255,0.36), transparent 62%),
+                radial-gradient(900px 560px at 92% 8%, rgba(52,199,89,0.24), transparent 60%),
+                radial-gradient(880px 520px at 50% 108%, rgba(90,200,250,0.22), transparent 62%),
+                linear-gradient(165deg, #0B1B33 0%, #12294A 46%, #0A1526 100%);
+        }
+        .role-bg { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+        .role-bg-grid {
+            position:absolute; inset:-20%;
+            background-image:
+                linear-gradient(rgba(255,255,255,0.055) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255,255,255,0.055) 1px, transparent 1px);
+            background-size:54px 54px;
+            transform:perspective(700px) rotateX(58deg);
+            transform-origin:50% 100%;
+            mask-image:linear-gradient(180deg, transparent 6%, #000 46%, transparent 92%);
+            -webkit-mask-image:linear-gradient(180deg, transparent 6%, #000 46%, transparent 92%);
+            opacity:.75;
+        }
+        .role-orb { position:absolute; border-radius:50%; filter:blur(52px); opacity:.55; animation:roleFloat 13s ease-in-out infinite; }
+        .role-orb.a { width:290px; height:290px; top:-70px; left:-70px; background:rgba(0,122,255,0.65); }
+        .role-orb.b { width:250px; height:250px; bottom:-60px; right:-50px; background:rgba(52,199,89,0.5); animation-delay:-4.5s; }
+        .role-orb.c { width:210px; height:210px; top:44%; right:-80px; background:rgba(90,200,250,0.45); animation-delay:-8s; }
+        @keyframes roleFloat {
+            0%,100% { transform:translate3d(0,0,0) scale(1); }
+            50% { transform:translate3d(16px,-22px,0) scale(1.09); }
+        }
+        .role-ring { position:absolute; border:1px solid rgba(255,255,255,0.10); border-radius:50%; }
+        .role-ring.r1 { width:420px; height:420px; top:-140px; right:-150px; }
+        .role-ring.r2 { width:620px; height:620px; bottom:-280px; left:-200px; border-color:rgba(255,255,255,0.07); }
+
+        .role-card {
+            position:relative; z-index:2; width:min(100%,392px);
+            padding:30px 24px 24px; border-radius:30px; text-align:center;
+            border:1px solid rgba(255,255,255,0.30);
+            background:linear-gradient(160deg, rgba(255,255,255,0.97), rgba(240,246,255,0.93));
+            box-shadow:0 30px 70px rgba(3,12,28,0.48), inset 0 1px 0 rgba(255,255,255,0.9);
+            backdrop-filter:blur(22px) saturate(170%);
+            -webkit-backdrop-filter:blur(22px) saturate(170%);
+            animation:roleCardIn .5s cubic-bezier(.22,.9,.28,1) both;
+        }
+        @keyframes roleCardIn {
+            from { opacity:0; transform:translateY(22px) scale(.97); }
+            to { opacity:1; transform:translateY(0) scale(1); }
+        }
+        .role-emblem {
+            width:64px; height:64px; margin:0 auto 14px;
+            display:flex; align-items:center; justify-content:center;
+            border-radius:22px; font-size:26px; color:#fff;
+            background:linear-gradient(150deg, #0071E3, #0A2A55);
+            box-shadow:0 12px 26px rgba(0,90,190,0.38), inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .role-eyebrow {
+            display:inline-block; margin-bottom:9px; padding:5px 12px; border-radius:999px;
+            background:rgba(0,113,227,0.10); color:var(--blue);
+            font-size:10.5px; font-weight:900; letter-spacing:.3px;
+        }
+        .role-title { font-size:21px; font-weight:950; letter-spacing:-.65px; color:var(--text); line-height:1.25; }
+        .role-sub { margin-top:9px; font-size:12px; color:var(--sub); font-weight:700; line-height:1.6; word-break:keep-all; }
+        .role-divider { display:flex; align-items:center; gap:9px; margin:19px 2px 15px; color:var(--sub); font-size:10.5px; font-weight:850; }
+        .role-divider::before, .role-divider::after { content:""; flex:1; height:1px; background:linear-gradient(90deg, transparent, rgba(60,60,67,0.20), transparent); }
+        .role-btns { display:grid; grid-template-columns:1fr 1fr; gap:11px; }
+        .role-btn {
+            position:relative; overflow:hidden; min-height:118px;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:9px;
+            border:1px solid rgba(60,60,67,0.12); border-radius:20px;
+            background:linear-gradient(160deg, #FFFFFF, #F3F6FB);
+            box-shadow:0 8px 18px rgba(10,25,50,0.08), inset 0 1px 0 rgba(255,255,255,0.95);
+            font:inherit; font-size:15px; font-weight:900; color:var(--text); cursor:pointer;
+            transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+        }
+        .role-btn::after {
+            content:""; position:absolute; left:0; right:0; bottom:0; height:4px;
+            background:linear-gradient(90deg, var(--blue), #5AC8FA);
+        }
+        .role-btn.city::after { background:linear-gradient(90deg, var(--green), #A0E9B4); }
+        .role-btn i {
+            width:46px; height:46px; display:flex; align-items:center; justify-content:center;
+            border-radius:16px; font-size:22px;
+        }
+        .role-btn.police i { color:var(--blue); background:rgba(0,113,227,0.12); }
+        .role-btn.city i { color:#1E9E4A; background:rgba(52,199,89,0.14); }
+        .role-btn small { font-size:10px; font-weight:800; color:var(--sub); letter-spacing:-.1px; }
+        .role-btn:hover { transform:translateY(-2px); box-shadow:0 14px 26px rgba(10,25,50,0.13); border-color:rgba(0,113,227,0.24); }
+        .role-btn:active { transform:scale(.97); }
+        .role-foot { margin-top:16px; font-size:10.5px; color:var(--sub); font-weight:750; line-height:1.55; }
+        @media (max-width:360px) {
+            .role-card { padding:26px 18px 20px; border-radius:26px; }
+            .role-btn { min-height:106px; font-size:14px; }
+            .role-btn i { width:42px; height:42px; font-size:20px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .role-orb, .role-card { animation:none; }
+        }
+        body[data-user-role="city"] #sec-manpower { display:none !important; }
+
+        /* ===== 메인화면 데코 + 통제 주체별 색상 ===== */
+        body {
+            background:
+                radial-gradient(1200px 460px at 50% -160px, rgba(0,113,227,0.14), transparent 60%),
+                radial-gradient(760px 380px at 8% 18%, rgba(52,199,89,0.10), transparent 62%),
+                radial-gradient(820px 420px at 96% 34%, rgba(90,200,250,0.12), transparent 62%),
+                linear-gradient(180deg, #FBFCFE 0%, #F4F6FA 44%, #EFF2F7 100%);
+            background-attachment: fixed;
+        }
+        header .top-nav h1 {
+            background:linear-gradient(120deg, #0A2A55 0%, #0071E3 58%, #34C759 115%);
+            -webkit-background-clip:text; background-clip:text;
+            -webkit-text-fill-color:transparent; color:#0A2A55;
+        }
+        .police-emblem {
+            box-shadow:0 8px 20px rgba(0,90,190,0.22), 0 0 0 3px rgba(255,255,255,0.9);
+        }
+        .header-status-line {
+            border-color:rgba(255,255,255,0.95);
+            box-shadow:0 12px 26px rgba(15,23,42,0.10), inset 0 1px 0 rgba(255,255,255,0.98);
+        }
+        .scope-panel {
+            border:1px solid rgba(255,255,255,0.9);
+            background:rgba(255,255,255,0.80);
+            box-shadow:0 14px 34px rgba(10,25,50,0.11);
+        }
+        .scope-btn.active {
+            background:linear-gradient(150deg, #0A2A55, #0071E3);
+            color:#fff;
+            box-shadow:0 6px 14px rgba(0,90,190,0.30);
+        }
+        .jurisdiction-box { background:rgba(244,247,252,0.92); }
+
+        .accord-section {
+            border:1px solid rgba(255,255,255,0.92);
+            background:rgba(255,255,255,0.94);
+            box-shadow:0 12px 30px rgba(10,25,50,0.075);
+            transition:box-shadow .22s ease, transform .22s ease;
+        }
+        .accord-section:hover { box-shadow:0 16px 38px rgba(10,25,50,0.10); }
+        .accord-section.open { box-shadow:0 20px 44px rgba(10,25,50,0.115); }
+        .accord-header { position:relative; }
+        .accord-header::before {
+            content:""; position:absolute; left:0; top:14px; bottom:14px; width:4px;
+            border-radius:0 4px 4px 0; background:linear-gradient(180deg, var(--blue), rgba(0,113,227,0.25));
+            opacity:.85;
+        }
+        #sec-weather .accord-header::before { background:linear-gradient(180deg, var(--orange), rgba(255,149,0,0.22)); }
+        #sec-snow .accord-header::before { background:linear-gradient(180deg, var(--snow), rgba(90,200,250,0.22)); }
+        #sec-forest .accord-header::before { background:linear-gradient(180deg, var(--forest), rgba(52,199,89,0.22)); }
+        #sec-control .accord-header::before { background:linear-gradient(180deg, var(--red), rgba(255,59,48,0.22)); }
+        #sec-shelter .accord-header::before { background:linear-gradient(180deg, var(--shelter), rgba(255,149,0,0.22)); }
+        #sec-manpower .accord-header::before { background:linear-gradient(180deg, #7E57C2, rgba(126,87,194,0.22)); }
+        .ah-title i {
+            width:32px; height:32px; flex:0 0 32px;
+            display:inline-flex; align-items:center; justify-content:center;
+            border-radius:11px; font-size:15px;
+            background:rgba(0,113,227,0.10);
+        }
+        #sec-weather .ah-title > i:first-child { background:rgba(255,149,0,0.12); }
+        #sec-snow .ah-title > i:first-child { background:rgba(90,200,250,0.14); }
+        #sec-forest .ah-title > i:first-child { background:rgba(52,199,89,0.13); }
+        #sec-control .ah-title > i:first-child { background:rgba(255,59,48,0.11); }
+        #sec-shelter .ah-title > i:first-child { background:rgba(255,149,0,0.13); }
+        #sec-cctv .ah-title > i:first-child { background:rgba(0,113,227,0.11); }
+        #sec-manpower .ah-title > i:first-child { background:rgba(126,87,194,0.14); }
+        .ah-title i.fa-circle-info { width:auto; height:auto; flex:none; background:none !important; border-radius:0; }
+
+        .dash-item {
+            background:linear-gradient(160deg, #FFFFFF, #F2F5FA);
+            border:1px solid rgba(60,60,67,0.09);
+            box-shadow:0 6px 16px rgba(10,25,50,0.06);
+        }
+        .rain-summary-card, .forest-summary-card {
+            background:linear-gradient(160deg, #FFFFFF, #F3F6FA);
+            box-shadow:0 5px 14px rgba(10,25,50,0.05);
+        }
+        .rain-cell, .traffic-card, .shelter-card {
+            background:linear-gradient(160deg, #FFFFFF, #F5F7FA);
+            box-shadow:0 4px 12px rgba(10,25,50,0.045);
+            transition:transform .18s ease, box-shadow .18s ease;
+        }
+        .traffic-card:hover, .shelter-card:hover, .rain-cell:hover {
+            transform:translateY(-2px);
+            box-shadow:0 10px 22px rgba(10,25,50,0.09);
+        }
+        .link-btn {
+            background:linear-gradient(160deg, rgba(255,255,255,0.97), rgba(240,245,252,0.94));
+            box-shadow:0 10px 22px rgba(10,25,50,0.08);
+            transition:transform .18s ease, box-shadow .18s ease;
+        }
+        .link-btn:hover { transform:translateY(-2px); box-shadow:0 14px 28px rgba(10,25,50,0.12); }
+        .filter-btn.active { background:linear-gradient(150deg, #1D1D1F, #3A3A3C); }
+
+        /* 통제 주체별 색상: 시청=빨강, 경찰=진한 노랑 */
+        .status-btn.st-ban-city {
+            background:linear-gradient(150deg, #FF3B30, #D0021B);
+            color:#fff;
+            box-shadow:0 4px 12px rgba(255,59,48,0.30);
+        }
+        .status-btn.st-ban-police {
+            background:linear-gradient(150deg, #E6A400, #C98A00);
+            color:#3A2A00;
+            box-shadow:0 4px 12px rgba(214,150,0,0.32);
+        }
+        .control-by-tag {
+            display:inline-flex; align-items:center; gap:4px;
+            margin-top:6px; padding:3px 8px; border-radius:999px;
+            font-size:9.5px; font-weight:900; letter-spacing:-.2px; white-space:nowrap;
+        }
+        .control-by-tag.city { background:rgba(255,59,48,0.12); color:#C8102E; }
+        .control-by-tag.police { background:rgba(214,150,0,0.16); color:#8A5F00; }
+        .control-legend {
+            display:flex; flex-wrap:wrap; gap:8px; margin:0 0 14px;
+            padding:10px 12px; border:1px solid rgba(60,60,67,0.10); border-radius:14px;
+            background:rgba(247,249,252,0.9);
+            font-size:10.5px; font-weight:800; color:var(--sub);
+        }
+        .control-legend span { display:inline-flex; align-items:center; gap:5px; }
+        .control-legend i { width:11px; height:11px; border-radius:4px; display:inline-block; }
+        .control-legend i.city { background:linear-gradient(150deg, #FF3B30, #D0021B); }
+        .control-legend i.police { background:linear-gradient(150deg, #E6A400, #C98A00); }
+        .control-legend i.free { background:rgba(52,199,89,0.55); }
+
+        /* ===== 기관 선택 화면 배경 강화 ===== */
+        #role-select-modal {
+            background:
+                radial-gradient(1200px 680px at 14% -12%, rgba(0,122,255,0.42), transparent 62%),
+                radial-gradient(980px 600px at 90% 4%, rgba(52,199,89,0.26), transparent 60%),
+                radial-gradient(920px 560px at 52% 112%, rgba(90,200,250,0.24), transparent 62%),
+                linear-gradient(168deg, #081428 0%, #12294A 44%, #060F1D 100%);
+            background-color:#08152A;
+        }
+        .role-aurora {
+            position:absolute; inset:-30% -20%;
+            background:
+                conic-gradient(from 200deg at 30% 25%, rgba(0,122,255,0.30), transparent 32%),
+                conic-gradient(from 20deg at 78% 70%, rgba(52,199,89,0.24), transparent 34%),
+                conic-gradient(from 120deg at 60% 12%, rgba(120,90,255,0.20), transparent 30%);
+            filter:blur(70px);
+            animation:roleAurora 26s ease-in-out infinite alternate;
+        }
+        @keyframes roleAurora {
+            0% { transform:translate3d(-3%, -2%, 0) rotate(0deg) scale(1); opacity:.85; }
+            100% { transform:translate3d(4%, 3%, 0) rotate(9deg) scale(1.12); opacity:1; }
+        }
+        .role-stars {
+            position:absolute; inset:0;
+            background-image:
+                radial-gradient(1.6px 1.6px at 12% 18%, rgba(255,255,255,.85), transparent),
+                radial-gradient(1.3px 1.3px at 28% 9%, rgba(255,255,255,.6), transparent),
+                radial-gradient(1.8px 1.8px at 44% 24%, rgba(255,255,255,.75), transparent),
+                radial-gradient(1.2px 1.2px at 63% 12%, rgba(255,255,255,.55), transparent),
+                radial-gradient(1.7px 1.7px at 78% 27%, rgba(255,255,255,.8), transparent),
+                radial-gradient(1.3px 1.3px at 91% 15%, rgba(255,255,255,.6), transparent),
+                radial-gradient(1.4px 1.4px at 20% 38%, rgba(255,255,255,.5), transparent),
+                radial-gradient(1.5px 1.5px at 70% 42%, rgba(255,255,255,.55), transparent);
+            animation:roleTwinkle 5.5s ease-in-out infinite alternate;
+            opacity:.9;
+        }
+        @keyframes roleTwinkle { 0% { opacity:.45; } 100% { opacity:1; } }
+        .role-rain {
+            position:absolute; inset:-25% 0 0;
+            background-image:
+                repeating-linear-gradient(101deg, rgba(160,205,255,0.16) 0 1px, transparent 1px 7px),
+                repeating-linear-gradient(101deg, rgba(160,205,255,0.10) 0 1px, transparent 1px 13px);
+            background-size:auto 180px, auto 260px;
+            mask-image:linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 70%);
+            -webkit-mask-image:linear-gradient(180deg, rgba(0,0,0,.55) 0%, transparent 70%);
+            animation:roleRain 1.15s linear infinite;
+            opacity:.55;
+        }
+        @keyframes roleRain {
+            from { background-position:0 0, 0 0; }
+            to { background-position:0 180px, 0 260px; }
+        }
+        .role-bg-grid { opacity:.55; }
+        .role-orb { filter:blur(60px); }
+        .role-beacon {
+            position:absolute; width:170px; height:170px; border-radius:50%;
+            border:2px solid rgba(255,255,255,0.16);
+            box-shadow:0 0 0 0 rgba(255,255,255,0.14);
+            animation:roleBeacon 4.2s ease-out infinite;
+        }
+        .role-beacon.b1 { top:16%; left:9%; border-color:rgba(0,150,255,0.28); }
+        .role-beacon.b2 { bottom:26%; right:11%; width:130px; height:130px; border-color:rgba(52,199,89,0.26); animation-delay:-2.1s; }
+        @keyframes roleBeacon {
+            0% { transform:scale(.55); opacity:.75; }
+            100% { transform:scale(1.55); opacity:0; }
+        }
+        .role-skyline {
+            position:absolute; left:0; right:0; bottom:0;
+            width:100%; height:min(30vh, 210px);
+            opacity:.95;
+        }
+        .role-skyglow {
+            position:absolute; left:0; right:0; bottom:0;
+            height:min(34vh, 250px);
+            background:linear-gradient(180deg, transparent, rgba(0,122,255,0.16) 42%, rgba(4,11,24,0.9) 100%);
+            pointer-events:none;
+        }
+
+        /* 카드 마감 */
+        .role-card {
+            position:relative; overflow:hidden;
+            border:1px solid rgba(255,255,255,0.42);
+            box-shadow:0 34px 80px rgba(2,9,22,0.58), 0 0 0 1px rgba(255,255,255,0.10), inset 0 1px 0 rgba(255,255,255,0.95);
+        }
+        .role-card::before {
+            content:""; position:absolute; top:-60%; left:-30%; width:60%; height:220%;
+            background:linear-gradient(100deg, transparent, rgba(255,255,255,0.55), transparent);
+            transform:rotate(12deg);
+            animation:roleSheen 6.5s ease-in-out infinite;
+            pointer-events:none;
+        }
+        @keyframes roleSheen {
+            0%, 62% { left:-40%; opacity:0; }
+            70% { opacity:.65; }
+            100% { left:120%; opacity:0; }
+        }
+        .role-emblem {
+            position:relative;
+            background:linear-gradient(150deg, #0A6BFF, #08234C);
+            box-shadow:0 14px 30px rgba(0,80,180,0.42), inset 0 1px 0 rgba(255,255,255,0.4);
+            animation:roleEmblemPulse 3.4s ease-in-out infinite;
+        }
+        @keyframes roleEmblemPulse {
+            0%,100% { box-shadow:0 14px 30px rgba(0,80,180,0.42), inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 0 rgba(0,122,255,0.35); }
+            50% { box-shadow:0 14px 30px rgba(0,80,180,0.42), inset 0 1px 0 rgba(255,255,255,0.4), 0 0 0 12px rgba(0,122,255,0.06); }
+        }
+        .role-eyebrow {
+            background:linear-gradient(120deg, rgba(0,113,227,0.14), rgba(52,199,89,0.14));
+            box-shadow:inset 0 0 0 1px rgba(0,113,227,0.16);
+        }
+        .role-btn { border-radius:22px; }
+        .role-btn.police:hover { border-color:rgba(0,113,227,0.42); box-shadow:0 16px 30px rgba(0,90,190,0.20); }
+        .role-btn.city:hover { border-color:rgba(52,199,89,0.42); box-shadow:0 16px 30px rgba(20,140,70,0.20); }
+        .role-foot {
+            margin-top:18px; padding-top:14px;
+            border-top:1px solid rgba(60,60,67,0.10);
+        }
+        @media (max-width:380px) {
+            .role-beacon { display:none; }
+            .role-skyline { height:min(24vh, 150px); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .role-aurora, .role-stars, .role-rain, .role-beacon, .role-emblem { animation:none; }
+            .role-card::before { display:none; }
+        }
+
     </style>
 </head>
 <body>
+
+<div id="role-select-modal" role="dialog" aria-modal="true">
+    <div class="role-bg" aria-hidden="true">
+        <div class="role-aurora"></div>
+        <div class="role-stars"></div>
+        <div class="role-rain"></div>
+        <div class="role-bg-grid"></div>
+        <div class="role-orb a"></div>
+        <div class="role-orb b"></div>
+        <div class="role-orb c"></div>
+        <div class="role-ring r1"></div>
+        <div class="role-ring r2"></div>
+        <div class="role-beacon b1"></div>
+        <div class="role-beacon b2"></div>
+        <svg class="role-skyline" viewBox="0 0 1200 200" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M0 200 V150 H60 V120 H110 V150 H160 V96 H210 V150 H260 V128 H320 V150 H380 V78 H430 V150 H480 V112 H540 V150 H600 V88 H650 V150 H700 V124 H760 V150 H820 V70 H870 V150 H930 V116 H990 V150 H1050 V132 H1110 V150 H1200 V200 Z" fill="rgba(6,17,34,0.62)"/>
+            <path d="M0 200 V168 H80 V146 H150 V168 H240 V138 H300 V168 H400 V152 H470 V168 H560 V132 H620 V168 H720 V154 H800 V168 H900 V140 H960 V168 H1060 V158 H1140 V168 H1200 V200 Z" fill="rgba(4,11,24,0.85)"/>
+        </svg>
+        <div class="role-skyglow"></div>
+    </div>
+    <div class="role-card">
+        <div class="role-emblem" aria-hidden="true"><i class="fas fa-shield-halved"></i></div>
+        <span class="role-eyebrow">SEJONG DISASTER PLATFORM</span>
+        <div class="role-title">세종경찰 재난관리 플랫폼</div>
+        <div class="role-sub">사용 기관을 선택하세요.<br>선택 기관에 따라 관리자 인증과 표시 항목이 달라집니다.</div>
+        <div class="role-divider">기관 선택</div>
+        <div class="role-btns">
+            <button type="button" class="role-btn police" onclick="selectUserRole('police')">
+                <i class="fas fa-shield-halved"></i>경찰<small>북부서 · 남부서</small>
+            </button>
+            <button type="button" class="role-btn city" onclick="selectUserRole('city')">
+                <i class="fas fa-building-columns"></i>시청<small>도로통제 확인</small>
+            </button>
+        </div>
+        <div class="role-foot">기상특보 · 강수량 · 도로통제 · 대피소 · CCTV 실시간 연동</div>
+    </div>
+</div>
 
 <header>
     <div class="top-nav">
@@ -1452,6 +1841,12 @@
                 <span class="dash-val" id="cnt-total">16</span>
                 <span style="font-size:12px; color:var(--sub); font-weight:600;">전체관리</span>
             </div>
+        </div>
+
+        <div class="control-legend">
+            <span><i class="city"></i>시청 통제</span>
+            <span><i class="police"></i>경찰 통제</span>
+            <span><i class="free"></i>정상</span>
         </div>
 
         <div class="filter-area">
@@ -1924,6 +2319,30 @@
     }
 
     let isAdmin = false;
+    let userRole = '';
+    const ROLE_PASSWORDS = { police:'2580', city:'0362' };
+    const ROLE_LABELS = { police:'경찰', city:'시청' };
+
+    function showRoleSelect() {
+        const m = document.getElementById('role-select-modal');
+        if (m) m.style.display = 'flex';
+        document.body.style.overflow = 'hidden';
+    }
+
+    function selectUserRole(role) {
+        userRole = ROLE_PASSWORDS[role] ? role : 'police';
+        document.body.setAttribute('data-user-role', userRole);
+        const m = document.getElementById('role-select-modal');
+        if (m) m.style.display = 'none';
+        document.body.style.overflow = '';
+        const btn = document.getElementById('admin-btn');
+        if (btn) btn.innerText = `${ROLE_LABELS[userRole]} 관리자`;
+        if (userRole === 'city') {
+            const sec = document.getElementById('sec-manpower');
+            if (sec) sec.classList.remove('open');
+            rtDetach('manpower');
+        }
+    }
 
     // --- 비상연락망 25개 기관 데이터 ---
     const emergencyContacts = [
@@ -3732,7 +4151,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     async function attachManpowerRealtime() {
-        if (realtimeListeners.manpower || !isAdmin) return;
+        if (realtimeListeners.manpower || !isAdmin || userRole === 'city') return;
         const ref = db.ref(MANPOWER_DB_PATH);
         const apply = (snap, removed = false) => {
             if (removed) delete manpowerRemoteRows[snap.key];
@@ -3763,6 +4182,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
 
     window.onload = () => {
+        showRoleSelect();
         document.body.setAttribute('data-global-scope', globalScope);
         updateHeaderCurrentTime();
         setInterval(updateHeaderCurrentTime, 1000);
@@ -3782,6 +4202,11 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     };
 
     function toggleSection(id) {
+        // 시청 모드에서는 경력 현황을 열람할 수 없음
+        if (id === 'sec-manpower' && userRole === 'city') {
+            alert('경력 현황은 경찰 관리자만 확인할 수 있습니다.');
+            return;
+        }
         // 동원경력(경력 현황)은 관리자 모드에서만 확인
         if (id === 'sec-manpower' && !isAdmin) {
             alert('경력 현황은 관리자만 확인할 수 있습니다.');
@@ -6491,11 +6916,26 @@ ${error?.message || '네트워크를 확인하세요.'}`));
         window.open(`https://map.kakao.com/link/search/${encodeURIComponent('세종특별자치시 ' + targetAddr)}`, '_blank');
     }
 
+    // 통제 주체 구분: 시청 관리자=빨강, 경찰 관리자=진한 노랑
+    function controlByLabel(value) {
+        return value === 'city' ? '시청 통제' : value === 'police' ? '경찰 통제' : '통제';
+    }
+
+    function controlByClass(value) {
+        return value === 'city' ? 'st-ban-city' : 'st-ban-police';
+    }
+
     function toggleStatus(idx) {
         if (!isAdmin) return alert('관리자 권한 필요');
         const item = trafficData[idx];
         if (!item) return;
-        const updated = { ...item, status: item.status === 0 ? 2 : 0 };
+        const nextStatus = item.status === 0 ? 2 : 0;
+        const updated = {
+            ...item,
+            status: nextStatus,
+            controlBy: nextStatus === 2 ? (userRole || 'police') : '',
+            controlAt: nextStatus === 2 ? Date.now() : ''
+        };
         trafficData[idx] = updated;
         upsertTrafficItem(updated).catch(error => alert(`통제상태 저장에 실패했습니다.
 ${error?.message || '네트워크를 확인하세요.'}`));
@@ -6503,7 +6943,10 @@ ${error?.message || '네트워크를 확인하세요.'}`));
 
     function toggleAdmin() {
         if (!isAdmin) {
-            if (prompt('비밀번호:') === '2580') {
+            const roleKey = userRole || 'police';
+            const roleLabel = ROLE_LABELS[roleKey] || '경찰';
+            const expectedPw = ROLE_PASSWORDS[roleKey] || ROLE_PASSWORDS.police;
+            if (prompt(`${roleLabel} 관리자 비밀번호:`) === expectedPw) {
                 isAdmin = true;
                 document.body.classList.add('admin-mode');
                 document.getElementById('admin-btn').classList.add('active');
@@ -6789,7 +7232,12 @@ ${error?.message || '네트워크를 확인하세요.'}`));
             const div = document.createElement('div');
             div.className = 'traffic-card';
             const trafficMeta = [item.area, item.addr, item.type ? `구분 ${item.type}` : '', item.grade ? `등급 ${item.grade}` : ''].filter(Boolean).join(' · ');
-            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px; line-height:1.4;">${trafficMeta}</div></div><div class="status-btn ${item.status===2?'st-ban':'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?'통제':'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
+            const banClass = item.status === 2 ? controlByClass(item.controlBy) : '';
+            const banText = item.status === 2 ? controlByLabel(item.controlBy) : '정상';
+            const byTag = item.status === 2 && (item.controlBy === 'city' || item.controlBy === 'police')
+                ? `<div class="control-by-tag ${item.controlBy}"><i class="fas ${item.controlBy === 'city' ? 'fa-building-columns' : 'fa-shield-halved'}"></i>${item.controlBy === 'city' ? '시청 관리자 통제' : '경찰 관리자 통제'}</div>`
+                : '';
+            div.innerHTML = `<div class="card-info"><span class="area-tag">${station}</span><div class="loc-name">${item.name}</div><div style="font-size:10px; color:var(--sub); margin-top:4px; line-height:1.4;">${trafficMeta}</div>${byTag}</div><div class="status-btn ${item.status===2?banClass:'st-free'}" onclick="toggleStatus(${idx})">${item.status===2?banText:'정상'}</div><div class="admin-actions"><button class="mini-btn" onclick="event.stopPropagation(); editTrafficLocation(${idx})">수정</button><button class="mini-btn danger" onclick="event.stopPropagation(); deleteTrafficLocation(${idx})">삭제</button></div>`;
             container.appendChild(div);
         });
         document.getElementById('cnt-total').innerText = visibleTotal;
