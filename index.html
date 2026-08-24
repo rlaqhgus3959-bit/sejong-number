@@ -2865,6 +2865,135 @@
             .role-sunbloom, .role-halo, .role-flarecol .fl, .role-haze { animation:none !important; }
         }
 
+        /* ===== 번개 깜빡임 : 강한 비일 때만 ===== */
+        .role-lightning { display:none !important; }
+        #role-select-modal[data-weather="storm"] .role-lightning { display:block !important; }
+
+        /* ===== 폭염 · 한파 온도계 아이콘 ===== */
+        .role-weather-ico {
+            width:26px !important; height:26px !important;
+            overflow:visible;
+        }
+        .role-thermo {
+            position:relative; display:inline-block;
+            width:8px; height:15px; box-sizing:border-box;
+            margin-bottom:3px;
+            border:1.6px solid #E2760B;
+            border-radius:5px 5px 2px 2px;
+            background:rgba(255,255,255,0.85);
+        }
+        .role-thermo::after {
+            content:""; position:absolute; z-index:2;
+            left:50%; bottom:-6px; transform:translateX(-50%);
+            width:12px; height:12px; border-radius:50%;
+            border:1.6px solid #E2760B;
+            background:radial-gradient(circle at 38% 34%, #FFB246, #F0700A 72%);
+            box-shadow:0 0 6px rgba(255,140,20,0.55);
+        }
+        .role-thermo-fill {
+            position:absolute; z-index:1;
+            left:1px; right:1px; bottom:0;
+            height:42%;
+            border-radius:0 0 2px 2px;
+            background:linear-gradient(180deg, #FFA51F, #F26B05);
+            animation:roleThermoRise 3.2s ease-in-out infinite;
+        }
+        @keyframes roleThermoRise {
+            0%, 100% { height:38%; }
+            50% { height:82%; }
+        }
+        /* 한파 : 같은 온도계를 푸른색으로 */
+        .role-thermo.cold { border-color:#2C7BB6; }
+        .role-thermo.cold::after {
+            border-color:#2C7BB6;
+            background:radial-gradient(circle at 38% 34%, #8FD0FF, #2C7BB6 72%);
+            box-shadow:0 0 6px rgba(60,150,230,0.55);
+        }
+        .role-thermo.cold .role-thermo-fill {
+            background:linear-gradient(180deg, #7EC8FF, #2C7BB6);
+            animation-name:roleThermoDrop;
+        }
+        @keyframes roleThermoDrop {
+            0%, 100% { height:30%; }
+            50% { height:14%; }
+        }
+        #role-select-modal[data-weather="hot"] .role-weather-ico {
+            background:rgba(255,180,80,0.28) !important;
+        }
+        #role-select-modal[data-weather="cold"] .role-weather-ico {
+            background:rgba(120,190,255,0.28) !important;
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .role-thermo-fill { animation:none !important; }
+        }
+
+        /* ===== 온도계 아이콘 : 원래 모양 + 주황 수은 + 강한 애니메이션 ===== */
+        .role-thermo { display:none !important; }
+        .role-weather-ico { width:24px !important; height:24px !important; overflow:visible; }
+
+        .role-hot-ico, .role-cold-ico {
+            position:relative;
+            font-size:14px !important;
+            line-height:1;
+        }
+
+        /* 폭염 : 주황 수은이 차오르고 열기가 퍼짐 */
+        .role-hot-ico {
+            color:#F2700A !important;
+            text-shadow:0 0 6px rgba(255,140,20,0.75), 0 0 14px rgba(255,110,0,0.45);
+            animation:roleHotBeat 1.5s cubic-bezier(.4,0,.3,1) infinite;
+            transform-origin:50% 82%;
+        }
+        @keyframes roleHotBeat {
+            0%   { transform:scale(1) rotate(0deg);   color:#F79422; text-shadow:0 0 4px rgba(255,150,40,0.45); }
+            28%  { transform:scale(1.22) rotate(-4deg); color:#FF6A00; text-shadow:0 0 12px rgba(255,110,0,0.95), 0 0 22px rgba(255,80,0,0.5); }
+            52%  { transform:scale(1.06) rotate(3deg);  color:#F2700A; }
+            76%  { transform:scale(1.16) rotate(-2deg); color:#FF5A00; text-shadow:0 0 10px rgba(255,90,0,0.85); }
+            100% { transform:scale(1) rotate(0deg);   color:#F79422; text-shadow:0 0 4px rgba(255,150,40,0.45); }
+        }
+        #role-select-modal[data-weather="hot"] .role-weather-ico {
+            background:rgba(255,150,40,0.30) !important;
+            box-shadow:0 0 0 0 rgba(255,130,20,0.55);
+            animation:roleHotHalo 1.5s ease-out infinite;
+        }
+        @keyframes roleHotHalo {
+            0%   { box-shadow:0 0 0 0 rgba(255,130,20,0.55); }
+            70%  { box-shadow:0 0 0 10px rgba(255,130,20,0); }
+            100% { box-shadow:0 0 0 0 rgba(255,130,20,0); }
+        }
+
+        /* 한파 : 푸른 수은이 내려가며 떨림 */
+        .role-cold-ico {
+            color:#1F7FD0 !important;
+            text-shadow:0 0 6px rgba(90,170,255,0.75), 0 0 14px rgba(40,120,220,0.40);
+            animation:roleColdShiver 1.6s cubic-bezier(.4,0,.3,1) infinite;
+            transform-origin:50% 82%;
+        }
+        @keyframes roleColdShiver {
+            0%   { transform:translateX(0) scale(1);      color:#4FA3E3; }
+            20%  { transform:translateX(-1.5px) scale(1.14); color:#1272C8; text-shadow:0 0 12px rgba(80,170,255,0.9); }
+            40%  { transform:translateX(1.5px) scale(1.05);  color:#1F7FD0; }
+            60%  { transform:translateX(-1px) scale(1.12);   color:#0F63B4; text-shadow:0 0 10px rgba(60,150,240,0.85); }
+            80%  { transform:translateX(1px) scale(1.02);    color:#3E96DC; }
+            100% { transform:translateX(0) scale(1);      color:#4FA3E3; }
+        }
+        #role-select-modal[data-weather="cold"] .role-weather-ico {
+            background:rgba(90,170,255,0.30) !important;
+            animation:roleColdHalo 1.6s ease-out infinite;
+        }
+        @keyframes roleColdHalo {
+            0%   { box-shadow:0 0 0 0 rgba(70,150,240,0.5); }
+            70%  { box-shadow:0 0 0 10px rgba(70,150,240,0); }
+            100% { box-shadow:0 0 0 0 rgba(70,150,240,0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .role-hot-ico, .role-cold-ico,
+            #role-select-modal[data-weather="hot"] .role-weather-ico,
+            #role-select-modal[data-weather="cold"] .role-weather-ico { animation:none !important; }
+        }
+
     </style>
 </head>
 <body>
@@ -3726,9 +3855,9 @@
                     `세종 ${heavy ? '강한 비' : '비'} · 시간당 ${rn1.toFixed(1)}mm${temp ? ' · ' + temp : ''}`,
                     heavy ? '<i class="fas fa-cloud-bolt"></i>' : '<i class="fas fa-cloud-rain"></i>');
             } else if (Number.isFinite(t1h) && t1h >= 31) {
-                setRoleWeatherScene('hot', night, `세종 폭염 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-high"></i>');
+                setRoleWeatherScene('hot', night, `세종 폭염 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-high role-hot-ico"></i>');
             } else if (Number.isFinite(t1h) && t1h <= -3) {
-                setRoleWeatherScene('cold', night, `세종 한파 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-low"></i>');
+                setRoleWeatherScene('cold', night, `세종 한파 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-low role-cold-ico"></i>');
             } else {
                 setRoleWeatherScene('clear', night,
                     `세종 ${night ? '맑은 밤' : '맑음'}${temp ? ' · ' + temp : ''}${windText}`,
