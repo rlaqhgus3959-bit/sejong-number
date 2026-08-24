@@ -1762,15 +1762,538 @@
             .role-card-glow, .role-radar, .role-live i { animation:none; }
         }
 
+        /* ===== 기관 선택 화면 : Apple 스타일 마감 + 애니메이션 ===== */
+        .role-btn-go { display:none !important; }
+
+        #role-select-modal { -webkit-font-smoothing:antialiased; }
+
+        /* 배경 : 더 깊은 명암 + 느린 줌 브리딩 */
+        .role-aurora { animation:roleAurora 22s ease-in-out infinite alternate, roleBreathe 16s ease-in-out infinite; }
+        @keyframes roleBreathe {
+            0%,100% { filter:blur(70px) saturate(115%); }
+            50% { filter:blur(88px) saturate(150%); }
+        }
+        .role-bg-grid { opacity:.42; }
+        .role-skyglow { animation:roleSkyPulse 9s ease-in-out infinite; }
+        @keyframes roleSkyPulse { 0%,100% { opacity:.85; } 50% { opacity:1; } }
+
+        /* 카드 : 애플 유리 패널 */
+        .role-card {
+            width:min(100%,404px);
+            padding:34px 26px 26px;
+            border-radius:38px;
+            border:0.5px solid rgba(255,255,255,0.55);
+            background:linear-gradient(168deg, rgba(255,255,255,0.90) 0%, rgba(246,249,254,0.84) 100%);
+            box-shadow:
+                0 40px 90px rgba(2,8,20,0.55),
+                0 2px 0 rgba(255,255,255,0.65) inset,
+                0 0 0 0.5px rgba(255,255,255,0.35);
+            backdrop-filter:blur(34px) saturate(190%);
+            -webkit-backdrop-filter:blur(34px) saturate(190%);
+            animation:roleCardSpring .78s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes roleCardSpring {
+            0% { opacity:0; transform:translateY(34px) scale(.94); filter:blur(6px); }
+            60% { opacity:1; transform:translateY(-4px) scale(1.012); filter:blur(0); }
+            100% { opacity:1; transform:translateY(0) scale(1); }
+        }
+        .role-card-glow { opacity:.30; filter:blur(20px); animation:roleGlowSpin 18s linear infinite; }
+        .role-card::before { animation:roleSheen 7.5s cubic-bezier(.4,0,.2,1) infinite; }
+
+        /* 내부 요소 순차 등장 */
+        .role-emblem-wrap, .role-eyebrow, .role-title, .role-sub,
+        .role-clockbar, .role-divider, .role-btns, .role-chips, .role-foot {
+            animation:roleRise .68s cubic-bezier(.16,1,.3,1) both;
+        }
+        @keyframes roleRise {
+            from { opacity:0; transform:translateY(14px); filter:blur(4px); }
+            to { opacity:1; transform:translateY(0); filter:blur(0); }
+        }
+        .role-emblem-wrap { animation-delay:.10s; }
+        .role-eyebrow { animation-delay:.17s; }
+        .role-title { animation-delay:.23s; }
+        .role-sub { animation-delay:.29s; }
+        .role-clockbar { animation-delay:.35s; }
+        .role-divider { animation-delay:.41s; }
+        .role-btns { animation-delay:.47s; }
+        .role-chips { animation-delay:.55s; }
+        .role-foot { animation-delay:.62s; }
+
+        /* 엠블럼 : 이중 레이더 + 부유 */
+        .role-emblem-wrap { width:104px; height:104px; margin-bottom:17px; animation-name:roleRise, roleFloatSoft; animation-duration:.68s, 6s; animation-delay:.10s, .8s; animation-iteration-count:1, infinite; animation-timing-function:cubic-bezier(.16,1,.3,1), ease-in-out; }
+        @keyframes roleFloatSoft {
+            0%,100% { transform:translateY(0); }
+            50% { transform:translateY(-6px); }
+        }
+        .role-emblem-wrap::after {
+            content:""; position:absolute; inset:-9px; border-radius:50%;
+            border:1px solid rgba(0,122,255,0.22);
+            animation:rolePing 3.2s cubic-bezier(.22,1,.3,1) infinite;
+        }
+        @keyframes rolePing {
+            0% { transform:scale(.86); opacity:.9; }
+            100% { transform:scale(1.3); opacity:0; }
+        }
+        .role-radar { animation:roleRadarSpin 4.6s linear infinite; }
+        .role-emblem {
+            left:20px; top:20px; width:64px; height:64px;
+            border-radius:50%;
+            background:linear-gradient(155deg, #0A84FF, #063A80);
+            box-shadow:0 16px 34px rgba(0,80,180,0.45), inset 0 1px 0 rgba(255,255,255,0.45);
+        }
+
+        /* 타이포 : 애플 감성 */
+        .role-eyebrow {
+            padding:6px 13px; border-radius:999px;
+            font-size:10px; letter-spacing:.9px; text-transform:uppercase;
+            color:#0A6BFF;
+            background:rgba(10,132,255,0.10);
+            box-shadow:inset 0 0 0 0.5px rgba(10,132,255,0.20);
+        }
+        .role-title {
+            margin-top:12px;
+            font-size:26px; line-height:1.22; font-weight:800; letter-spacing:-1.1px;
+            background:linear-gradient(100deg, #0B2240 0%, #0A84FF 45%, #34C759 70%, #0B2240 100%);
+            background-size:220% 100%;
+            -webkit-background-clip:text; background-clip:text;
+            -webkit-text-fill-color:transparent;
+            animation:roleRise .68s cubic-bezier(.16,1,.3,1) both, roleTitleFlow 9s ease-in-out infinite;
+            animation-delay:.23s, 1s;
+        }
+        @keyframes roleTitleFlow {
+            0%,100% { background-position:0% 50%; }
+            50% { background-position:100% 50%; }
+        }
+        .role-sub { margin-top:10px; font-size:12.5px; font-weight:600; color:#5B6472; line-height:1.65; letter-spacing:-.2px; }
+
+        /* 시계바 */
+        .role-clockbar {
+            margin:17px 0 4px; padding:10px 13px; border-radius:16px;
+            border:0.5px solid rgba(60,60,67,0.10);
+            background:rgba(255,255,255,0.62);
+            box-shadow:inset 0 0.5px 0 rgba(255,255,255,0.9);
+            font-size:11px;
+        }
+        .role-divider { margin:20px 2px 14px; font-size:10px; letter-spacing:.4px; color:#8A94A6; }
+
+        /* 버튼 : iOS 카드 스타일 */
+        .role-btns { gap:12px; }
+        .role-btn {
+            min-height:138px; gap:7px; padding:16px 10px 18px;
+            border:0.5px solid rgba(60,60,67,0.10);
+            border-radius:26px;
+            background:linear-gradient(170deg, rgba(255,255,255,0.98), rgba(240,245,252,0.92));
+            box-shadow:0 10px 22px rgba(10,25,50,0.09), inset 0 0.5px 0 rgba(255,255,255,0.95);
+            transition:transform .32s cubic-bezier(.16,1,.3,1), box-shadow .32s ease, border-color .32s ease;
+        }
+        .role-btn::after { height:0; }
+        .role-btn::before {
+            content:""; position:absolute; inset:0; border-radius:26px; opacity:0;
+            transition:opacity .32s ease;
+        }
+        .role-btn.police::before { background:radial-gradient(120% 90% at 50% 0%, rgba(10,132,255,0.16), transparent 70%); }
+        .role-btn.city::before { background:radial-gradient(120% 90% at 50% 0%, rgba(52,199,89,0.18), transparent 70%); }
+        .role-btn:hover::before { opacity:1; }
+        .role-btn:hover { transform:translateY(-4px) scale(1.02); box-shadow:0 20px 36px rgba(10,25,50,0.16); }
+        .role-btn:active { transform:scale(.955); box-shadow:0 6px 14px rgba(10,25,50,0.12); }
+        .role-btn > * { position:relative; z-index:1; }
+        .role-btn-ico {
+            width:56px; height:56px; border-radius:20px; font-size:24px;
+            transition:transform .38s cubic-bezier(.16,1,.3,1), box-shadow .32s ease;
+            animation:roleIcoFloat 5.5s ease-in-out infinite;
+        }
+        .role-btn.city .role-btn-ico { animation-delay:-2.6s; }
+        @keyframes roleIcoFloat {
+            0%,100% { transform:translateY(0) rotate(0deg); }
+            50% { transform:translateY(-3px) rotate(-2deg); }
+        }
+        .role-btn.police .role-btn-ico {
+            color:#fff; background:linear-gradient(155deg, #0A84FF, #0053B8);
+            box-shadow:0 10px 20px rgba(10,90,200,0.30), inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .role-btn.city .role-btn-ico {
+            color:#fff; background:linear-gradient(155deg, #34C759, #178A42);
+            box-shadow:0 10px 20px rgba(25,140,70,0.28), inset 0 1px 0 rgba(255,255,255,0.35);
+        }
+        .role-btn:hover .role-btn-ico { transform:scale(1.08) translateY(-2px); }
+        .role-btn-name { font-size:17px; font-weight:800; letter-spacing:-.5px; color:#111827; }
+        .role-btn small { font-size:10.5px; color:#8A94A6; font-weight:650; }
+
+        /* 칩 · 푸터 */
+        .role-chips { gap:6px; margin-top:18px; }
+        .role-chips span {
+            padding:6px 10px; border-radius:999px;
+            background:rgba(10,42,85,0.05);
+            box-shadow:inset 0 0 0 0.5px rgba(10,42,85,0.06);
+            color:#465468; font-size:10px; font-weight:700; letter-spacing:-.1px;
+            animation:roleChipIn .5s cubic-bezier(.16,1,.3,1) both;
+        }
+        .role-chips span:nth-child(1) { animation-delay:.58s; }
+        .role-chips span:nth-child(2) { animation-delay:.64s; }
+        .role-chips span:nth-child(3) { animation-delay:.70s; }
+        .role-chips span:nth-child(4) { animation-delay:.76s; }
+        .role-chips span:nth-child(5) { animation-delay:.82s; }
+        @keyframes roleChipIn {
+            from { opacity:0; transform:translateY(8px) scale(.94); }
+            to { opacity:1; transform:translateY(0) scale(1); }
+        }
+        .role-chips i { color:#0A84FF; }
+        .role-foot {
+            margin-top:16px; padding-top:14px;
+            border-top:0.5px solid rgba(60,60,67,0.10);
+            font-size:10.5px; color:#8A94A6; font-weight:650;
+        }
+        .role-foot b { color:#0A6BFF; font-weight:800; }
+
+        @media (max-width:380px) {
+            .role-card { padding:28px 20px 22px; border-radius:32px; }
+            .role-emblem-wrap { width:94px; height:94px; }
+            .role-emblem { left:17px; top:17px; width:60px; height:60px; font-size:24px; }
+            .role-title { font-size:23px; }
+            .role-btn { min-height:126px; border-radius:23px; }
+            .role-btn-ico { width:50px; height:50px; font-size:21px; border-radius:18px; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .role-card, .role-card-glow, .role-emblem-wrap, .role-eyebrow, .role-title,
+            .role-sub, .role-clockbar, .role-divider, .role-btns, .role-chips,
+            .role-chips span, .role-foot, .role-btn-ico, .role-radar, .role-aurora,
+            .role-skyglow { animation:none !important; }
+            .role-emblem-wrap::after { display:none; }
+        }
+
+        /* ===== 버튼 아이콘 가시성 복구 ===== */
+        .role-btn-ico i {
+            width:auto !important; height:auto !important; flex:none !important;
+            background:none !important; box-shadow:none !important;
+            border-radius:0 !important; color:#fff !important;
+            font-size:24px !important; display:inline !important;
+        }
+        .role-btn.police .role-btn-ico i,
+        .role-btn.city .role-btn-ico i { color:#fff !important; }
+        .role-btn i { background:none; }
+
+        /* ===== 날씨 연동 배경 ===== */
+        .role-sun, .role-cloud, .role-rain, .role-snow, .role-fog,
+        .role-heat, .role-frost, .role-lightning { opacity:0; transition:opacity 1.2s ease; }
+        .role-sun, .role-cloud, .role-snow, .role-fog, .role-heat,
+        .role-frost, .role-lightning { position:absolute; pointer-events:none; }
+
+        /* 해 · 달빛 */
+        .role-sun {
+            top:-90px; right:-70px; width:300px; height:300px; border-radius:50%;
+            background:radial-gradient(circle, rgba(255,214,120,0.85) 0%, rgba(255,170,60,0.35) 42%, transparent 70%);
+            filter:blur(6px);
+            animation:roleSunPulse 7s ease-in-out infinite;
+        }
+        @keyframes roleSunPulse { 0%,100% { transform:scale(1); } 50% { transform:scale(1.09); } }
+
+        /* 구름 */
+        .role-cloud {
+            border-radius:50%;
+            background:radial-gradient(circle at 40% 45%, rgba(226,236,248,0.34), rgba(180,200,225,0.12) 60%, transparent 75%);
+            filter:blur(18px);
+        }
+        .role-cloud.c1 { width:420px; height:170px; top:9%; left:-160px; animation:roleCloudDrift 44s linear infinite; }
+        .role-cloud.c2 { width:340px; height:140px; top:26%; left:-220px; animation:roleCloudDrift 62s linear infinite; animation-delay:-18s; }
+        .role-cloud.c3 { width:500px; height:200px; top:2%; left:-300px; animation:roleCloudDrift 78s linear infinite; animation-delay:-40s; }
+        @keyframes roleCloudDrift {
+            from { transform:translateX(0); }
+            to { transform:translateX(140vw); }
+        }
+
+        /* 눈 */
+        .role-snow { inset:-30% 0 0; }
+        .role-snow::before, .role-snow::after {
+            content:""; position:absolute; inset:0;
+            background-image:
+                radial-gradient(2.6px 2.6px at 8% 12%, rgba(255,255,255,.95), transparent),
+                radial-gradient(2.2px 2.2px at 24% 32%, rgba(255,255,255,.85), transparent),
+                radial-gradient(3px 3px at 41% 8%, rgba(255,255,255,.9), transparent),
+                radial-gradient(2.1px 2.1px at 58% 26%, rgba(255,255,255,.8), transparent),
+                radial-gradient(2.8px 2.8px at 73% 14%, rgba(255,255,255,.92), transparent),
+                radial-gradient(2.3px 2.3px at 89% 34%, rgba(255,255,255,.85), transparent),
+                radial-gradient(2.5px 2.5px at 15% 58%, rgba(255,255,255,.88), transparent),
+                radial-gradient(2.2px 2.2px at 66% 62%, rgba(255,255,255,.8), transparent);
+            background-size:100% 420px;
+            animation:roleSnowFall 11s linear infinite;
+        }
+        .role-snow::after { animation-duration:17s; animation-delay:-6s; opacity:.7; transform:scale(1.25); }
+        @keyframes roleSnowFall {
+            from { background-position:0 -420px; }
+            to { background-position:24px 420px; }
+        }
+
+        /* 안개 · 열기 · 냉기 */
+        .role-fog {
+            inset:auto 0 0 0; height:55%;
+            background:linear-gradient(180deg, transparent, rgba(210,225,245,0.20) 55%, rgba(210,225,245,0.30));
+            filter:blur(10px);
+            animation:roleFogDrift 20s ease-in-out infinite alternate;
+        }
+        @keyframes roleFogDrift { from { transform:translateX(-3%); } to { transform:translateX(3%); } }
+        .role-heat {
+            inset:0;
+            background:
+                radial-gradient(900px 520px at 82% 6%, rgba(255,150,40,0.30), transparent 62%),
+                linear-gradient(180deg, rgba(255,120,30,0.16), transparent 55%);
+            animation:roleHeatShimmer 6s ease-in-out infinite;
+        }
+        @keyframes roleHeatShimmer { 0%,100% { opacity:.85; } 50% { opacity:1; } }
+        .role-frost {
+            inset:0;
+            background:
+                radial-gradient(900px 520px at 18% 8%, rgba(150,210,255,0.26), transparent 62%),
+                linear-gradient(180deg, rgba(190,225,255,0.14), transparent 60%);
+            box-shadow:inset 0 0 180px rgba(180,220,255,0.22);
+        }
+
+        /* 번개 */
+        .role-lightning {
+            inset:0; background:rgba(226,240,255,0.9); mix-blend-mode:screen;
+            animation:roleFlash 7.5s steps(1, end) infinite;
+        }
+        @keyframes roleFlash {
+            0%, 6%, 100% { opacity:0; }
+            1.2% { opacity:.55; }
+            2.0% { opacity:0; }
+            2.6% { opacity:.75; }
+            3.4% { opacity:0; }
+        }
+
+        /* 씬별 표시 */
+        #role-select-modal[data-weather="clear"] .role-sun { opacity:.85; }
+        #role-select-modal[data-weather="clear"] .role-cloud { opacity:.35; }
+
+        #role-select-modal[data-weather="rain"] .role-rain,
+        #role-select-modal[data-weather="storm"] .role-rain { opacity:.75; display:block; }
+        #role-select-modal[data-weather="rain"] .role-cloud,
+        #role-select-modal[data-weather="storm"] .role-cloud { opacity:1; }
+        #role-select-modal[data-weather="rain"] .role-fog,
+        #role-select-modal[data-weather="storm"] .role-fog { opacity:.75; }
+        #role-select-modal[data-weather="storm"] .role-lightning { opacity:1; }
+        #role-select-modal[data-weather="storm"] .role-rain { animation-duration:.75s; opacity:.95; }
+
+        #role-select-modal[data-weather="snow"] .role-snow { opacity:1; }
+        #role-select-modal[data-weather="snow"] .role-cloud { opacity:.9; }
+        #role-select-modal[data-weather="snow"] .role-frost { opacity:.9; }
+
+        #role-select-modal[data-weather="hot"] .role-sun { opacity:1; }
+        #role-select-modal[data-weather="hot"] .role-heat { opacity:1; }
+
+        #role-select-modal[data-weather="cold"] .role-frost { opacity:1; }
+        #role-select-modal[data-weather="cold"] .role-cloud { opacity:.5; }
+
+        /* 기본(비·눈 아님)에서는 빗줄기 숨김 */
+        .role-rain { display:none; }
+        #role-select-modal[data-weather="rain"] .role-rain,
+        #role-select-modal[data-weather="storm"] .role-rain { display:block; }
+
+        /* 낮 · 밤 */
+        #role-select-modal[data-night="0"] .role-stars { opacity:.25; }
+        #role-select-modal[data-night="1"] .role-stars { opacity:1; }
+        #role-select-modal[data-night="1"] { filter:saturate(.95) brightness(.92); }
+        #role-select-modal[data-night="0"][data-weather="clear"] { filter:saturate(1.06) brightness(1.06); }
+        #role-select-modal[data-night="1"][data-weather="clear"] .role-sun {
+            background:radial-gradient(circle, rgba(226,238,255,0.75) 0%, rgba(150,190,255,0.28) 45%, transparent 70%);
+            width:210px; height:210px; top:-50px; right:-30px;
+        }
+
+        /* 카드 안 날씨 표시 */
+        .role-weatherbar {
+            display:flex; align-items:center; justify-content:center; gap:7px;
+            margin-top:8px; padding:8px 12px; border-radius:14px;
+            border:0.5px solid rgba(60,60,67,0.10);
+            background:rgba(255,255,255,0.55);
+            font-size:11px; font-weight:750; color:#465468; letter-spacing:-.2px;
+            animation:roleRise .68s cubic-bezier(.16,1,.3,1) both; animation-delay:.38s;
+        }
+        .role-weather-ico {
+            width:22px; height:22px; display:inline-flex; align-items:center; justify-content:center;
+            border-radius:8px; font-size:11px; color:#0A6BFF; background:rgba(10,132,255,0.10);
+        }
+        #role-select-modal[data-weather="rain"] .role-weather-ico,
+        #role-select-modal[data-weather="storm"] .role-weather-ico { color:#0A84FF; background:rgba(10,132,255,0.14); }
+        #role-select-modal[data-weather="snow"] .role-weather-ico { color:#3AA0D8; background:rgba(90,200,250,0.18); }
+        #role-select-modal[data-weather="hot"] .role-weather-ico { color:#D2691E; background:rgba(255,149,0,0.16); }
+        #role-select-modal[data-weather="cold"] .role-weather-ico { color:#2C7BB6; background:rgba(90,160,230,0.16); }
+
+        @media (prefers-reduced-motion: reduce) {
+            .role-sun, .role-cloud, .role-snow, .role-snow::before, .role-snow::after,
+            .role-fog, .role-heat, .role-lightning, .role-weatherbar { animation:none !important; }
+        }
+
+        /* ===== 햇빛 · 날씨 배경 애니메이션 강화 ===== */
+        .role-daylight, .role-rays, .role-sun-core, .role-flare,
+        .role-shafts, .role-sparkle {
+            position:absolute; pointer-events:none; opacity:0; transition:opacity 1.4s ease;
+        }
+
+        /* 낮 하늘 밝기 */
+        .role-daylight {
+            inset:0;
+            background:
+                radial-gradient(1200px 700px at 78% -14%, rgba(255,214,130,0.42), transparent 58%),
+                radial-gradient(900px 620px at 20% 6%, rgba(120,200,255,0.30), transparent 62%),
+                linear-gradient(180deg, rgba(120,190,255,0.34) 0%, rgba(180,220,255,0.16) 42%, transparent 78%);
+            animation:roleDayBreathe 12s ease-in-out infinite;
+        }
+        @keyframes roleDayBreathe { 0%,100% { opacity:.9; } 50% { opacity:1; } }
+
+        /* 회전하는 햇살(갓레이) */
+        .role-rays {
+            top:-46vmin; right:-40vmin; width:104vmin; height:104vmin;
+            background:conic-gradient(
+                from 0deg,
+                rgba(255,224,150,0.30) 0deg 5deg, transparent 5deg 17deg,
+                rgba(255,214,120,0.24) 17deg 21deg, transparent 21deg 36deg,
+                rgba(255,232,170,0.28) 36deg 41deg, transparent 41deg 58deg,
+                rgba(255,214,120,0.22) 58deg 62deg, transparent 62deg 80deg,
+                rgba(255,228,160,0.26) 80deg 85deg, transparent 85deg 104deg,
+                rgba(255,214,120,0.20) 104deg 108deg, transparent 108deg 128deg,
+                rgba(255,230,165,0.24) 128deg 133deg, transparent 133deg 156deg,
+                rgba(255,214,120,0.18) 156deg 160deg, transparent 160deg 360deg);
+            filter:blur(3px);
+            mask-image:radial-gradient(closest-side, #000 6%, rgba(0,0,0,.75) 34%, transparent 76%);
+            -webkit-mask-image:radial-gradient(closest-side, #000 6%, rgba(0,0,0,.75) 34%, transparent 76%);
+            animation:roleRaySpin 48s linear infinite, roleRayGlow 6.5s ease-in-out infinite;
+        }
+        @keyframes roleRaySpin { to { transform:rotate(360deg); } }
+        @keyframes roleRayGlow { 0%,100% { opacity:.55; } 50% { opacity:.95; } }
+
+        /* 태양 코어 */
+        .role-sun-core {
+            top:-58px; right:-38px; width:170px; height:170px; border-radius:50%;
+            background:radial-gradient(circle, #FFF7DC 0%, #FFD873 34%, rgba(255,180,60,0.55) 58%, transparent 72%);
+            box-shadow:0 0 90px rgba(255,200,90,0.65);
+            animation:roleSunCore 5.5s ease-in-out infinite;
+        }
+        @keyframes roleSunCore {
+            0%,100% { transform:scale(1); filter:blur(0.5px); }
+            50% { transform:scale(1.07); filter:blur(0px); }
+        }
+
+        /* 렌즈 플레어 */
+        .role-flare { border-radius:50%; filter:blur(1.5px); mix-blend-mode:screen; }
+        .role-flare.f1 { width:56px; height:56px; top:26%; right:34%; background:radial-gradient(circle, rgba(255,225,160,0.55), transparent 70%); animation:roleFlareDrift 9s ease-in-out infinite; }
+        .role-flare.f2 { width:32px; height:32px; top:40%; right:52%; background:radial-gradient(circle, rgba(180,235,255,0.5), transparent 70%); animation:roleFlareDrift 11s ease-in-out infinite; animation-delay:-3s; }
+        .role-flare.f3 { width:78px; height:78px; top:56%; right:68%; background:radial-gradient(circle, rgba(255,200,120,0.35), transparent 70%); animation:roleFlareDrift 13s ease-in-out infinite; animation-delay:-6s; }
+        @keyframes roleFlareDrift {
+            0%,100% { transform:translate(0,0) scale(1); opacity:.55; }
+            50% { transform:translate(-14px,10px) scale(1.16); opacity:.95; }
+        }
+
+        /* 사선으로 내리쬐는 빛기둥 */
+        .role-shafts {
+            inset:-25% -10%;
+            background:repeating-linear-gradient(
+                108deg,
+                rgba(255,236,190,0.20) 0px, rgba(255,236,190,0.20) 26px,
+                transparent 26px, transparent 88px);
+            filter:blur(12px);
+            mask-image:radial-gradient(120% 90% at 82% 0%, #000 8%, rgba(0,0,0,.55) 42%, transparent 78%);
+            -webkit-mask-image:radial-gradient(120% 90% at 82% 0%, #000 8%, rgba(0,0,0,.55) 42%, transparent 78%);
+            animation:roleShaftSlide 14s ease-in-out infinite alternate;
+        }
+        @keyframes roleShaftSlide {
+            from { transform:translateX(-4%) translateY(-2%); opacity:.55; }
+            to { transform:translateX(4%) translateY(2%); opacity:.95; }
+        }
+
+        /* 공기 중 반짝임 */
+        .role-sparkle {
+            inset:0;
+            background-image:
+                radial-gradient(2px 2px at 18% 30%, rgba(255,245,210,.95), transparent),
+                radial-gradient(1.6px 1.6px at 34% 52%, rgba(255,255,255,.8), transparent),
+                radial-gradient(2.2px 2.2px at 58% 22%, rgba(255,240,190,.9), transparent),
+                radial-gradient(1.4px 1.4px at 72% 46%, rgba(255,255,255,.75), transparent),
+                radial-gradient(2px 2px at 86% 62%, rgba(255,238,190,.85), transparent);
+            animation:roleSparkleFloat 9s ease-in-out infinite alternate, roleTwinkle 3.2s ease-in-out infinite alternate;
+        }
+        @keyframes roleSparkleFloat {
+            from { transform:translateY(0) translateX(0); }
+            to { transform:translateY(-16px) translateX(10px); }
+        }
+
+        /* ===== 씬별 적용 ===== */
+        /* 맑음(주간) : 햇빛 풀세트 */
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-daylight { opacity:1; }
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-rays { opacity:1; }
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-sun-core { opacity:1; }
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-flare { opacity:1; }
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-shafts { opacity:.9; }
+        #role-select-modal[data-night="0"][data-weather="clear"] .role-sparkle { opacity:.85; }
+
+        /* 폭염 : 더 강하고 붉은 햇빛 */
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-daylight { opacity:1; filter:hue-rotate(-12deg) saturate(1.25); }
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-rays { opacity:1; filter:blur(3px) hue-rotate(-14deg) saturate(1.35); animation-duration:34s, 4.5s; }
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-sun-core { opacity:1; transform:scale(1.2); box-shadow:0 0 120px rgba(255,150,40,0.8); }
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-shafts { opacity:1; }
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-flare { opacity:1; }
+
+        /* 한파(주간) : 창백한 겨울 햇살 */
+        #role-select-modal[data-night="0"][data-weather="cold"] .role-daylight { opacity:.7; filter:hue-rotate(15deg) saturate(.75); }
+        #role-select-modal[data-night="0"][data-weather="cold"] .role-rays { opacity:.55; filter:blur(5px) saturate(.5) brightness(1.1); }
+        #role-select-modal[data-night="0"][data-weather="cold"] .role-sun-core { opacity:.8; filter:saturate(.55) brightness(1.12); }
+        #role-select-modal[data-night="0"][data-weather="cold"] .role-sparkle { opacity:.7; }
+
+        /* 비 · 눈 : 구름 사이로 스며드는 약한 빛 */
+        #role-select-modal[data-night="0"][data-weather="rain"] .role-daylight { opacity:.35; filter:saturate(.6) brightness(.9); }
+        #role-select-modal[data-night="0"][data-weather="snow"] .role-daylight { opacity:.5; filter:hue-rotate(12deg) saturate(.7); }
+        #role-select-modal[data-night="0"][data-weather="snow"] .role-sparkle { opacity:.6; }
+        #role-select-modal[data-weather="storm"] .role-daylight { opacity:.18; }
+
+        /* 야간 : 달빛 + 은은한 달무리 */
+        #role-select-modal[data-night="1"][data-weather="clear"] .role-sun-core {
+            opacity:1; width:120px; height:120px; top:-30px; right:-14px;
+            background:radial-gradient(circle, #F4F9FF 0%, #CFE2FF 40%, rgba(150,190,255,0.35) 62%, transparent 76%);
+            box-shadow:0 0 70px rgba(170,205,255,0.55);
+        }
+        #role-select-modal[data-night="1"][data-weather="clear"] .role-rays { opacity:.28; filter:blur(6px) saturate(.4) brightness(1.2); animation-duration:80s, 9s; }
+        #role-select-modal[data-night="1"][data-weather="clear"] .role-sparkle { opacity:.5; }
+        #role-select-modal[data-night="1"][data-weather="hot"] .role-sun-core { opacity:.9; }
+        #role-select-modal[data-night="1"] .role-daylight { opacity:0 !important; }
+        #role-select-modal[data-night="1"] .role-shafts { opacity:0 !important; }
+
+        /* 기존 sun 레이어는 광원 보조로만 사용 */
+        .role-sun { filter:blur(14px); }
+
+        @media (max-width:420px) {
+            .role-rays { top:-40vmin; right:-46vmin; width:112vmin; height:112vmin; }
+            .role-sun-core { width:140px; height:140px; top:-48px; right:-30px; }
+            .role-flare.f3 { display:none; }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            .role-daylight, .role-rays, .role-sun-core, .role-flare,
+            .role-shafts, .role-sparkle { animation:none !important; }
+        }
+
     </style>
 </head>
 <body>
 
-<div id="role-select-modal" role="dialog" aria-modal="true">
+<div id="role-select-modal" role="dialog" aria-modal="true" data-weather="clear" data-night="0">
     <div class="role-bg" aria-hidden="true">
         <div class="role-aurora"></div>
         <div class="role-stars"></div>
+        <div class="role-daylight"></div>
+        <div class="role-rays"></div>
+        <div class="role-sun"></div>
+        <div class="role-sun-core"></div>
+        <div class="role-flare f1"></div>
+        <div class="role-flare f2"></div>
+        <div class="role-flare f3"></div>
+        <div class="role-shafts"></div>
+        <div class="role-sparkle"></div>
+        <div class="role-cloud c1"></div>
+        <div class="role-cloud c2"></div>
+        <div class="role-cloud c3"></div>
         <div class="role-rain"></div>
+        <div class="role-snow"></div>
+        <div class="role-fog"></div>
+        <div class="role-heat"></div>
+        <div class="role-frost"></div>
+        <div class="role-lightning"></div>
         <div class="role-bg-grid"></div>
         <div class="role-orb a"></div>
         <div class="role-orb b"></div>
@@ -1798,19 +2321,21 @@
             <span class="role-live"><i></i>실시간 연동</span>
             <span id="role-clock">--:--</span>
         </div>
+        <div class="role-weatherbar" id="role-weatherbar">
+            <span class="role-weather-ico" id="role-weather-ico"><i class="fas fa-circle-notch fa-spin"></i></span>
+            <span class="role-weather-text" id="role-weather-text">세종시 실황 확인 중…</span>
+        </div>
         <div class="role-divider">기관 선택</div>
         <div class="role-btns">
             <button type="button" class="role-btn police" onclick="selectUserRole('police')">
                 <span class="role-btn-ico"><i class="fas fa-shield-halved"></i></span>
                 <span class="role-btn-name">경찰</span>
                 <small>북부서 · 남부서</small>
-                <span class="role-btn-go"><i class="fas fa-arrow-right"></i></span>
             </button>
             <button type="button" class="role-btn city" onclick="selectUserRole('city')">
                 <span class="role-btn-ico"><i class="fas fa-building-columns"></i></span>
                 <span class="role-btn-name">시청</span>
                 <small>도로통제 확인</small>
-                <span class="role-btn-go"><i class="fas fa-arrow-right"></i></span>
             </button>
         </div>
         <div class="role-chips">
@@ -2512,6 +3037,80 @@
         el.textContent = `${now.getFullYear()}.${pad(now.getMonth() + 1)}.${pad(now.getDate())}(${days[now.getDay()]}) ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
     }
 
+    // 첫 화면 배경을 세종시 실황(기상청 초단기실황)에 맞춰 자동 전환
+    let roleWeatherTimer = null;
+
+    function setRoleWeatherScene(scene, night, label, iconHtml) {
+        const m = document.getElementById('role-select-modal');
+        if (m) {
+            m.setAttribute('data-weather', scene);
+            m.setAttribute('data-night', night ? '1' : '0');
+        }
+        const t = document.getElementById('role-weather-text');
+        const i = document.getElementById('role-weather-ico');
+        if (t) t.textContent = label;
+        if (i) i.innerHTML = iconHtml;
+    }
+
+    function isSejongNightNow() {
+        try {
+            const now = new Date();
+            const hours = now.getHours() + now.getMinutes() / 60;
+            const sunrise = calculateSunTime(now, SEJONG_SUN_LAT, SEJONG_SUN_LNG, true);
+            const sunset = calculateSunTime(now, SEJONG_SUN_LAT, SEJONG_SUN_LNG, false);
+            if (sunrise === null || sunset === null) return hours < 6 || hours >= 19;
+            return hours < sunrise || hours >= sunset;
+        } catch (e) {
+            const h = new Date().getHours();
+            return h < 6 || h >= 19;
+        }
+    }
+
+    async function applyRoleWeatherScene() {
+        const night = isSejongNightNow();
+        try {
+            const base = await getBestUltraNcstBase();
+            const area = SEJONG_WEATHER_AREAS.find(a => a.name === '조치원읍') || SEJONG_WEATHER_AREAS[0];
+            const data = await fetchKmaShortJsonFast('getUltraSrtNcst', {
+                base_date: base.baseDate,
+                base_time: base.baseTime,
+                nx: String(area.nx),
+                ny: String(area.ny)
+            }, 4500);
+            const items = data?.response?.body?.items?.item || [];
+            const arr = Array.isArray(items) ? items : [items];
+            const map = {};
+            arr.forEach(item => { if (item && item.category) map[item.category] = item.obsrValue; });
+
+            const pty = Number(map.PTY ?? 0);
+            const rn1 = parseKmaNumber(map.RN1, 0.5);
+            const t1h = Number(map.T1H);
+            const wsd = Number(map.WSD);
+            const temp = Number.isFinite(t1h) ? `${t1h}℃` : '';
+            const windText = Number.isFinite(wsd) ? ` · 풍속 ${wsd}m/s` : '';
+
+            if ([3, 6, 7].includes(pty)) {
+                setRoleWeatherScene('snow', night, `세종 눈 내림${temp ? ' · ' + temp : ''}${windText}`, '<i class="fas fa-snowflake"></i>');
+            } else if ([1, 2, 5].includes(pty)) {
+                const heavy = rn1 >= 10;
+                setRoleWeatherScene(heavy ? 'storm' : 'rain', night,
+                    `세종 ${heavy ? '강한 비' : '비'} · 시간당 ${rn1.toFixed(1)}mm${temp ? ' · ' + temp : ''}`,
+                    heavy ? '<i class="fas fa-cloud-bolt"></i>' : '<i class="fas fa-cloud-rain"></i>');
+            } else if (Number.isFinite(t1h) && t1h >= 31) {
+                setRoleWeatherScene('hot', night, `세종 폭염 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-high"></i>');
+            } else if (Number.isFinite(t1h) && t1h <= -3) {
+                setRoleWeatherScene('cold', night, `세종 한파 주의 · ${temp}${windText}`, '<i class="fas fa-temperature-low"></i>');
+            } else {
+                setRoleWeatherScene('clear', night,
+                    `세종 ${night ? '맑은 밤' : '맑음'}${temp ? ' · ' + temp : ''}${windText}`,
+                    night ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>');
+            }
+        } catch (e) {
+            console.warn('첫 화면 날씨 배경 적용 실패:', e);
+            setRoleWeatherScene('clear', night, `세종 ${night ? '야간' : '주간'} 화면`, night ? '<i class="fas fa-moon"></i>' : '<i class="fas fa-sun"></i>');
+        }
+    }
+
     function showRoleSelect() {
         const m = document.getElementById('role-select-modal');
         if (m) m.style.display = 'flex';
@@ -2519,6 +3118,11 @@
         updateRoleClock();
         if (roleClockTimer) clearInterval(roleClockTimer);
         roleClockTimer = setInterval(updateRoleClock, 1000);
+        applyRoleWeatherScene();
+        if (roleWeatherTimer) clearInterval(roleWeatherTimer);
+        roleWeatherTimer = setInterval(() => {
+            if (!document.hidden) applyRoleWeatherScene();
+        }, 300000);
     }
 
     function applyUserRole(role, { persist = true } = {}) {
@@ -2531,6 +3135,7 @@
         if (m) m.style.display = 'none';
         document.body.style.overflow = '';
         if (roleClockTimer) { clearInterval(roleClockTimer); roleClockTimer = null; }
+        if (roleWeatherTimer) { clearInterval(roleWeatherTimer); roleWeatherTimer = null; }
         const btn = document.getElementById('admin-btn');
         if (btn && !isAdmin) btn.innerText = `${ROLE_LABELS[userRole]} 관리자`;
         if (userRole === 'city') {
