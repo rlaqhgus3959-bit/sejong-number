@@ -2409,11 +2409,467 @@
             .role-aurora, .role-sun-core, .role-orb, .role-cloud { animation:none !important; }
         }
 
+        /* ===== 시간대 동기화 배경 (새벽 · 낮 · 노을 · 밤) ===== */
+        #role-select-modal {
+            transition:background-color 2s ease;
+        }
+        #role-select-modal::after { opacity:.028; }
+
+        /* 공통 : 하늘 레이어를 시간대별로 다시 칠함 */
+        .role-daylight { inset:0; opacity:1 !important; transition:opacity 1.6s ease, background 1.6s ease; }
+        .role-aurora { filter:blur(96px) saturate(112%); opacity:.9; }
+
+        /* --- 낮 : 밝고 청량한 하늘 --- */
+        #role-select-modal[data-phase="day"] { background-color:#BFE0FA; }
+        #role-select-modal[data-phase="day"] .role-daylight {
+            background:
+                radial-gradient(74% 48% at 80% -8%, rgba(255,246,214,0.92), transparent 62%),
+                linear-gradient(180deg, #7FC0F2 0%, #A9D8F7 34%, #D9EDFB 66%, #EFF6FC 100%);
+        }
+        #role-select-modal[data-phase="day"] .role-aurora {
+            background:
+                radial-gradient(44% 40% at 74% 14%, rgba(255,236,180,0.55), transparent 68%),
+                radial-gradient(46% 42% at 20% 28%, rgba(140,205,250,0.45), transparent 70%),
+                radial-gradient(52% 46% at 56% 82%, rgba(200,232,250,0.40), transparent 74%);
+        }
+        #role-select-modal[data-phase="day"] .role-sun-core {
+            opacity:1 !important;
+            background:radial-gradient(circle, rgba(255,255,245,0.95) 0%, rgba(255,240,190,0.62) 20%, rgba(255,222,150,0.28) 42%, transparent 70%);
+        }
+        #role-select-modal[data-phase="day"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(255,255,255,0.85), rgba(255,255,255,0.35) 58%, transparent 78%);
+            opacity:.85 !important;
+        }
+
+        /* --- 새벽 : 살구빛에서 하늘색으로 --- */
+        #role-select-modal[data-phase="dawn"] { background-color:#F6D9C8; }
+        #role-select-modal[data-phase="dawn"] .role-daylight {
+            background:
+                radial-gradient(70% 46% at 74% 6%, rgba(255,214,170,0.90), transparent 62%),
+                linear-gradient(180deg, #9DBEE8 0%, #E3C3C6 40%, #FAD9BF 72%, #FFE9D3 100%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-aurora {
+            background:
+                radial-gradient(46% 42% at 76% 20%, rgba(255,196,150,0.55), transparent 70%),
+                radial-gradient(48% 44% at 18% 34%, rgba(150,180,240,0.45), transparent 72%),
+                radial-gradient(52% 46% at 58% 84%, rgba(255,220,190,0.40), transparent 74%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-sun-core {
+            opacity:1 !important; top:-6vmin; right:-6vmin;
+            background:radial-gradient(circle, rgba(255,244,222,0.95) 0%, rgba(255,205,150,0.60) 22%, rgba(255,170,110,0.26) 46%, transparent 72%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(255,232,214,0.78), rgba(255,214,190,0.30) 60%, transparent 78%);
+            opacity:.9 !important;
+        }
+
+        /* --- 노을 : 주황·보라 그라데이션 --- */
+        #role-select-modal[data-phase="dusk"] { background-color:#E7A177; }
+        #role-select-modal[data-phase="dusk"] .role-daylight {
+            background:
+                radial-gradient(72% 46% at 22% 12%, rgba(255,186,120,0.85), transparent 64%),
+                linear-gradient(180deg, #4E5C99 0%, #9A6E9E 34%, #E39A73 68%, #FBC79A 100%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-aurora {
+            background:
+                radial-gradient(46% 42% at 24% 24%, rgba(255,170,110,0.55), transparent 70%),
+                radial-gradient(48% 44% at 76% 32%, rgba(150,120,220,0.42), transparent 72%),
+                radial-gradient(52% 46% at 50% 86%, rgba(255,200,150,0.38), transparent 74%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-sun-core {
+            opacity:1 !important; left:-8vmin; right:auto; top:6vmin;
+            background:radial-gradient(circle, rgba(255,238,206,0.92) 0%, rgba(255,182,110,0.58) 24%, rgba(255,130,80,0.22) 48%, transparent 74%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(255,206,170,0.65), rgba(200,140,150,0.25) 60%, transparent 78%);
+            opacity:.9 !important;
+        }
+
+        /* --- 밤 : 남색 야경 (기존보다 살짝 밝게) --- */
+        #role-select-modal[data-phase="night"] { background-color:#12294D; }
+        #role-select-modal[data-phase="night"] .role-daylight {
+            background:
+                radial-gradient(66% 42% at 78% 2%, rgba(150,190,255,0.30), transparent 64%),
+                linear-gradient(180deg, #16305A 0%, #143059 42%, #101F3C 78%, #0A162B 100%);
+        }
+        #role-select-modal[data-phase="night"] .role-aurora {
+            background:
+                radial-gradient(46% 42% at 74% 18%, rgba(110,160,255,0.34), transparent 70%),
+                radial-gradient(48% 44% at 20% 34%, rgba(70,130,220,0.30), transparent 72%),
+                radial-gradient(52% 46% at 58% 84%, rgba(90,190,220,0.22), transparent 74%);
+        }
+        #role-select-modal[data-phase="night"] .role-sun-core {
+            opacity:1 !important; width:34vmin; height:34vmin; top:-8vmin; right:-4vmin;
+            background:radial-gradient(circle, rgba(236,245,255,0.85) 0%, rgba(190,220,255,0.35) 26%, rgba(150,190,255,0.14) 48%, transparent 72%);
+        }
+        #role-select-modal[data-phase="night"] .role-stars { opacity:.85 !important; }
+
+        /* --- 날씨 보정 : 시간대 위에 얹기 --- */
+        #role-select-modal[data-weather="rain"] .role-daylight { filter:saturate(.72) brightness(.86); }
+        #role-select-modal[data-weather="storm"] .role-daylight { filter:saturate(.6) brightness(.7); }
+        #role-select-modal[data-weather="snow"] .role-daylight { filter:saturate(.78) brightness(1.04) hue-rotate(6deg); }
+        #role-select-modal[data-weather="hot"] .role-daylight { filter:saturate(1.15) brightness(1.05); }
+        #role-select-modal[data-weather="cold"] .role-daylight { filter:saturate(.85) brightness(1.03) hue-rotate(8deg); }
+        #role-select-modal[data-weather="rain"] .role-cloud,
+        #role-select-modal[data-weather="storm"] .role-cloud,
+        #role-select-modal[data-weather="snow"] .role-cloud { opacity:1 !important; }
+        #role-select-modal[data-weather="rain"] .role-sun-core,
+        #role-select-modal[data-weather="storm"] .role-sun-core { opacity:.25 !important; }
+        .role-rain { opacity:.55 !important; }
+        #role-select-modal[data-weather="storm"] .role-rain { opacity:.8 !important; }
+
+        /* 밝은 배경에서의 가독성 보정 */
+        #role-select-modal[data-phase="day"] .role-card,
+        #role-select-modal[data-phase="dawn"] .role-card,
+        #role-select-modal[data-phase="dusk"] .role-card {
+            background:linear-gradient(168deg, rgba(255,255,255,0.94) 0%, rgba(248,251,255,0.90) 100%);
+            box-shadow:0 30px 64px rgba(20,45,80,0.28), inset 0 1px 0 rgba(255,255,255,0.9);
+            border-color:rgba(255,255,255,0.85);
+        }
+        #role-select-modal[data-phase="day"] .role-card-glow,
+        #role-select-modal[data-phase="dawn"] .role-card-glow,
+        #role-select-modal[data-phase="dusk"] .role-card-glow { opacity:.18; }
+        #role-select-modal[data-phase="day"] .role-skyline { opacity:.28; }
+        #role-select-modal[data-phase="dawn"] .role-skyline { opacity:.42; }
+        #role-select-modal[data-phase="dusk"] .role-skyline { opacity:.62; }
+        #role-select-modal[data-phase="night"] .role-skyline { opacity:.72; }
+        #role-select-modal[data-phase="day"] .role-skyglow {
+            background:linear-gradient(180deg, transparent, rgba(160,205,240,0.30) 48%, rgba(210,232,248,0.65) 100%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-skyglow {
+            background:linear-gradient(180deg, transparent, rgba(250,205,175,0.34) 48%, rgba(255,228,205,0.70) 100%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-skyglow {
+            background:linear-gradient(180deg, transparent, rgba(255,170,120,0.30) 46%, rgba(120,70,110,0.70) 100%);
+        }
+        #role-select-modal[data-phase="night"] .role-skyglow {
+            background:linear-gradient(180deg, transparent, rgba(20,60,110,0.30) 45%, rgba(8,18,36,0.90) 100%);
+        }
+
+        /* 이전 어두운 씬 규칙 무효화 */
+        #role-select-modal[data-night="1"] { filter:none !important; }
+        #role-select-modal[data-night="0"][data-weather="clear"] { filter:none !important; }
+        #role-select-modal[data-night="0"][data-weather="hot"] .role-sun-core { transform:none; }
+
+        /* ===== iPhone 날씨 앱 스타일 하늘 ===== */
+        /* 잡티 · 메시 · 태양 원 제거 → 순수 그라디언트 하늘 */
+        #role-select-modal::after { display:none !important; }
+        .role-aurora, .role-orb, .role-sun, .role-sun-core,
+        .role-rays, .role-flare, .role-shafts, .role-sparkle,
+        .role-heat, .role-frost, .role-fog { display:none !important; }
+
+        #role-select-modal { transition:background-color 2.4s ease; }
+        .role-daylight {
+            position:absolute; inset:0; opacity:1 !important;
+            transition:background 2.4s ease, filter 1.6s ease;
+        }
+
+        /* 지평선 광원 */
+        .role-horizon {
+            position:absolute; left:-10%; right:-10%; bottom:0;
+            height:46%; pointer-events:none;
+            background:radial-gradient(60% 100% at 50% 100%, rgba(255,255,255,0.34), transparent 72%);
+            transition:background 2s ease;
+        }
+
+        /* 구름 : 폭 넓고 부드러운 띠가 서로 다른 속도로 흐름 */
+        .role-cloud {
+            position:absolute; border-radius:50%;
+            background:radial-gradient(closest-side, rgba(255,255,255,0.72), rgba(255,255,255,0.26) 55%, transparent 78%);
+            filter:blur(26px);
+            opacity:.55; transition:opacity 1.6s ease;
+        }
+        .role-cloud.c1 { width:78vw; height:26vh; top:6%;  left:-70vw; animation:roleCloudFlow 78s linear infinite; }
+        .role-cloud.c2 { width:62vw; height:20vh; top:20%; left:-60vw; animation:roleCloudFlow 112s linear infinite; animation-delay:-30s; opacity:.42; }
+        .role-cloud.c3 { width:96vw; height:32vh; top:34%; left:-90vw; animation:roleCloudFlow 150s linear infinite; animation-delay:-70s; opacity:.34; }
+        .role-cloud.c4 { width:54vw; height:16vh; top:50%; left:-55vw; animation:roleCloudFlow 96s linear infinite; animation-delay:-45s; opacity:.30; filter:blur(34px); }
+        .role-cloud.c5 { width:120vw; height:38vh; top:62%; left:-110vw; animation:roleCloudFlow 190s linear infinite; animation-delay:-110s; opacity:.24; filter:blur(44px); }
+        @keyframes roleCloudFlow {
+            from { transform:translateX(0); }
+            to { transform:translateX(210vw); }
+        }
+
+        /* ---------- 낮 (맑음) ---------- */
+        #role-select-modal[data-phase="day"] { background-color:#2E7BD6; }
+        #role-select-modal[data-phase="day"] .role-daylight {
+            background:linear-gradient(180deg,
+                #1D62C4 0%, #2E7BD6 26%, #4E9BE6 52%, #85C3F0 76%, #BEE0F7 100%);
+        }
+        #role-select-modal[data-phase="day"] .role-horizon {
+            background:radial-gradient(60% 100% at 50% 100%, rgba(255,255,255,0.55), transparent 74%);
+        }
+
+        /* ---------- 새벽 ---------- */
+        #role-select-modal[data-phase="dawn"] { background-color:#4B5E9E; }
+        #role-select-modal[data-phase="dawn"] .role-daylight {
+            background:linear-gradient(180deg,
+                #2B3C74 0%, #4B5E9E 24%, #8C6E9E 48%, #D08A82 74%, #F5B589 100%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-horizon {
+            background:radial-gradient(62% 100% at 52% 100%, rgba(255,196,140,0.60), transparent 74%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(255,214,190,0.62), rgba(210,150,160,0.24) 56%, transparent 78%);
+        }
+
+        /* ---------- 노을 ---------- */
+        #role-select-modal[data-phase="dusk"] { background-color:#3B4A86; }
+        #role-select-modal[data-phase="dusk"] .role-daylight {
+            background:linear-gradient(180deg,
+                #17255A 0%, #3B4A86 24%, #7A5590 48%, #CE7160 76%, #F4A45F 100%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-horizon {
+            background:radial-gradient(64% 100% at 48% 100%, rgba(255,170,90,0.62), transparent 74%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(255,196,160,0.52), rgba(150,90,120,0.24) 56%, transparent 78%);
+        }
+
+        /* ---------- 밤 ---------- */
+        #role-select-modal[data-phase="night"] { background-color:#122A50; }
+        #role-select-modal[data-phase="night"] .role-daylight {
+            background:linear-gradient(180deg,
+                #06122A 0%, #0D2247 28%, #14365F 56%, #1E4A78 80%, #2C5F92 100%);
+        }
+        #role-select-modal[data-phase="night"] .role-horizon {
+            background:radial-gradient(58% 100% at 50% 100%, rgba(120,180,255,0.30), transparent 74%);
+        }
+        #role-select-modal[data-phase="night"] .role-cloud {
+            background:radial-gradient(closest-side, rgba(180,205,240,0.30), rgba(120,150,200,0.12) 56%, transparent 78%);
+            opacity:.35;
+        }
+        #role-select-modal[data-phase="night"] .role-stars { opacity:.9 !important; }
+
+        /* ---------- 날씨 보정 ---------- */
+        #role-select-modal[data-weather="rain"] .role-daylight { filter:saturate(.55) brightness(.80); }
+        #role-select-modal[data-weather="storm"] .role-daylight { filter:saturate(.42) brightness(.62); }
+        #role-select-modal[data-weather="snow"] .role-daylight { filter:saturate(.5) brightness(1.02); }
+        #role-select-modal[data-weather="hot"] .role-daylight { filter:saturate(1.12) brightness(1.04); }
+        #role-select-modal[data-weather="cold"] .role-daylight { filter:saturate(.72) brightness(1.02); }
+        #role-select-modal[data-weather="rain"] .role-cloud { opacity:.9; filter:blur(30px); }
+        #role-select-modal[data-weather="storm"] .role-cloud { opacity:1; filter:blur(34px); }
+        #role-select-modal[data-weather="snow"] .role-cloud { opacity:.85; }
+        #role-select-modal[data-weather="rain"] .role-horizon,
+        #role-select-modal[data-weather="storm"] .role-horizon { opacity:.4; }
+
+        /* 비 · 눈 : 앞뒤 레이어 느낌으로 은은하게 */
+        .role-rain { opacity:.5 !important; filter:blur(0.3px); }
+        #role-select-modal[data-weather="storm"] .role-rain { opacity:.72 !important; }
+        .role-snow::before, .role-snow::after { filter:blur(0.8px); }
+
+        /* 스카이라인 : 아이폰 위젯처럼 얇은 실루엣 */
+        .role-skyline { opacity:.55; height:min(26vh, 170px); }
+        #role-select-modal[data-phase="day"] .role-skyline { opacity:.22; }
+        #role-select-modal[data-phase="dawn"] .role-skyline { opacity:.40; }
+        #role-select-modal[data-phase="dusk"] .role-skyline { opacity:.58; }
+        #role-select-modal[data-phase="night"] .role-skyline { opacity:.68; }
+        .role-skyglow { display:none !important; }
+
+        /* 카드 : 하늘 위에 뜬 유리 패널 */
+        .role-card {
+            background:linear-gradient(168deg, rgba(255,255,255,0.90) 0%, rgba(247,251,255,0.86) 100%) !important;
+            box-shadow:0 28px 64px rgba(6,24,52,0.34), inset 0 1px 0 rgba(255,255,255,0.92) !important;
+            border-color:rgba(255,255,255,0.72) !important;
+        }
+        .role-card-glow { opacity:.14 !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .role-cloud { animation:none !important; }
+        }
+
+        /* ===== iOS 날씨 사진 배경 스타일 ===== */
+        .role-sunbloom, .role-halo, .role-flarecol, .role-haze {
+            position:absolute; pointer-events:none; transition:opacity 1.6s ease;
+        }
+
+        /* 상단 중앙 태양 블룸 */
+        .role-sunbloom {
+            top:-16vmin; left:50%; width:92vmin; height:92vmin;
+            transform:translateX(-50%);
+            background:
+                radial-gradient(circle,
+                    rgba(255,255,255,1) 0%,
+                    rgba(255,255,255,0.92) 6%,
+                    rgba(238,246,255,0.62) 13%,
+                    rgba(200,226,252,0.32) 24%,
+                    rgba(160,200,240,0.14) 38%,
+                    transparent 62%);
+            filter:blur(4px);
+            animation:roleSunBloom 9s ease-in-out infinite;
+        }
+        @keyframes roleSunBloom {
+            0%,100% { opacity:.94; transform:translateX(-50%) scale(1); }
+            50% { opacity:1; transform:translateX(-50%) scale(1.045); }
+        }
+
+        /* 태양 주변 헤일로(무지개빛 링) */
+        .role-halo {
+            top:-30vmin; left:50%; width:132vmin; height:132vmin;
+            transform:translateX(-50%);
+            border-radius:50%;
+            background:
+                radial-gradient(circle,
+                    transparent 30%,
+                    rgba(255,240,210,0.10) 34%,
+                    rgba(190,225,255,0.13) 38%,
+                    rgba(255,255,255,0.05) 43%,
+                    transparent 52%);
+            filter:blur(10px);
+            animation:roleHaloPulse 13s ease-in-out infinite;
+        }
+        @keyframes roleHaloPulse { 0%,100% { opacity:.7; } 50% { opacity:1; } }
+
+        /* 태양 아래로 떨어지는 렌즈 플레어 */
+        .role-flarecol { top:0; left:50%; width:1px; height:100%; }
+        .role-flarecol .fl {
+            position:absolute; left:50%; border-radius:50%;
+            transform:translateX(-50%);
+            mix-blend-mode:screen;
+            animation:roleFlarePulse 7s ease-in-out infinite;
+        }
+        .role-flarecol .f1 { top:30%; width:16vmin; height:16vmin; background:radial-gradient(circle, rgba(220,238,255,0.22), transparent 68%); }
+        .role-flarecol .f2 { top:40%; width:9vmin;  height:9vmin;  background:radial-gradient(circle, rgba(255,246,220,0.20), transparent 66%); animation-delay:-1.4s; }
+        .role-flarecol .f3 { top:50%; width:22vmin; height:22vmin; background:radial-gradient(circle, rgba(200,228,255,0.16), transparent 70%); animation-delay:-2.8s; }
+        .role-flarecol .f4 { top:62%; width:12vmin; height:12vmin; background:radial-gradient(circle, rgba(255,255,255,0.14), transparent 68%); animation-delay:-4.2s; }
+        .role-flarecol .f5 { top:74%; width:28vmin; height:28vmin; background:radial-gradient(circle, rgba(190,220,255,0.12), transparent 72%); animation-delay:-5.6s; }
+        @keyframes roleFlarePulse {
+            0%,100% { opacity:.55; transform:translateX(-50%) scale(1); }
+            50% { opacity:1; transform:translateX(-50%) scale(1.12); }
+        }
+
+        /* 대기 헤이즈 */
+        .role-haze {
+            inset:0;
+            background:
+                radial-gradient(120% 55% at 50% 0%, rgba(255,255,255,0.30), transparent 62%),
+                linear-gradient(180deg, rgba(255,255,255,0.10) 0%, transparent 34%);
+            filter:blur(18px);
+            animation:roleHazeDrift 18s ease-in-out infinite alternate;
+        }
+        @keyframes roleHazeDrift { from { opacity:.75; } to { opacity:1; } }
+
+        /* --- 낮 하늘 : 사진처럼 짙은 코발트 --- */
+        #role-select-modal[data-phase="day"] { background-color:#5A8FC8; }
+        #role-select-modal[data-phase="day"] .role-daylight {
+            background:linear-gradient(180deg,
+                #6FA3D6 0%, #5D93CC 22%, #5289C6 46%, #4C82C0 72%, #5B90C9 100%);
+        }
+        #role-select-modal[data-phase="day"] .role-horizon { opacity:.4; }
+        #role-select-modal[data-phase="day"] .role-cloud { opacity:.30; }
+
+        /* 새벽 · 노을 : 태양을 낮게, 색은 따뜻하게 */
+        #role-select-modal[data-phase="dawn"] .role-sunbloom {
+            top:12vmin; width:78vmin; height:78vmin;
+            background:radial-gradient(circle, rgba(255,252,242,1) 0%, rgba(255,232,196,0.85) 8%, rgba(255,206,150,0.45) 20%, rgba(255,176,120,0.18) 36%, transparent 62%);
+        }
+        #role-select-modal[data-phase="dawn"] .role-halo { opacity:.55; }
+        #role-select-modal[data-phase="dusk"] .role-sunbloom {
+            top:18vmin; left:34%; width:74vmin; height:74vmin;
+            background:radial-gradient(circle, rgba(255,250,236,1) 0%, rgba(255,214,150,0.82) 8%, rgba(255,168,96,0.42) 22%, rgba(230,120,80,0.16) 38%, transparent 62%);
+        }
+        #role-select-modal[data-phase="dusk"] .role-halo { opacity:.5; }
+        #role-select-modal[data-phase="dusk"] .role-flarecol { left:34%; }
+
+        /* 밤 : 달빛 */
+        #role-select-modal[data-phase="night"] .role-sunbloom {
+            top:-4vmin; width:52vmin; height:52vmin;
+            background:radial-gradient(circle, rgba(248,252,255,0.95) 0%, rgba(226,240,255,0.55) 9%, rgba(170,205,250,0.22) 24%, transparent 58%);
+        }
+        #role-select-modal[data-phase="night"] .role-halo { opacity:.45; }
+        #role-select-modal[data-phase="night"] .role-flarecol { opacity:.35; }
+        #role-select-modal[data-phase="night"] .role-haze { opacity:.35; }
+
+        /* 흐림 · 비 · 눈 : 태양 가림 */
+        #role-select-modal[data-weather="rain"] .role-sunbloom,
+        #role-select-modal[data-weather="snow"] .role-sunbloom { opacity:.30; }
+        #role-select-modal[data-weather="storm"] .role-sunbloom { opacity:.12; }
+        #role-select-modal[data-weather="rain"] .role-halo,
+        #role-select-modal[data-weather="snow"] .role-halo,
+        #role-select-modal[data-weather="storm"] .role-halo { opacity:0; }
+        #role-select-modal[data-weather="rain"] .role-flarecol,
+        #role-select-modal[data-weather="snow"] .role-flarecol,
+        #role-select-modal[data-weather="storm"] .role-flarecol { opacity:0; }
+        #role-select-modal[data-weather="hot"] .role-sunbloom { transform:translateX(-50%) scale(1.1); }
+
+        /* ===== 카드 : iOS 날씨 위젯형 반투명 블루 글래스 ===== */
+        .role-card {
+            background:linear-gradient(170deg, rgba(255,255,255,0.20) 0%, rgba(255,255,255,0.11) 100%) !important;
+            border:1px solid rgba(255,255,255,0.28) !important;
+            box-shadow:0 26px 60px rgba(6,26,56,0.30), inset 0 1px 0 rgba(255,255,255,0.30) !important;
+            backdrop-filter:blur(26px) saturate(150%);
+            -webkit-backdrop-filter:blur(26px) saturate(150%);
+        }
+        .role-card::before { display:none; }
+        .role-card-glow { display:none !important; }
+
+        .role-eyebrow {
+            color:#FFFFFF !important;
+            background:rgba(255,255,255,0.18) !important;
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,0.22) !important;
+        }
+        .role-title {
+            background:none !important;
+            -webkit-text-fill-color:#FFFFFF !important;
+            color:#FFFFFF !important;
+            text-shadow:0 2px 14px rgba(0,30,70,0.35);
+            animation:roleRise .68s cubic-bezier(.16,1,.3,1) both !important;
+            animation-delay:.23s !important;
+        }
+        .role-sub { color:rgba(255,255,255,0.86) !important; }
+        .role-divider { color:rgba(255,255,255,0.70) !important; }
+        .role-divider::before, .role-divider::after {
+            background:linear-gradient(90deg, transparent, rgba(255,255,255,0.35), transparent) !important;
+        }
+        .role-clockbar, .role-weatherbar {
+            background:rgba(255,255,255,0.16) !important;
+            border-color:rgba(255,255,255,0.22) !important;
+            color:#FFFFFF !important;
+            box-shadow:inset 0 1px 0 rgba(255,255,255,0.20) !important;
+        }
+        #role-clock { color:#FFFFFF !important; }
+        .role-live { color:#B8F5C8 !important; }
+        .role-weather-ico {
+            color:#FFFFFF !important;
+            background:rgba(255,255,255,0.22) !important;
+        }
+        .role-emblem {
+            background:rgba(255,255,255,0.94) !important;
+            box-shadow:0 14px 30px rgba(0,30,70,0.32), 0 0 0 3px rgba(255,255,255,0.30) !important;
+        }
+        .role-radar { background:conic-gradient(from 0deg, rgba(255,255,255,0.40), transparent 38%); box-shadow:inset 0 0 0 1px rgba(255,255,255,0.22); }
+        .role-emblem-wrap::after { border-color:rgba(255,255,255,0.35); }
+
+        .role-btn {
+            background:linear-gradient(170deg, rgba(255,255,255,0.26) 0%, rgba(255,255,255,0.14) 100%) !important;
+            border:1px solid rgba(255,255,255,0.26) !important;
+            box-shadow:0 12px 26px rgba(6,26,56,0.22), inset 0 1px 0 rgba(255,255,255,0.28) !important;
+            backdrop-filter:blur(14px);
+            -webkit-backdrop-filter:blur(14px);
+        }
+        .role-btn-name { color:#FFFFFF !important; text-shadow:0 1px 8px rgba(0,30,70,0.30); }
+        .role-btn small { color:rgba(255,255,255,0.78) !important; }
+        .role-btn:hover { box-shadow:0 20px 34px rgba(6,26,56,0.30), inset 0 1px 0 rgba(255,255,255,0.34) !important; }
+        .role-chips span {
+            background:rgba(255,255,255,0.16) !important;
+            box-shadow:inset 0 0 0 1px rgba(255,255,255,0.18) !important;
+            color:rgba(255,255,255,0.92) !important;
+        }
+        .role-chips i { color:#FFFFFF !important; }
+        .role-foot {
+            color:rgba(255,255,255,0.72) !important;
+            border-top-color:rgba(255,255,255,0.20) !important;
+        }
+        .role-foot b { color:#FFFFFF !important; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .role-sunbloom, .role-halo, .role-flarecol .fl, .role-haze { animation:none !important; }
+        }
+
     </style>
 </head>
 <body>
 
-<div id="role-select-modal" role="dialog" aria-modal="true" data-weather="clear" data-night="0">
+<div id="role-select-modal" role="dialog" aria-modal="true" data-weather="clear" data-night="0" data-phase="day">
     <div class="role-bg" aria-hidden="true">
         <div class="role-aurora"></div>
         <div class="role-stars"></div>
@@ -2429,6 +2885,19 @@
         <div class="role-cloud c1"></div>
         <div class="role-cloud c2"></div>
         <div class="role-cloud c3"></div>
+        <div class="role-cloud c4"></div>
+        <div class="role-cloud c5"></div>
+        <div class="role-horizon"></div>
+        <div class="role-haze"></div>
+        <div class="role-sunbloom"></div>
+        <div class="role-halo"></div>
+        <div class="role-flarecol">
+            <span class="fl f1"></span>
+            <span class="fl f2"></span>
+            <span class="fl f3"></span>
+            <span class="fl f4"></span>
+            <span class="fl f5"></span>
+        </div>
         <div class="role-rain"></div>
         <div class="role-snow"></div>
         <div class="role-fog"></div>
@@ -3181,11 +3650,30 @@
     // 첫 화면 배경을 세종시 실황(기상청 초단기실황)에 맞춰 자동 전환
     let roleWeatherTimer = null;
 
+    // 일출·일몰 기준으로 새벽 / 낮 / 노을 / 밤 4단계 구분
+    function getSejongDayPhase() {
+        const now = new Date();
+        const hours = now.getHours() + now.getMinutes() / 60;
+        let sunrise = 6, sunset = 19;
+        try {
+            const sr = calculateSunTime(now, SEJONG_SUN_LAT, SEJONG_SUN_LNG, true);
+            const ss = calculateSunTime(now, SEJONG_SUN_LAT, SEJONG_SUN_LNG, false);
+            if (sr !== null) sunrise = sr;
+            if (ss !== null) sunset = ss;
+        } catch (e) {}
+        if (hours >= sunrise - 1.1 && hours < sunrise + 1.2) return 'dawn';
+        if (hours >= sunrise + 1.2 && hours < sunset - 1.3) return 'day';
+        if (hours >= sunset - 1.3 && hours < sunset + 1.0) return 'dusk';
+        return 'night';
+    }
+
     function setRoleWeatherScene(scene, night, label, iconHtml) {
         const m = document.getElementById('role-select-modal');
+        const phase = getSejongDayPhase();
         if (m) {
             m.setAttribute('data-weather', scene);
             m.setAttribute('data-night', night ? '1' : '0');
+            m.setAttribute('data-phase', phase);
         }
         const t = document.getElementById('role-weather-text');
         const i = document.getElementById('role-weather-ico');
