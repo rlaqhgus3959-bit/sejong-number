@@ -6373,6 +6373,8 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
             .replace(/<[^>]+>/g, ' ')
             .replace(/&nbsp;/gi, ' ')
             .replace(/\r/g, '\n')
+            .replace(/[|]+/g, ' ')
+            .replace(/[-]{3,}/g, ' ')
             .replace(/[\t ]+/g, ' ')
             .replace(/\n\s+/g, '\n');
         const lines = plain.split(/\n+/).map(line => line.trim()).filter(Boolean);
@@ -6481,11 +6483,18 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     function buildSejongDailyRainProxyUrls(targetUrl) {
+        // 세종시 서버는 타 도메인 직접 호출을 막기 때문에(CORS),
+        // 여러 공개 중계 경로를 동시에 시도해 가장 먼저 성공한 응답을 사용합니다.
         return [
             targetUrl,
             `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(targetUrl)}`,
             `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`,
+            `https://corsproxy.io/?url=${encodeURIComponent(targetUrl)}`,
             `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`,
+            `https://api.cors.lol/?url=${encodeURIComponent(targetUrl)}`,
+            `https://proxy.corsfix.com/?${targetUrl}`,
+            `https://thingproxy.freeboard.io/fetch/${targetUrl}`,
+            `https://r.jina.ai/${targetUrl}`,
             `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`
         ];
     }
@@ -6499,7 +6508,7 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
     // 여러 프록시를 모두 기다리지 않고, 정상적으로 '합계' 행을 읽은 첫 응답으로 즉시 표시합니다.
-    async function fetchFirstSejongDailyRainCandidate(urls, timeoutMs = 4200) {
+    async function fetchFirstSejongDailyRainCandidate(urls, timeoutMs = 9000) {
         const candidates = urls.map((url, rank) => ({ url, rank }));
         return new Promise((resolve, reject) => {
             let finished = false;
@@ -6545,12 +6554,12 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
 
         // 기본 당일 페이지가 정상적으로 열리는 경우에는 이 1개 화면만 빠르게 가져옵니다.
         try {
-            return await fetchFirstSejongDailyRainCandidate(buildSejongDailyRainProxyUrls(targetUrls[0]), 4200);
+            return await fetchFirstSejongDailyRainCandidate(buildSejongDailyRainProxyUrls(targetUrls[0]), 9000);
         } catch (primaryError) {
             // 세종시 서버의 날짜 파라미터가 달라지는 경우에만 보조 주소를 시도합니다.
             const fallbackUrls = targetUrls.slice(1).flatMap(targetUrl => buildSejongDailyRainProxyUrls(targetUrl));
             if (!fallbackUrls.length) throw primaryError;
-            return fetchFirstSejongDailyRainCandidate(fallbackUrls, 4300);
+            return fetchFirstSejongDailyRainCandidate(fallbackUrls, 9500);
         }
     }
 
