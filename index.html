@@ -3336,6 +3336,9 @@
                 <span style="color:var(--orange); font-weight:bold;">대설주의보 :</span> 24시간 기준 적설 5cm 이상<br>
                 <span style="color:var(--red); font-weight:bold;">대설 경보 :</span> 24시간 기준 적설 20cm 이상
             </div>
+            <div style="margin-top:8px; font-size:11px; color:var(--sub);">
+                * 적설은 세종시 재난안전대책본부 적설정보의 <b>적설량</b>(현재 쌓여 있는 적설)을 우선 표시합니다.<br>* 세종시 자료 수신이 지연될 때만 기상청 단기예보 SNO 값으로 자동 전환합니다.
+            </div>
         </div>
 
         <div class="filter-group" id="snow-office-filters" style="margin-bottom:15px;"></div>
@@ -7008,7 +7011,281 @@ ${e?.message || '잠시 후 다시 시도하세요.'}`);
     }
 
 
+    // --- 세종시 재난안전대책본부 적설정보 ---
+    // /snowFallStatusList.do 표(지역 | 신적설 | 최심신적설 | 전일최심신적설 | 적설량 | 최심적설량(3일))를
+    // 읍·면·생활권별로 읽어 북부서·남부서 관할별로 표시합니다. (일간강우량과 같은 방식)
+    // 세종시 자료 수신이 실패할 때만 기존 기상청 단기예보 SNO(fetchDetailSnowKmaFallback)로 전환합니다.
+    const SEJONG_SNOW_URL = 'https://www.sejong.go.kr/prog/safetyData/safety/sub02_03/snow/snowFallStatusList.do';
+    const SEJONG_SNOW_CACHE_KEY = 'sejongSnowFallStatusV1';
+    const SEJONG_SNOW_CACHE_FRESH_MS = 55000;
+    const SEJONG_SNOW_CACHE_MAX_MS = 15 * 60 * 1000;
+    // 일간강우량 표에 없는 생활권만 추가로 지정합니다. (나머지는 SEJONG_DAILY_RAIN_AREA_MAP 공용)
+    const SEJONG_SNOW_EXTRA_AREA_MAP = {
+        '4생': { name:'4생활권', office:'남부서' },
+        '4생합계': { name:'4생활권', office:'남부서' }
+    };
+    const SEJONG_SNOW_COLUMN_KEYS = {
+        '신적설': 'newSnow',
+        '최심신적설': 'maxNewSnow',
+        '전일최심신적설': 'prevMaxNewSnow',
+        '적설량': 'snowDepth',
+        '최심적설량': 'maxSnowDepth3d'
+    };
+    let sejongSnowMemoryCache = null;
+    let sejongSnowFetchPromise = null;
+
+    function isSejongSnowNumberText(value) {
+        const raw = String(value ?? '').trim();
+        return raw === '' || raw === '-' || raw === '–' || /^-?\d+(?:\.\d+)?$/.test(raw.replace(/,/g, ''));
+    }
+
+    // 머리글(열 이름)로 열 위치를 찾고, 각 지역 행을 한 장의 카드 자료로 만듭니다.
+    function buildSejongSnowRows(headers, dataRows) {
+        const colIndex = {};
+        headers.forEach((header, index) => {
+            const key = SEJONG_SNOW_COLUMN_KEYS[normalizeSejongDailyHeader(header)];
+            if (key && colIndex[key] === undefined) colIndex[key] = index;
+        });
+        if (colIndex.snowDepth === undefined) throw new Error('세종시 적설정보 적설량 열을 찾지 못했습니다.');
+
+        const rows = [];
+        const seen = new Set();
+        dataRows.forEach(cells => {
+            if (!Array.isArray(cells) || cells.length <= colIndex.snowDepth) return;
+            const label = normalizeSejongDailyHeader(cells[0]);
+            if (!label || /합계|평균|지역|구분/.test(label)) return;
+            if (!isSejongSnowNumberText(cells[colIndex.snowDepth])) return;
+            const mapping = SEJONG_DAILY_RAIN_AREA_MAP[label] || SEJONG_SNOW_EXTRA_AREA_MAP[label] || { name: label, office: getOfficeByAreaName(label) };
+            if (seen.has(mapping.name)) return;
+            seen.add(mapping.name);
+            const pick = (key) => colIndex[key] === undefined ? null : parseSejongDailyRainNumber(cells[colIndex[key]]);
+            rows.push({
+                id: `sejong-snow-${label}`,
+                name: mapping.name,
+                area: mapping.name,
+                office: mapping.office,
+                displayOffice: mapping.office,
+                snow: pick('snowDepth'),
+                newSnow: pick('newSnow'),
+                maxNewSnow: pick('maxNewSnow'),
+                prevMaxNewSnow: pick('prevMaxNewSnow'),
+                maxSnowDepth3d: pick('maxSnowDepth3d'),
+                source: 'SEJONG_SNOW'
+            });
+        });
+        return rows;
+    }
+
+    // 중계 경로가 표를 텍스트(마크다운 등)로 바꿔 줄 때를 위한 보조 해석입니다.
+    function parseSejongSnowPlainText(text) {
+        const plain = String(text || '')
+            .replace(/<[^>]+>/g, ' ')
+            .replace(/&nbsp;/gi, ' ')
+            .replace(/\r/g, '\n')
+            .replace(/[|]+/g, ' ')
+            .replace(/[-:]{3,}/g, ' ')
+            .replace(/[\t ]+/g, ' ')
+            .replace(/\n\s+/g, '\n');
+        const lines = plain.split(/\n+/).map(line => line.trim()).filter(Boolean);
+        const headerIndex = lines.findIndex(line => line.includes('최심신적설') && line.includes('적설량') && /지\s*역|구\s*분/.test(line));
+        if (headerIndex < 0) throw new Error('세종시 적설정보 표 머리글을 찾지 못했습니다.');
+        const headers = lines[headerIndex].replace(/지\s+역/, '지역').replace(/구\s+분/, '구분').split(/\s+/);
+        const dataRows = lines.slice(headerIndex + 1)
+            .map(line => line.split(/\s+/))
+            .filter(cells => cells.length === headers.length && cells.slice(1).every(isSejongSnowNumberText));
+        const rows = buildSejongSnowRows(headers, dataRows);
+        if (rows.length < 3) throw new Error('세종시 적설정보 지역값 없음');
+        return rows;
+    }
+
+    function parseSejongSnowHtml(text) {
+        const html = unwrapProxyHtml(text);
+        if (!html || html.length < 120) throw new Error('세종시 적설정보 응답 없음');
+        if (/접근이\s*차단|access\s*denied|captcha/i.test(html)) throw new Error('세종시 적설정보 접근 차단');
+
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const table = Array.from(doc.querySelectorAll('table')).find(t => {
+            const textContent = String(t.textContent || '').replace(/\s+/g, '');
+            return textContent.includes('최심신적설') && textContent.includes('적설량') && (textContent.includes('조치원') || textContent.includes('연동'));
+        });
+        if (!table) return parseSejongSnowPlainText(html);
+
+        let headerCells = [];
+        const dataRows = [];
+        Array.from(table.querySelectorAll('tr')).forEach(tr => {
+            const cells = Array.from(tr.querySelectorAll('th,td')).map(cell => String(cell.textContent || '').replace(/\s+/g, ' ').trim());
+            if (!cells.length) return;
+            const normalized = cells.map(normalizeSejongDailyHeader);
+            if (!headerCells.length && normalized.includes('적설량') && normalized.includes('최심신적설')) {
+                headerCells = cells;
+                return;
+            }
+            if (headerCells.length) dataRows.push(cells);
+        });
+        if (!headerCells.length || !dataRows.length) return parseSejongSnowPlainText(html);
+
+        const rows = buildSejongSnowRows(headerCells, dataRows);
+        if (rows.length < 3) throw new Error('세종시 적설정보 지역값 없음');
+        return rows;
+    }
+
+    function getSejongSnowCache() {
+        const dateKey = getSejongDailyRainDateKey();
+        let cached = sejongSnowMemoryCache;
+        if (!cached) {
+            try {
+                cached = JSON.parse(localStorage.getItem(SEJONG_SNOW_CACHE_KEY) || 'null');
+            } catch (_) {
+                cached = null;
+            }
+        }
+        if (!cached || cached.dateKey !== dateKey || !Array.isArray(cached.rows) || !cached.rows.length) return null;
+        const age = Date.now() - Number(cached.savedAt || 0);
+        if (!Number.isFinite(age) || age < 0 || age > SEJONG_SNOW_CACHE_MAX_MS) return null;
+        sejongSnowMemoryCache = cached;
+        return { ...cached, age };
+    }
+
+    function saveSejongSnowCache(rows) {
+        const cached = {
+            dateKey: getSejongDailyRainDateKey(),
+            savedAt: Date.now(),
+            rows: Array.isArray(rows) ? rows : []
+        };
+        sejongSnowMemoryCache = cached;
+        try {
+            localStorage.setItem(SEJONG_SNOW_CACHE_KEY, JSON.stringify(cached));
+        } catch (_) {}
+        return cached;
+    }
+
+    async function fetchSejongSnowCandidate(url, signal) {
+        const res = await fetch(url, { cache: 'no-store', signal });
+        if (!res.ok) throw new Error('HTTP ' + res.status);
+        const body = await res.text();
+        return { url, parsedRows: parseSejongSnowHtml(body) };
+    }
+
+    // 직접 호출과 여러 중계 경로를 동시에 시도해, 표를 정상적으로 읽은 첫 응답을 사용합니다.
+    function fetchFirstSejongSnowCandidate(urls, timeoutMs = 9000) {
+        return new Promise((resolve, reject) => {
+            let finished = false;
+            let pending = urls.length;
+            let lastError = null;
+            const controllers = [];
+            const timers = [];
+
+            urls.forEach(url => {
+                const controller = new AbortController();
+                controllers.push(controller);
+                const timer = setTimeout(() => controller.abort(), timeoutMs);
+                timers.push(timer);
+
+                fetchSejongSnowCandidate(url, controller.signal)
+                    .then(result => {
+                        if (finished) return;
+                        finished = true;
+                        timers.forEach(t => clearTimeout(t));
+                        controllers.forEach(c => { if (c !== controller) c.abort(); });
+                        resolve(result);
+                    })
+                    .catch(error => {
+                        clearTimeout(timer);
+                        lastError = error;
+                        pending -= 1;
+                        if (!finished && pending === 0) reject(lastError || new Error('세종시 적설정보 수신 실패'));
+                    });
+            });
+        });
+    }
+
+    async function fetchSejongSnowShared() {
+        if (sejongSnowFetchPromise) return sejongSnowFetchPromise;
+        const targetUrl = `${SEJONG_SNOW_URL}?_=${Date.now()}`;
+        // 중계 경로 목록은 일간강우량과 같은 것을 사용합니다.
+        sejongSnowFetchPromise = fetchFirstSejongSnowCandidate(buildSejongDailyRainProxyUrls(targetUrl), 9000)
+            .then(result => {
+                saveSejongSnowCache(result.parsedRows);
+                return result;
+            })
+            .finally(() => {
+                sejongSnowFetchPromise = null;
+            });
+        return sejongSnowFetchPromise;
+    }
+
+    function formatSejongSnowValue(value) {
+        const num = Number(value);
+        return value === null || value === undefined || !Number.isFinite(num) ? '-' : num.toFixed(1);
+    }
+
+    function renderSejongSnowCards(rowsAll, filterLabel) {
+        const gridEl = document.getElementById('snow-grid');
+        const avgSnowEl = document.getElementById('avg-snow-val');
+        const maxSnowEl = document.getElementById('max-snow-area-val');
+        const rows = filterRowsByOffice(rowsAll, 'snow');
+        const valid = rows.filter(row => !row.error);
+        const avg = valid.length ? valid.reduce((sum, row) => sum + Number(row.snow || 0), 0) / valid.length : 0;
+        const maxRow = valid.length ? valid.reduce((max, row) => Number(row.snow || 0) > Number(max.snow || 0) ? row : max, valid[0]) : null;
+        const receivedAt = getKstDate().toLocaleTimeString('ko-KR', { hour:'2-digit', minute:'2-digit' });
+
+        let html = '';
+        rows.forEach(row => {
+            const depth = Number(row.snow || 0);
+            const valClass = depth > 0 ? 'rain-val snowing' : 'rain-val';
+            const colorStyle = depth > 0 ? '' : 'color:var(--sub);';
+            html += `<div class="rain-cell">
+                <div class="rain-loc">${row.name}</div>
+                <div style="font-size:9px; color:var(--sub); margin-bottom:4px;">${row.displayOffice || row.office}</div>
+                <div class="${valClass}" style="${colorStyle}">${depth.toFixed(1)}<small>cm</small></div>
+                <div style="font-size:10px; color:var(--sub); margin-top:4px;">신적설 ${formatSejongSnowValue(row.newSnow)} · 최심 ${formatSejongSnowValue(row.maxNewSnow)}</div>
+                <div style="font-size:10px; color:var(--sub); margin-top:2px;">3일 최심 ${formatSejongSnowValue(row.maxSnowDepth3d)}</div>
+            </div>`;
+        });
+
+        if (!rows.length) html = `<div style="grid-column:1/-1; text-align:center; padding:12px; color:var(--sub); font-size:12px;">${filterLabel} 관할 적설 자료 없음</div>`;
+        html += `<div class="rain-cell" style="background:var(--card); border:1px solid var(--line);">
+            <div class="rain-loc" style="color:var(--text);">출처</div>
+            <div class="rain-val" style="font-size:11px; color:var(--sub);">세종시 적설정보 · 적설량</div>
+            <div style="font-size:10px; color:var(--green); margin-top:4px;">${filterLabel} · 읍·면·생활권 관측값 직접 반영</div>
+            <div style="font-size:9px; color:var(--sub); margin-top:2px;">수신 ${receivedAt} · 1분 자동갱신</div>
+        </div>`;
+
+        gridEl.innerHTML = html;
+        avgSnowEl.innerText = `${avg.toFixed(1)} cm`;
+        if (maxSnowEl) maxSnowEl.innerText = maxRow ? `${maxRow.name} ${Number(maxRow.snow || 0).toFixed(1)}cm` : '-';
+    }
+
     async function fetchDetailSnow(silent = false) {
+        if (isSnowFetching && silent) return;
+        const gridEl = document.getElementById('snow-grid');
+        const filterLabel = getSectionFilterLabel('snow');
+        const cached = getSejongSnowCache();
+
+        // 재진입·관할 전환 시 최근 데이터는 즉시 다시 그려서 빈 화면·스피너를 없앱니다.
+        if (cached) {
+            renderSejongSnowCards(cached.rows, filterLabel);
+            if (cached.age < SEJONG_SNOW_CACHE_FRESH_MS) return;
+        } else if (!silent) {
+            gridEl.innerHTML = `<div style="grid-column:1/-1; text-align:center; padding:10px; color:var(--sub); font-size:12px;"><i class="fas fa-spinner fa-spin"></i> 세종시 적설정보 확인중...</div>`;
+        }
+
+        isSnowFetching = true;
+        try {
+            const result = await fetchSejongSnowShared();
+            renderSejongSnowCards(result.parsedRows, getSectionFilterLabel('snow'));
+            isSnowFetching = false;
+        } catch (sejongError) {
+            // 세종시 적설정보 수신이 늦거나 차단될 경우 기존 기상청 단기예보 SNO를 보조값으로 사용합니다.
+            console.warn('세종시 적설정보 수신 실패, 기상청 단기예보 SNO 보조값 사용:', sejongError);
+            isSnowFetching = false;
+            // 최근 세종시 값이 화면에 있으면 그대로 두고, 없을 때만 보조값으로 전환합니다.
+            if (cached) return;
+            return fetchDetailSnowKmaFallback(silent);
+        }
+    }
+
+    async function fetchDetailSnowKmaFallback(silent = false) {
         if (isSnowFetching && silent) return;
         isSnowFetching = true;
         const gridEl = document.getElementById('snow-grid');
